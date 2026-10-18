@@ -1344,11 +1344,11 @@ function mAdh(){
  const all=doneCafe&&doneDisp&&contractOk;
  const header=`<div class="top"><div><h1>Mi adhesión</h1><p class="muted">Estado de tu solicitud y contrato.</p></div>${bd(status)}</div>
   <div class="card"><div class="steps">${stepNames.map((n,i)=>`<div class="step ${i<cur?'done':i===cur?'cur':''}" data-n="${i+1}">${n}</div>`).join('')}</div></div>`;
- const lc=latestC();const txt=contractText||CONTRATO;
+ const lc=latestC();const txt=(api.live&&contractRaw)?contractFilled(true):(contractText||CONTRATO);
  const upd=needsUpdate();
  const contrato=`<div class="card" ${upd?'style="border:2px solid var(--terracota)"':''}><h2>Contrato de adhesión${upd?` — nueva versión ${lc.v}`:''}</h2>
   ${upd?`<div class="note" style="margin:10px 0"><b>Cambios de esta versión:</b> ${lc.summary}<br>Vigente desde el ${lc.date}. Tenés hasta el ${lc.deadline||'30 días'} para aceptarla; mientras tanto tu local sigue activo. Tu última versión aceptada: ${accV}.</div>`:`<p class="muted" style="margin:4px 0 12px">Leelo completo y aceptalo al final. Podés descargarlo en PDF cuando quieras.</p>`}
-  <div style="max-height:220px;overflow:auto;background:var(--crema-clara);border:1.5px solid var(--line);border-radius:10px;padding:14px;white-space:pre-wrap;font-size:13px">${txt}</div>
+  <div style="max-height:min(60vh,520px);overflow:auto;background:var(--crema-clara);border:1.5px solid var(--line);border-radius:10px;padding:14px;white-space:pre-wrap;font-size:13px">${txt}</div>
   <div style="display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:14px">
   ${upd?`<label style="font-weight:400;display:flex;gap:8px;margin:0"><input type="checkbox" style="width:auto" data-ctr2> Leí y acepto la nueva versión ${lc.v}</label>`:status==='borrador'?`<label style="font-weight:400;display:flex;gap:8px;margin:0"><input type="checkbox" style="width:auto" data-ctr ${contractOk?'checked':''}> Leí y acepto el contrato de adhesión (versión ${lc.v})</label>`:`<span class="badge b-aprobado">Aceptado el ${subDate()}${api.live?'':' · 15:42'} · versión ${accV}</span>`}
   <span style="display:flex;gap:8px">${upd?'<button class="btn sm" data-acc2 disabled style="opacity:.4;cursor:not-allowed">Aceptar versión '+lc.v+'</button>':''}<button class="btn sec sm" data-dl>Descargar PDF</button></span></div></div>`;
@@ -1410,7 +1410,7 @@ function adminContrato(){const lc=latestC();const pend=38-lc.acc;
  <div class="cols2"><div class="card"><h2>Publicar nueva versión</h2><br>
  <div class="grid g2"><div class="field"><label>Número de versión *</label><input id="cv" value="${nextV()}"></div><div class="field"><label>Vigente desde *</label><input type="date" id="cd" value="2026-10-16"></div></div>
  <div class="field"><label>Resumen de los cambios *</label><textarea id="cs" rows="2" placeholder="Ej: Se actualizó el plazo de baja de 15 a 30 días."></textarea><div class="hint">Es lo primero que ve el comercio al abrir la nueva versión.</div></div>
- <div class="field"><label>Texto del contrato *</label><textarea id="ct" rows="8">${contractText||CONTRATO}</textarea></div>
+ <div class="field"><label>Texto del contrato *</label><textarea id="ct" rows="8">${(api.live&&contractRaw)?esc(contractRaw):(contractText||CONTRATO)}</textarea></div>
  <div class="field"><label>Archivo PDF (opcional)</label><div class="drop">Arrastrá el PDF del contrato o <u>elegilo</u></div></div>
  <div class="grid g2"><div class="field"><label>Plazo para aceptar</label><select id="cp"><option value="15">15 días</option><option value="30" selected>30 días</option><option value="60">60 días</option></select><div class="hint">Durante el plazo los locales siguen activos.</div></div><div class="field"><label>Avisos</label><label style="font-weight:400;display:flex;gap:8px;margin-top:8px"><input type="checkbox" style="width:auto" id="cm" checked> Avisar por email a todos los comercios</label></div></div>
  <div style="display:flex;justify-content:flex-end"><button class="btn" data-pubc>Publicar versión</button></div></div>
@@ -1820,6 +1820,39 @@ function liveNotifs() {
   return n;
 }
 
+
+/* ---------- Contrato de adhesión real (texto en Supabase, solo visible con sesión) ---------- */
+let contractRaw = '';
+async function liveLoadContract() {
+  try {
+    const r = await api._client().from('portal_contract_versions').select('version,body').eq('is_current', true).maybeSingle();
+    if (r.error || !r.data) return;
+    contractRaw = r.data.body || '';
+    contracts[contracts.length - 1].v = r.data.version;
+  } catch (e) { /* queda el texto de respaldo */ }
+}
+function contractFilled(asHtml) {
+  const v = (k) => ((FD[k] || '') + '').trim();
+  const dom = [addrSel ? addrSel.a : '', curBarrio(), FD.ad_prov].filter(Boolean).join(', ');
+  const map = {
+    LOCAL_RAZON: v('ob_rs') || v('cf_name') || v('ob_name') || '__________',
+    LOCAL_CUIT: v('ob_cuit') || '__________',
+    LOCAL_DOMICILIO: dom || '__________',
+    LOCAL_REP: v('ob_titular') || '__________',
+  };
+  const t = contractRaw.replace(/\{\{(\w+)\}\}/g, (m, k) => (map[k] !== undefined ? map[k] : m));
+  if (!asHtml) return t;
+  return t.split('\n').map((l) => { const e = esc(l); return /^(CLÁUSULA \d+ —|PARTES$|ACEPTACIÓN$|CAFETEANDO$)/.test(l) ? '<b>' + e + '</b>' : e; }).join('\n');
+}
+function liveContractPdf() {
+  const w = window.open('', '_blank');
+  if (!w) { toast('Permití las ventanas emergentes para descargar el contrato.'); return; }
+  w.document.write('<!doctype html><meta charset="utf-8"><title>Contrato de adhesión - Cafeteando</title><style>body{font:13px/1.5 Arial,sans-serif;max-width:760px;margin:24px auto;padding:0 16px;white-space:pre-wrap}</style>' + contractFilled(true));
+  w.document.close(); setTimeout(() => w.print(), 400);
+}
+const _hydrateNoContract = liveHydrate;
+liveHydrate = async function () { await liveLoadContract(); return _hydrateNoContract(); };
+
 </script>
 <script>
 /* Eventos, tema y arranque */
@@ -1939,7 +1972,7 @@ function bind(){
  document.querySelectorAll('[data-ph-c]').forEach(e=>e.onclick=()=>cropModal(+e.dataset.phC));
  document.querySelectorAll('[data-map]').forEach(e=>e.onclick=()=>{if(api.live){liveToggleMap();return}if(onMap){pauseModal()}else{onMap=true;pauseInfo=null;cooldownUntil=Date.now()+300000;render();toast('Local activo nuevamente')}});
  document.querySelectorAll('[data-ctr]').forEach(e=>e.onchange=()=>{contractOk=e.checked;render()});
- document.querySelectorAll('[data-dl]').forEach(e=>e.onclick=()=>toast('Descargando contrato.pdf (simulado)'));
+ document.querySelectorAll('[data-dl]').forEach(e=>e.onclick=()=>{if(api.live&&contractRaw)liveContractPdf();else toast('Descargando contrato.pdf (simulado)')});
  document.querySelectorAll('[data-send]').forEach(e=>e.onclick=()=>{if(api.live){liveSend(e);return}status='pendiente';toast('Adhesión enviada. Te enviamos un email de confirmación (simulado)');mview='inicio';render()});
  const on_=$('[data-obn]'),op_=$('[data-obp]');
  if(on_)on_.onclick=async()=>{if(!validateGroup(document.querySelector('[data-step-card]')))return;
