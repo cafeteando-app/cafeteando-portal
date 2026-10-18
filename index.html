@@ -602,6 +602,7 @@ const api = (() => {
 
   return {
     live,
+    _client: () => client,
     isMerchant,
     errMsg,
     MSG_SOCIO,
@@ -677,7 +678,7 @@ const api = (() => {
     async listRequests() {
       try {
         const { data, error } = await client.from('cafe_requests')
-          .select('id,status,kind,payload,review_note,submitted_at,created_at,merchants(contact_name,role,phone,contact_email)')
+          .select('id,status,kind,cafe_id,payload,review_note,submitted_at,created_at,merchants(contact_name,role,phone,contact_email)')
           .neq('status', 'draft').order('submitted_at', { ascending: false });
         return error ? { ok: false, error: errMsg(error) } : { ok: true, rows: data || [] };
       } catch (e) { return { ok: false, error: errMsg(e) }; }
@@ -841,7 +842,16 @@ async function liveLogout() {
 
 // Después de entrar: si viene de verificar el mail va al onboarding; si no, al panel.
 async function liveAfterLogin(fromVerify) {
-  try { if (await api.isAdmin()) { await liveLoadRequests(); view = 'admin'; aview = 'lista'; render(); return; } } catch (e) { /* sigue como comercio */ }
+  try { if (await api.isAdmin()) { await liveLoadRequests(); await liveLoadAdmin(); view = 'admin'; aview = 'lista'; render(); return; } } catch (e) { /* sigue como comercio */ }
+  const tk = liveInviteToken();
+  if (tk) {
+    const mine = await api.loadMine();
+    if (mine.ok && !mine.merchant) {
+      const c = await api.claim(tk);
+      try { sessionStorage.removeItem('pc_invite'); } catch (e) { /* ok */ }
+      toast(c.ok ? 'Listo: reclamaste tu local.' : c.error);
+    }
+  }
   await liveHydrate();
   render();
 }
@@ -897,8 +907,14 @@ async function liveLoadRequests() {
   const ST = { pending: 'pendiente', needs_fix: 'correccion', approved: 'aprobado', rejected: 'rechazado' };
   const fmt = (d) => { if (!d) return '—'; const x = new Date(d); return String(x.getDate()).padStart(2, '0') + '/' + String(x.getMonth() + 1).padStart(2, '0'); };
   REQ.length = 0;
+  const baseName = {};
+  r.rows.forEach((q) => { if (q.kind === 'new_local' && q.cafe_id && q.payload) baseName[q.cafe_id] = q.payload.name; });
   r.rows.forEach((q) => {
     const p = q.payload || {}, m = q.merchants || {};
+    if (q.kind === 'change') {
+      REQ.push({ id: q.id, chg: true, changes: p, n: baseName[q.cafe_id] || p.name || '(local)', b: '', f: fmt(q.submitted_at || q.created_at), s: ST[q.status] || 'pendiente', cupo: '—', mail: m.contact_email || '', tit: m.contact_name || '' });
+      return;
+    }
     REQ.push({
       id: q.id, n: p.name || '(sin nombre)', b: p.neighborhood || '—', f: fmt(q.submitted_at || q.created_at),
       s: ST[q.status] || 'pendiente', cupo: p.daily_stock || '—', mail: m.contact_email || '',
@@ -933,6 +949,28 @@ async function liveHydrate() {
   FD.ob_rs = m.legal_name || ''; FD.ob_cuit = m.cuit || ''; FD.ob_social = m.instagram || ''; FD.ob_how = m.how_found || '';
   const ROLES_L = ['Dueño/a', 'Socio/a', 'Encargado/a', 'Empleado/a'];
   FD.ob_rol = ROLES_L.includes(m.role) ? m.role : (m.role ? 'Otro' : ''); FD.ob_rol_otro = ROLES_L.includes(m.role) ? '' : (m.role || '');
+  liveApplyPayload(p);
+  const S = { draft: 'borrador', pending: 'pendiente', needs_fix: 'correccion', approved: 'aprobado', rejected: 'correccion' };
+  status = S[q.status] || 'borrador';
+  if (q.review_note) corrMsg = q.review_note;
+  if (m.contact_name && !p.address) { view = 'onb'; ob = 1; mview = 'inicio'; return 'onb'; }
+  if (status === 'aprobado') {
+    const ci = await api.myCafeInfo(); liveCafe = { code: ci.code || '', active: !!ci.active, enabled: !!ci.enabled };
+    if (ci.code) locals[0].code = ci.code;
+    onMap = !!ci.active; cooldownUntil = ci.last_toggle_at ? new Date(ci.last_toggle_at).getTime() + 300000 : 0;
+    const pc = await api.myPendingChange();
+    if (pc.ok && pc.data && Object.keys(pc.data).length) {
+      liveApplyPayload(Object.assign({}, p, pc.data));
+      chg.desc = Object.keys(pc.data).some((k) => ['name', 'description', 'address', 'neighborhood', 'maps_url', 'services', 'other_services'].includes(k));
+      chg.fotos = Object.keys(pc.data).some((k) => ['photos', 'logo_url'].includes(k));
+    }
+  }
+  view = { borrador: 'm-nuevo', pendiente: 'm-pend', correccion: 'm-corr', aprobado: 'm-ok' }[status];
+  mview = 'inicio';
+  return view;
+}
+
+function liveApplyPayload(p) {
   FD.ob_name = p.name || ''; FD.ob_maps = p.maps_url || '';
   FD.cf_name = p.name || ''; FD.cf_desc = p.description || ''; FD.cf_otros = p.other_services || '';
   if (p.address) { addrSel = { a: p.address, b: p.neighborhood || '' }; FD.ad_b = p.neighborhood || ''; FD.ad_prov = p.province || ''; locals[0].addr = p.address; locals[0].barrio = p.neighborhood || ''; }
@@ -945,20 +983,12 @@ async function liveHydrate() {
   contractOk = !!p.contract_version_accepted;
   doneCafe = !!(p.name && p.logo_url && photos.length >= 3 && (svc.size || p.other_services));
   doneDisp = !!(p.schedule && p.daily_stock >= 5);
-  const S = { draft: 'borrador', pending: 'pendiente', needs_fix: 'correccion', approved: 'aprobado', rejected: 'correccion' };
-  status = S[q.status] || 'borrador';
-  if (q.review_note) corrMsg = q.review_note;
-  if (m.contact_name && !p.address) { view = 'onb'; ob = 1; mview = 'inicio'; return 'onb'; }
-  if (status === 'aprobado') { const ci = await api.myCafeInfo(); if (ci.code) locals[0].code = ci.code; }
-  view = { borrador: 'm-nuevo', pendiente: 'm-pend', correccion: 'm-corr', aprobado: 'm-ok' }[status];
-  mview = 'inicio';
-  return view;
 }
 
 function liveBuildPayload() {
   const payload = {
     description: (FD.cf_desc || '').trim(), other_services: (FD.cf_otros || '').trim(),
-    services: [...svc].map((i) => VAR[i]), schedule: sched, daily_stock: cupo,
+    services: [...svc].sort((x, y) => x - y).map((i) => VAR[i]), schedule: sched, daily_stock: cupo,
     photos: photos.map((x) => x.url).filter(Boolean),
   };
   if (FD.cf_name !== undefined && FD.cf_name.trim()) payload.name = FD.cf_name.trim();
@@ -969,7 +999,8 @@ function liveBuildPayload() {
 }
 
 async function liveSaveDraft() {
-  if (status === 'aprobado' || status === 'pendiente') { toast('Los cambios en un local ya enviado o aprobado se habilitan en el próximo paso.'); return false; }
+  if (status === 'aprobado') return liveSaveApproved();
+  if (status === 'pendiente') { toast('Tu adhesión está en revisión. Cuando la revisemos vas a poder editarla.'); return false; }
   const r = await api.saveOnboarding({}, liveBuildPayload(), false);
   if (!r.ok) { toast(r.error); return false; }
   liveReqId = r.id; return true;
@@ -1336,12 +1367,13 @@ function publicarContrato(){const v=document.querySelector('#cv').value.trim(),s
  confirmModal({title:'¿Publicar la versión '+v+'?',text:'Se les va a mostrar a los 38 comercios activos para que la acepten en los próximos '+pl+' días. Su local sigue activo durante ese plazo. Esta acción no se puede deshacer.',ok:'Publicar versión',onOk:()=>{const f=x=>x.split('-').reverse().join('/');const dl=new Date(d+'T00:00:00');dl.setDate(dl.getDate()+pl);const dls=String(dl.getDate()).padStart(2,'0')+'/'+String(dl.getMonth()+1).padStart(2,'0')+'/'+dl.getFullYear();
   activity.unshift({d:nowS(),w:ADMIN,a:'Publicó la versión '+v+' del contrato'});contracts.forEach(c=>c.state='Reemplazada');contracts.push({v,date:f(d),state:'Vigente',acc:0,summary:sm,deadline:dls});contractText=tx;render();toast('Versión '+v+' publicada. '+(document.querySelector('#cm')?'':'')+'Se avisó por email a los comercios (simulado)')}})}
 function adminV(){
- const nav=`<div class="nav" role="navigation" aria-label="Menú principal">${bellBtn()}${themeBtn()}<div class="logo">Cafeteando</div><div class="sub">Administración</div>${[['resumen','Resumen'],['lista','Solicitudes'],['activos','Locales activos'],['contrato','Contrato'],['equipo','Equipo'],['cfg','Configuración']].map(([k,l])=>`<a href="#" class="${aview===k||(k==='lista'&&aview==='det')?'on':''}" data-a="${k}" ${aview===k||(k==='lista'&&aview==='det')?'aria-current="page"':''}>${l}</a>`).join('')}<div class="fill"></div><div class="user">admin@somoscafeteando.com.ar</div></div>`;
+ const nav=`<div class="nav" role="navigation" aria-label="Menú principal">${bellBtn()}${themeBtn()}<div class="logo">Cafeteando</div><div class="sub">Administración</div>${[['resumen','Resumen'],['lista','Solicitudes'],['activos','Locales activos'],['contrato','Contrato'],['equipo','Equipo'],...(api.live?[['invit','Invitaciones']]:[]),['cfg','Configuración']].map(([k,l])=>`<a href="#" class="${aview===k||(k==='lista'&&aview==='det')?'on':''}" data-a="${k}" ${aview===k||(k==='lista'&&aview==='det')?'aria-current="page"':''}>${l}</a>`).join('')}<div class="fill"></div><div class="user">${esc(api.live?bizMail():'admin@somoscafeteando.com.ar')}</div></div>`;
  let b='';
  if(aview==='det'){const r=REQ.find(x=>x.id===sel);b=adminDet(r)}
  else if(aview==='resumen')b=adminResumen();
  else if(aview==='contrato')b=adminContrato();
  else if(aview==='equipo')b=adminEquipo();
+ else if(aview==='invit')b=liveInvit();
  else if(aview==='activos')b=`<div class="top"><h1>Locales activos</h1></div><div class="card"><table><tr><th>Local</th><th>Barrio</th><th>Cupo</th><th>En la app</th><th></th></tr>${REQ.filter(r=>r.s==='aprobado').map(r=>`<tr><td><b>${r.n}</b></td><td>${r.b}</td><td>${r.cupo}/día</td><td><span class="badge b-aprobado">Visible</span></td><td><button class="btn sm sec" data-sel="${r.id}">Ver</button></td></tr>`).join('')}</table></div>`;
  else if(aview==='cfg')b=`<div class="top"><h1>Configuración</h1></div><div class="card"><div class="grid g2"><div class="field"><label>Cupo diario mínimo</label><input value="5"><div class="hint">Obligatorio. Recomendado para comercios: 10.</div></div><div class="field"><label>Admins</label><input value="admin@somoscafeteando.com.ar" disabled></div></div></div>`;
  else b=adminLista();
@@ -1556,6 +1588,172 @@ function bindAddr(){const inp=document.querySelector('[data-addr-in]');if(!inp)r
 
 </script>
 <script>
+/* Funciones reales (modo supabase) para: edición de locales aprobados, interruptor, invitaciones,
+   equipo, actividad, resumen y política de revisión. En modo mock no hace nada. */
+const LIVE_ADMIN = { summary: null, team: [], activity: [], cafes: [], policy: [] };
+const ACT_TXT = {
+  request_pending: 'Envió una solicitud', request_approved: 'Aprobó', request_rejected: 'Rechazó', request_needs_fix: 'Pidió correcciones',
+  change_direct: 'Cambió horarios/cupo (directo)', merchant_on: 'Activó su local', merchant_off: 'Desactivó su local', admin_on: 'Activó en la app',
+  admin_off: 'Desactivó de la app', invite_created: 'Creó una invitación', invite_claimed: 'Reclamó su local', admin_added: 'Agregó un admin',
+  admin_removed: 'Quitó un admin', policy_changed: 'Cambió la política de revisión',
+};
+const FIELD_ES = { name: 'Nombre', address: 'Dirección', neighborhood: 'Barrio', maps_url: 'Link de Maps', description: 'Descripción', logo_url: 'Logo', photos: 'Fotos',
+  services: 'Servicios', other_services: 'Otros servicios', schedule: 'Horarios', daily_stock: 'Cupo diario', province: 'Provincia' };
+
+const rpcErr = (e) => {
+  const m = (e && e.message) || '';
+  const T = { NOT_APPROVED: 'Ese local todavía no está aprobado.', NOT_ENABLED_BY_ADMIN: 'Cafeteando todavía no habilitó tu local para figurar en la app.',
+    COOLDOWN: 'Esperá unos minutos antes de volver a cambiar el estado.', STOCK_MIN: 'El cupo mínimo es de 5 cafés por día.', FORBIDDEN: 'No tenés permiso para esta acción.',
+    INVITE_INVALID: 'La invitación no es válida o ya fue usada.', INVITE_EMAIL_MISMATCH: 'Esta invitación es para otro email. Ingresá con el mail al que te la enviamos.',
+    ALREADY_CLAIMED: 'Ese local ya fue reclamado.', INVALID_EMAIL: 'El email no es válido.', CANNOT_REMOVE_SELF: 'No podés quitarte a vos mismo.', NOT_PENDING: 'Esa solicitud ya no está pendiente.' };
+  for (const k in T) if (m.includes(k)) return T[k];
+  return 'No pudimos completar la acción. Probá de nuevo.';
+};
+
+Object.assign(api, {
+  async _rpc(name, args) {
+    try { const r = await api._client().rpc(name, args || {}); return r.error ? { ok: false, error: rpcErr(r.error) } : { ok: true, data: r.data }; }
+    catch (e) { return { ok: false, error: rpcErr(e) }; }
+  },
+  submitChange: (p) => api._rpc('submit_change', { p_payload: p }),
+  myPendingChange: () => api._rpc('my_pending_change'),
+  approveChange: (id) => api._rpc('admin_approve_change', { p_request_id: id }),
+  setMyActive: (on) => api._rpc('set_my_cafe_active', { p_active: !!on }),
+  adminCafes: () => api._rpc('admin_list_cafes'),
+  invite: (cafe, email) => api._rpc('admin_create_invitation', { p_cafe: cafe, p_email: email }),
+  revokeInvite: (cafe) => api._rpc('admin_revoke_invitation', { p_cafe: cafe }),
+  claim: (token) => api._rpc('claim_cafe', { p_token: token }),
+  adminSummary: () => api._rpc('admin_summary'),
+  adminTeam: () => api._rpc('admin_team'),
+  adminActivity: () => api._rpc('admin_activity', { p_limit: 30 }),
+  addAdmin: (email, role) => api._rpc('admin_add_admin', { p_email: email, p_role: role }),
+  removeAdmin: (email) => api._rpc('admin_remove_admin', { p_email: email }),
+  setPolicy: (field, mode) => api._rpc('admin_set_field_policy', { p_field: field, p_mode: mode }),
+  async policy() {
+    try { const r = await api._client().from('field_review_policy').select('field,mode,label').order('label'); return r.error ? [] : (r.data || []); } catch (e) { return []; }
+  },
+});
+
+async function liveLoadAdmin() {
+  const [s, t, a, c, p] = await Promise.all([api.adminSummary(), api.adminTeam(), api.adminActivity(), api.adminCafes(), api.policy()]);
+  LIVE_ADMIN.summary = s.ok ? s.data : null; LIVE_ADMIN.team = t.ok ? t.data : []; LIVE_ADMIN.activity = a.ok ? a.data : [];
+  LIVE_ADMIN.cafes = c.ok ? c.data : []; LIVE_ADMIN.policy = p;
+}
+
+const fmtDT = (d) => { const x = new Date(d), p = (n) => String(n).padStart(2, '0'); return p(x.getDate()) + '/' + p(x.getMonth() + 1) + ' ' + p(x.getHours()) + ':' + p(x.getMinutes()); };
+const siteLink = (token) => { const b = (window.PORTAL_CONFIG && window.PORTAL_CONFIG.siteUrl) || (location.origin + location.pathname); return b + '?invite=' + token; };
+
+/* ---------- Admin: vistas reales ---------- */
+const _mockResumen = adminResumen, _mockEquipo = adminEquipo, _mockDet = adminDet;
+adminResumen = function () {
+  if (!api.live) return _mockResumen();
+  const s = LIVE_ADMIN.summary || {};
+  const pend = REQ.filter((r) => r.s === 'pendiente');
+  return `<div class="top"><div><h1>Resumen</h1><p class="muted">Vista general de la red.</p></div></div>
+  <div class="card" style="border-left:4px solid var(--warn)"><h2>Requiere atención</h2><ul class="log" style="margin-top:8px">${
+    pend.length ? pend.map((r) => `<li><span class="badge b-pendiente">${r.chg ? 'Cambio' : 'Nueva'}</span> ${esc(r.n)} espera revisión desde el ${esc(r.f)}</li>`).join('') : '<li>No hay nada pendiente.</li>'}</ul></div>
+  ${kgrid('Red de comercios', [['Locales en la app', s.active_cafes ?? '—', 'de ' + (s.total_cafes ?? '—') + ' cargados'], ['Solicitudes nuevas', s.pending ?? '—', 'Esperando revisión'],
+    ['Cambios pendientes', s.pending_changes ?? '—', 'De locales ya aprobados'], ['Comercios registrados', s.merchants ?? '—', 'Con cuenta en el portal']])}
+  ${kgrid('Estado de solicitudes', [['A corregir', s.needs_fix ?? '—'], ['Aprobadas', s.approved ?? '—'], ['Rechazadas', s.rejected ?? '—'], ['', '']])}`;
+};
+
+adminEquipo = function () {
+  if (!api.live) return _mockEquipo();
+  const T = LIVE_ADMIN.team, A = LIVE_ADMIN.activity, P = LIVE_ADMIN.policy;
+  return `<div class="top"><div><h1>Equipo</h1><p class="muted">Quién de Cafeteando puede entrar al panel. Cada acción queda registrada.</p></div></div>
+  <div class="card"><h2>Personas con acceso</h2><table><tr><th>Email</th><th>Rol</th><th>Estado</th><th></th></tr>${T.map((x) => `<tr><td><b>${esc(x.email)}</b></td><td>${x.role === 'admin' ? 'Administrador' : 'Revisor'}</td><td>${x.registered ? '<span class="badge b-aprobado">Activo</span>' : '<span class="badge b-pendiente">Falta que se registre</span>'}</td><td><button class="btn sm bad" data-rmadm="${esc(x.email)}">Quitar</button></td></tr>`).join('')}</table>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:end"><div class="field" style="margin:0;min-width:240px"><label for="nadm">Agregar persona</label><input id="nadm" type="email" placeholder="email@ejemplo.com"></div>
+  <select id="nadmr" aria-label="Rol"><option value="reviewer">Revisor</option><option value="admin">Administrador</option></select><button class="btn" data-addadm>Agregar</button></div>
+  <p class="hint" style="margin-top:8px">La persona tiene que crear su cuenta en el portal con ese mismo email y verificarlo.</p></div>
+  <div class="card"><h2>Qué cambios necesitan revisión</h2><p class="muted" style="margin:4px 0 12px">Cuando un local ya aprobado cambia estos datos: "Directo" se publica al instante; "Revisión" espera tu aprobación.</p>
+  <table><tr><th>Dato</th><th>Cómo se publica</th></tr>${P.map((f) => `<tr><td>${esc(f.label)}</td><td><select data-pol="${esc(f.field)}" aria-label="${esc(f.label)}"><option value="review" ${f.mode === 'review' ? 'selected' : ''}>Revisión</option><option value="direct" ${f.mode === 'direct' ? 'selected' : ''}>Directo</option></select></td></tr>`).join('')}</table></div>
+  <div class="card"><h2>Registro de actividad</h2><table><tr><th>Fecha</th><th>Quién</th><th>Qué hizo</th></tr>${A.length ? A.map((a) => `<tr><td>${fmtDT(a.at)}</td><td><b>${esc(a.actor_email || '—')}</b></td><td>${esc(ACT_TXT[a.action] || a.action)}${a.detail && a.detail.name ? ': ' + esc(a.detail.name) : ''}${a.detail && a.detail.email ? ': ' + esc(a.detail.email) : ''}</td></tr>`).join('') : '<tr><td colspan="3" class="muted">Todavía no hay actividad.</td></tr>'}</table></div>`;
+};
+
+function liveInvit() {
+  const C = LIVE_ADMIN.cafes;
+  return `<div class="top"><div><h1>Invitaciones</h1><p class="muted">Locales ya cargados en la app. Invitá al dueño con su email: crea su clave en el portal y reclama su local. Copiá el link y mandáselo.</p></div></div>
+  <div class="card"><table><tr><th>Local</th><th>Barrio</th><th>En la app</th><th>Estado</th><th></th></tr>${C.map((c) => `<tr><td><b>${esc(c.name)}</b></td><td>${esc(c.neighborhood || '—')}</td><td>${c.active ? 'Sí' : 'No'}</td>
+  <td>${c.claimed ? '<span class="badge b-aprobado">Reclamado</span>' : c.invite ? `<span class="badge b-pendiente">Invitado: ${esc(c.invite.email)}</span>` : '<span class="badge b-borrador">Sin invitar</span>'}</td>
+  <td>${c.claimed ? '' : c.invite ? `<button class="btn sm sec" data-copyinv="${c.invite.token}">Copiar link</button> <button class="btn sm bad" data-revinv="${c.id}">Anular</button>` : `<button class="btn sm" data-inv="${c.id}" data-invn="${esc(c.name)}">Invitar</button>`}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">No hay locales.</td></tr>'}</table></div>`;
+}
+
+adminDet = function (r) {
+  if (!api.live || !r || !r.chg) return _mockDet(r);
+  const rows = Object.keys(r.changes || {}).map((k) => {
+    const v = r.changes[k];
+    const txt = Array.isArray(v) ? (k === 'photos' ? v.length + ' fotos' : (k === 'schedule' ? 'Horarios actualizados' : v.join(', '))) : (k === 'logo_url' ? 'Logo nuevo' : String(v));
+    return `<tr><td><b>${esc(FIELD_ES[k] || k)}</b></td><td>${esc(txt)}</td></tr>`;
+  }).join('');
+  return `<div class="top"><div><h1>Cambios de ${esc(r.n)}</h1><p class="muted">Enviados el ${esc(r.f)}. Mientras no los aprobés, la app muestra la versión publicada.</p></div></div>
+  <div class="card"><h2>Qué cambió</h2><table><tr><th>Dato</th><th>Nuevo valor</th></tr>${rows || '<tr><td colspan="2" class="muted">Sin datos.</td></tr>'}</table></div>
+  <div class="card" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn ok" data-chgok>Aprobar y publicar cambios</button><button class="btn warn" data-dec="corr">Pedir correcciones</button><button class="btn bad" data-dec="rej">Rechazar</button></div>`;
+};
+
+function liveBind() {
+  const $a = (s, f) => document.querySelectorAll(s).forEach(f);
+  const reload = async (msg) => { await liveLoadRequests(); await liveLoadAdmin(); render(); if (msg) toast(msg); };
+  $a('[data-addadm]', (b) => (b.onclick = async () => {
+    const e = ($('#nadm').value || '').trim(), r = $('#nadmr').value;
+    const x = await api.addAdmin(e, r); if (!x.ok) return toast(x.error); await reload('Persona agregada.');
+  }));
+  $a('[data-rmadm]', (b) => (b.onclick = () => confirmModal({ title: '¿Quitar el acceso?', text: 'Esta persona deja de poder entrar al panel de administración.', ok: 'Quitar', danger: true,
+    onOk: async () => { const x = await api.removeAdmin(b.dataset.rmadm); if (!x.ok) return toast(x.error); await reload('Acceso quitado.'); } })));
+  $a('[data-pol]', (s) => (s.onchange = async () => { const x = await api.setPolicy(s.dataset.pol, s.value); if (!x.ok) { toast(x.error); await reload(); return; } await reload('Guardado.'); }));
+  $a('[data-inv]', (b) => (b.onclick = () => {
+    const m = document.createElement('div'); m.style.cssText = 'position:fixed;inset:0;background:#2b1d1699;z-index:90;display:grid;place-items:center;padding:16px';
+    m.innerHTML = `<div class="card" style="max-width:440px;width:100%;margin:0"><h2>Invitar a ${esc(b.dataset.invn)}</h2><p class="muted" style="margin:6px 0 12px">Escribí el email con el que el dueño va a crear su cuenta. Solo ese email podrá reclamar el local.</p>
+    <div class="field"><label for="ivm">Email del dueño</label><input id="ivm" type="email"><div class="ferr" id="ive" role="alert"></div></div><div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn sec" id="ivx">Cancelar</button><button class="btn" id="ivk">Crear invitación</button></div></div>`;
+    document.body.append(m); mountModal(m); m.querySelector('#ivx').onclick = () => m.remove();
+    m.querySelector('#ivk').onclick = async () => {
+      const x = await api.invite(b.dataset.inv, m.querySelector('#ivm').value); if (!x.ok) { m.querySelector('#ive').textContent = x.error; return; }
+      m.remove(); try { await navigator.clipboard.writeText(siteLink(x.data)); } catch (e) { /* sin portapapeles */ }
+      await reload('Invitación creada. Link copiado: mandáselo al dueño.');
+    };
+  }));
+  $a('[data-copyinv]', (b) => (b.onclick = async () => { try { await navigator.clipboard.writeText(siteLink(b.dataset.copyinv)); toast('Link copiado.'); } catch (e) { toast(siteLink(b.dataset.copyinv)); } }));
+  $a('[data-revinv]', (b) => (b.onclick = async () => { const x = await api.revokeInvite(b.dataset.revinv); if (!x.ok) return toast(x.error); await reload('Invitación anulada.'); }));
+  $a('[data-chgok]', (b) => (b.onclick = async () => {
+    const r = REQ.find((q) => q.id === sel); if (!r) return; b.disabled = true;
+    const x = await api.approveChange(r.id); if (!x.ok) { b.disabled = false; return toast(x.error); }
+    aview = 'lista'; await reload('Cambios publicados.');
+  }));
+}
+
+/* ---------- Comercio: cambios en un local aprobado y interruptor ---------- */
+async function liveSaveApproved() {
+  const r = await api.submitChange(liveBuildPayload());
+  if (!r.ok) { toast(r.error); return false; }
+  const d = r.data || {};
+  chg.desc = (d.pending || []).some((k) => ['name', 'description', 'address', 'neighborhood', 'maps_url', 'services', 'other_services'].includes(k)) || chg.desc;
+  chg.fotos = (d.pending || []).some((k) => ['photos', 'logo_url'].includes(k)) || chg.fotos;
+  toast((d.pending || []).length ? 'Los cambios quedaron en revisión. Mientras tanto se muestra la versión publicada.' + ((d.applied || []).length ? ' Horarios/cupo ya se aplicaron.' : '') : ((d.applied || []).length ? 'Horarios y cupo actualizados.' : 'No había cambios para guardar.'));
+  return true;
+}
+
+async function liveToggleMap() {
+  if (!liveCafe.enabled) { toast('Cafeteando todavía no habilitó tu local para figurar en la app.'); return; }
+  const go = async (on) => {
+    const x = await api.setMyActive(on); if (!x.ok) { toast(x.error); return; }
+    onMap = on; liveCafe.active = on; cooldownUntil = Date.now() + 300000; render(); toast(on ? 'Local activo nuevamente' : 'Local desactivado temporalmente');
+  };
+  if (onMap) confirmModal({ title: '¿Desactivar tu local temporalmente?', text: 'Dejarás de figurar en la app y no recibirás canjes hasta que lo reactives. Después de cambiar el estado, tenés que esperar 5 minutos para volver a cambiarlo.', ok: 'Desactivar', danger: true, onOk: () => go(false) });
+  else go(true);
+}
+
+let liveCafe = { code: '', active: false, enabled: false };
+
+/* ---------- Invitación (link con ?invite=...) ---------- */
+function liveInviteToken() {
+  try {
+    const p = new URLSearchParams(location.search).get('invite');
+    if (p && /^[0-9a-f-]{36}$/i.test(p)) { sessionStorage.setItem('pc_invite', p); history.replaceState(null, '', location.pathname + location.hash); }
+    return sessionStorage.getItem('pc_invite');
+  } catch (e) { return null; }
+}
+
+</script>
+<script>
 /* Eventos, tema y arranque */
 // Fuera del modo mock se quita la barra de demo (solo existe en la maqueta).
 if(window.PORTAL_CONFIG&&window.PORTAL_CONFIG.mode!=='mock'){const _d=document.querySelector('.demo');_d&&_d.remove()}
@@ -1636,6 +1834,7 @@ function bind(){
  document.querySelectorAll('[data-obc]').forEach(e=>e.onclick=()=>{view='m-app';newBranch=false;render()});
  document.querySelectorAll('[data-m]').forEach(e=>e.onclick=()=>{mview=e.dataset.m;render()});
  document.querySelectorAll('[data-a]').forEach(e=>e.onclick=()=>{aview=e.dataset.a;render()});
+ if(api.live&&typeof liveBind==='function')liveBind();
  document.querySelectorAll('[data-sel]').forEach(e=>e.onclick=()=>{sel=isNaN(+e.dataset.sel)?e.dataset.sel:+e.dataset.sel;aview='det';render()});
  document.querySelectorAll('[data-svc]').forEach(e=>{e.tabIndex=0;e.setAttribute('role','button');const i=+e.dataset.svc;e.setAttribute('aria-pressed',svc.has(i));const t=()=>{svc.has(i)?svc.delete(i):svc.add(i);e.classList.toggle('on',svc.has(i));e.setAttribute('aria-pressed',svc.has(i));const er=document.getElementById('err-svc');if(er&&svc.size)er.textContent=''};e.onclick=t;e.onkeydown=ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();t()}}});
  document.querySelectorAll('[data-chip]').forEach(e=>e.onclick=()=>{e.classList.toggle('on');e.setAttribute('aria-pressed',e.classList.contains('on'))});
@@ -1670,7 +1869,7 @@ function bind(){
  document.querySelectorAll('[data-ph-r]').forEach(e=>e.onclick=()=>{const i=+e.dataset.phR;[photos[i+1],photos[i]]=[photos[i],photos[i+1]];render()});
  document.querySelectorAll('[data-ph-d]').forEach(e=>e.onclick=()=>{photos.splice(+e.dataset.phD,1);render()});
  document.querySelectorAll('[data-ph-c]').forEach(e=>e.onclick=()=>cropModal(+e.dataset.phC));
- document.querySelectorAll('[data-map]').forEach(e=>e.onclick=()=>{if(onMap){pauseModal()}else{onMap=true;pauseInfo=null;cooldownUntil=Date.now()+300000;render();toast('Local activo nuevamente')}});
+ document.querySelectorAll('[data-map]').forEach(e=>e.onclick=()=>{if(api.live){liveToggleMap();return}if(onMap){pauseModal()}else{onMap=true;pauseInfo=null;cooldownUntil=Date.now()+300000;render();toast('Local activo nuevamente')}});
  document.querySelectorAll('[data-ctr]').forEach(e=>e.onchange=()=>{contractOk=e.checked;render()});
  document.querySelectorAll('[data-dl]').forEach(e=>e.onclick=()=>toast('Descargando contrato.pdf (simulado)'));
  document.querySelectorAll('[data-send]').forEach(e=>e.onclick=()=>{if(api.live){liveSend(e);return}status='pendiente';toast('Adhesión enviada. Te enviamos un email de confirmación (simulado)');mview='inicio';render()});
