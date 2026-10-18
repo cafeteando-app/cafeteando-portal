@@ -1758,8 +1758,8 @@ function realMap(){const box=document.querySelector('[data-map-area]');if(!box||
  const hp=box.parentNode&&box.parentNode.querySelector('.hint');let nt=document.getElementById('pin_note');if(!nt&&hp){nt=document.createElement('p');nt.id='pin_note';nt.className='hint';nt.style.cssText='margin-top:4px;color:var(--terracota)';hp.after(nt)}
  const dist=(a,b)=>{const R=6371000,r=x=>x*Math.PI/180,dl=r(b.lat-a.lat),dg=r(b.lng-a.lng),h=Math.sin(dl/2)**2+Math.cos(r(a.lat))*Math.cos(r(b.lat))*Math.sin(dg/2)**2;return 2*R*Math.asin(Math.sqrt(h))};
  const note=()=>{if(!nt)return;const d=pin.orig&&pin.lat?dist(pin.orig,pin):0;nt.textContent=d>150?'El pin quedó a unos '+Math.round(d/10)*10+' m de la dirección que elegiste. Si tu local está ahí, está todo bien; si no, acercalo a la dirección.':''};
- if(hp)hp.textContent='¿Confirmás que el pin está sobre tu local? Podés arrastrarlo o tocar el mapa para ajustarlo. La dirección y el barrio quedan como los elegiste.';
- if(addrSel&&addrSel.fromCand){const pe=document.getElementById('ad_prov');if(pe){pe.disabled=true;pe.title='Se completó según la dirección elegida. Para cambiarla, buscá otra dirección.'}}
+ if(hp)hp.textContent='¿Confirmás que el pin está sobre tu local? Podés arrastrarlo o tocar el mapa para ajustarlo. La provincia y el barrio se completan solos según la dirección que elegiste.';
+ if(addrSel&&addrSel.fromCand){const t='Se completó según la dirección elegida. Para cambiarlo, buscá otra dirección.';const pe=document.getElementById('ad_prov');if(pe){pe.disabled=true;pe.title=t}const be=document.getElementById('ad_b');if(be&&be.value){if(be.tagName==='SELECT')be.disabled=true;else be.readOnly=true;be.title=t}}
  const mk=LF.marker(map.getCenter(),{draggable:true}).addTo(map);
  mk.on('dragend',()=>{const c=mk.getLatLng();pin.lat=c.lat;pin.lng=c.lng;pin.moved=true;note()});
  map.on('click',e=>{mk.setLatLng(e.latlng);pin.lat=e.latlng.lat;pin.lng=e.latlng.lng;pin.moved=true;note()});
