@@ -1066,7 +1066,7 @@ function liveApplyPayload(p) {
   photos = (p.photos || []).map((u, i) => ({ n: 'Foto ' + (i + 1), u, url: u }));
   if (Array.isArray(p.schedule) && p.schedule.length === 7) sched = p.schedule;
   if (p.daily_stock) cupo = p.daily_stock;
-  extra.items = Array.isArray(p.benefits) ? p.benefits.map((b) => ({ text: b.text || '', cond: b.cond || '' })) : [];
+  extra.items = Array.isArray(p.benefits) ? p.benefits.map((b) => ({ text: ((b.text || '') + (b.cond ? ' (' + b.cond + ')' : '')).trim(), cond: '' })) : [];
   extra.pub = extra.items.map((x) => x.text);
   contractOk = !!p.contract_version_accepted;
   doneCafe = !!(p.name && p.logo_url && photos.length >= 3 && (svc.size || p.other_services));
@@ -1078,7 +1078,7 @@ function liveBuildPayload() {
     description: (FD.cf_desc || '').trim(), other_services: (FD.cf_otros || '').trim(),
     services: [...svc].sort((x, y) => x - y).map((i) => VAR[i]), schedule: sched, daily_stock: cupo,
     photos: photos.map((x) => x.url).filter(Boolean),
-    benefits: extra.items.filter((x) => (x.text || '').trim()).map((x) => ({ text: x.text.trim(), cond: (x.cond || '').trim() })),
+    benefits: extra.items.filter((x) => (x.text || '').trim()).map((x) => ({ text: x.text.trim(), cond: '' })),
   };
   if (FD.cf_name !== undefined && FD.cf_name.trim()) payload.name = FD.cf_name.trim();
   if (addrSel) { payload.address = addrSel.a; payload.neighborhood = curBarrio(); if (FD.ad_prov) payload.province = FD.ad_prov; }
@@ -1372,8 +1372,8 @@ const schedOk=()=>sched.every(d=>!d.on||d.r.every(rOk));
 const esc=t=>String(t||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
 function extraCard(){const ap=status==='aprobado';const st=extra.review?'<span class="badge b-correccion" style="margin-left:6px">En revisión</span>':(extra.pub.length?'<span class="badge b-aprobado" style="margin-left:6px">Publicado</span>':'');
  const it=extra.items;
- return `<div class="card"><h2>Beneficios adicionales (opcional) ${st}</h2><p class="muted" style="margin:4px 0 14px">Sumá algo extra para los socios además del café, por ejemplo un descuento en pastelería. Podés cargar más de uno. Se muestran en la app junto a tu local.</p>
- ${it.length?it.map((x,i)=>`<div class="benef"><div class="benef-h"><b>Beneficio ${i+1}</b><button class="x" data-extra-del="${i}" title="Quitar beneficio" aria-label="Quitar beneficio ${i+1}">×</button></div><div class="field"><label>Beneficio <span class="req" aria-hidden="true">*</span><span class="sr"> (obligatorio)</span></label><input aria-required="true" data-extra-text="${i}" maxlength="80" placeholder="Ej: 10% de descuento en pastelería" value="${esc(x.text)}"></div><div class="field" style="margin-bottom:0"><label>Condiciones</label><input data-extra-cond="${i}" maxlength="120" placeholder="Ej: Lunes a viernes. Uno por socio por visita." value="${esc(x.cond)}"></div></div>`).join(''):'<p class="hint" style="margin-bottom:12px">Todavía no cargaste ningún beneficio adicional.</p>'}
+ return `<div class="card"><h2>Beneficios adicionales (opcional) ${st}</h2><p class="muted" style="margin:4px 0 14px">Sumá algo extra para los socios además del café, por ejemplo un descuento en pastelería. Podés cargar más de uno. <b>Lo que escribas en cada beneficio es exactamente lo que va a figurar en la app</b>, junto a tu local: incluí ahí cualquier condición (días, límites, etc.).</p>
+ ${it.length?it.map((x,i)=>`<div class="benef"><div class="benef-h"><b>Beneficio ${i+1}</b><button class="x" data-extra-del="${i}" title="Quitar beneficio" aria-label="Quitar beneficio ${i+1}">×</button></div><div class="field"><label>Beneficio <span class="req" aria-hidden="true">*</span><span class="sr"> (obligatorio)</span></label><input aria-required="true" data-extra-text="${i}" maxlength="120" placeholder="Ej: 10% de descuento en pastelería, de lunes a viernes" value="${esc(x.text)}"></div></div>`).join(''):'<p class="hint" style="margin-bottom:12px">Todavía no cargaste ningún beneficio adicional.</p>'}
  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="btn sec sm" data-extra-add ${it.length>=5?'disabled style="opacity:.4;cursor:not-allowed"':''}>+ Agregar beneficio</button>${it.length>=5?'<span class="hint">Máximo 5 beneficios.</span>':''}${it.length||extra.pub.length?`<button class="btn sm" data-extra-save>${ap?'Enviar beneficios a revisión':'Guardar beneficios'}</button>`:''}</div>
  ${it.length?`<div class="note" style="margin:14px 0 0">Los beneficios adicionales los bonifica el local: Cafeteando no interviene ni cobra nada. Pasan por revisión de Cafeteando antes de publicarse.</div>`:''}
  ${extra.review&&extra.pub.length?`<p class="hint" style="margin-top:10px">Mientras tanto, los usuarios ven: ${extra.pub.map(t=>'«'+esc(t)+'»').join(' · ')}</p>`:''}</div>`}
