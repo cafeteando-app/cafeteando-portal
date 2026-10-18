@@ -497,6 +497,27 @@ html.noscroll,html.noscroll body{overflow:auto;height:auto}
 .auth2 .a2-in{height:auto;justify-content:flex-start}
 .auth2 .box{overflow:visible;flex:none}
 
+/* ---- Ajustes celular (v mobile-fix): grilla 1 columna, ayuda en la barra superior, barra de guardado compacta ---- */
+@media(max-width:800px){
+ .shell{grid-template-columns:minmax(0,1fr)!important}.main{min-width:0;width:100%}
+ html,body{overflow-x:hidden}.auth2{overflow-x:hidden}
+ .helpwrap{top:7px!important;bottom:auto!important;right:10px!important;flex-direction:column;align-items:flex-end}
+ body:has(.bellico) .helpwrap{right:94px!important}
+ .helpfab{width:36px;height:36px;min-height:0!important;padding:0;justify-content:center;box-shadow:none;background:var(--nav-who,#ffffff12);border:1px solid var(--nav-line,#ffffff30);font-size:0}
+ .helpfab span{background:transparent;color:#fff;width:auto;height:auto;font-size:16px}
+ .helpbox{position:fixed;top:52px;right:8px;width:min(300px,calc(100vw - 16px));min-width:0;z-index:80}
+ .savebar{flex-direction:row!important;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px!important;bottom:66px!important}
+ .sb-msg{font-size:12.5px;flex:1;min-width:0}
+ .sb-act{width:auto!important;flex:none;display:flex;gap:6px}
+ .sb-act .btn{flex:none!important;min-height:38px!important;padding:7px 14px!important;font-size:13px}
+ .btn{min-height:40px}
+ .nav:not(.mnav){padding-right:92px!important}
+ .nav:not(.mnav) .themeico,.nav:not(.mnav) .bellico{position:fixed!important;top:8px;width:36px;height:36px;min-height:0;margin:0;z-index:36}
+ .nav:not(.mnav) .themeico{right:10px}.nav:not(.mnav) .bellico{right:52px}
+ .nav:not(.mnav)::after{content:'';position:fixed;top:0;right:0;width:100px;height:54px;background:linear-gradient(90deg,transparent,var(--nav-bg) 35%);z-index:35;pointer-events:none}
+ .nav:not(.mnav) a:last-of-type{margin-right:90px}
+}
+
 </style>
 </head>
 <body>
