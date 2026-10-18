@@ -491,6 +491,11 @@ html.noscroll,html.noscroll body{overflow:hidden;height:100%}
 @media(max-height:640px){.auth2 .a2-checks{display:none}}
 @media(max-width:800px){.auth2{padding:12px 14px}.auth2 .a2-lead,.auth2 .a2-checks{display:none}.auth2 .box{padding:16px}}
 .auth2 .a2-in{margin:0 auto;min-width:0}.auth2 .a2-h1{overflow-wrap:break-word}
+/* ---- login/registro: la pagina crece con el contenido y scrollea completa ---- */
+html.noscroll,html.noscroll body{overflow:auto;height:auto}
+.auth2{height:auto;min-height:calc(100vh - var(--demoh,0px));min-height:calc(100dvh - var(--demoh,0px));overflow:visible;padding:clamp(16px,3vh,32px) 20px 32px}
+.auth2 .a2-in{height:auto;justify-content:flex-start}
+.auth2 .box{overflow:visible;flex:none}
 
 </style>
 </head>
@@ -1076,7 +1081,7 @@ function render(){
  document.documentElement.dataset.theme=(['auth','onb','verify','expired','forgot','reset'].includes(view))?'light':panelTheme;
  document.querySelectorAll('.demo [data-v]').forEach(b=>b.classList.toggle('on',b.dataset.v===view));
  $('#app').innerHTML= view==='auth'?authV(): view==='admin'?adminV(): view==='onb'?onbV(): view==='verify'?verifyV(): view==='expired'?expiredV(): view==='forgot'?forgotV(): view==='reset'?resetV(): merchV();
- const _dm=document.querySelector('.demo');document.documentElement.style.setProperty('--demoh',(_dm?_dm.offsetHeight:0)+'px');document.documentElement.classList.toggle('noscroll',['auth','verify','expired','forgot','reset'].includes(view));
+ const _dm=document.querySelector('.demo');document.documentElement.style.setProperty('--demoh',(_dm?_dm.offsetHeight:0)+'px');document.documentElement.classList.remove('noscroll');
  bind();
 }
 document.querySelectorAll('.demo [data-v]').forEach(b=>b.onclick=()=>{
@@ -1098,7 +1103,7 @@ function authV(){const login=tab==='login';return authFrame(`<div class="tabs" r
 <form novalidate data-authform onsubmit="return false">
 ${login?`${fld({id:'l_mail',label:'Email',rules:'req,email',type:'email',def:api.live?'':'hola@bonpland.com',ac:'email'})}${fld({id:'l_pass',label:'Contraseña',rules:'req',eye:true,def:api.live?'':'demo12345',ac:'current-password'})}<p class="hint" style="margin-bottom:14px"><a href="#" data-forgot>Olvidé mi contraseña</a></p><button type="submit" class="btn" style="width:100%" data-login>Ingresar</button>`
 :`<p class="hint" style="margin-bottom:12px">Los campos con <span class="req">*</span> son obligatorios.</p>${fld({id:'r_name',label:'Nombre de la cafetería',rules:'req',ph:'Ej: Café Bonpland',ac:'organization'})}${fld({id:'r_mail',label:'Email',rules:'req,email',type:'email',ph:'tu@cafeteria.com',ac:'email'})}${fld({id:'r_p1',label:'Contraseña',rules:'req,pass',eye:true,ac:'new-password'})}<ul class="prules" aria-label="Requisitos de la contraseña"><li id="pr-len">Mínimo 8 caracteres</li><li id="pr-mix">Al menos una letra y un número</li></ul>${fld({id:'r_p2',label:'Repetir contraseña',rules:'req,match',match:'r_p1',eye:true,ac:'new-password'})}<div id="pr-match" class="pmatch" aria-live="polite"></div>
-<label class="chk" style="margin-bottom:8px"><input type="checkbox" id="r_consent" data-consent ${FD.r_consent?'checked':''} aria-describedby="err-r_consent"> <span>Acepto que mis datos personales sean tratados por Cafeteando con el fin de ser contactado sobre la incorporación a la red. Entiendo que puedo solicitar la eliminación de mis datos en cualquier momento escribiendo a contactocafeteando@gmail.com. <span class="req" aria-hidden="true">*</span></span></label><div class="ferr" id="err-r_consent" role="alert"></div><label class="chk"><input type="checkbox" id="r_terms" data-terms ${FD.r_terms?'checked':''} aria-describedby="err-r_terms"> <span>Acepto los <a href="#" data-legal="terminos">términos y condiciones</a> y la <a href="#" data-legal="privacidad">política de privacidad</a>. <span class="req" aria-hidden="true">*</span></span></label><div class="ferr" id="err-r_terms" role="alert"></div><br><button type="submit" class="btn" style="width:100%" data-reg>Crear cuenta</button><p class="hint" style="margin-top:10px">Te enviamos un email para verificar tu cuenta. Crear la cuenta no activa tu local en la app.</p>`}
+<label class="chk" style="margin-bottom:8px"><input type="checkbox" id="r_consent" data-consent ${FD.r_consent?'checked':''} aria-describedby="err-r_consent"> <span>Acepto que mis datos personales sean tratados por Cafeteando con el fin de ser contactado sobre la incorporación a la red. Entiendo que puedo solicitar la eliminación de mis datos en cualquier momento desde mi panel o escribiendo a contactocafeteando@gmail.com. <span class="req" aria-hidden="true">*</span></span></label><div class="ferr" id="err-r_consent" role="alert"></div><label class="chk"><input type="checkbox" id="r_terms" data-terms ${FD.r_terms?'checked':''} aria-describedby="err-r_terms"> <span>Acepto los <a href="#" data-legal="terminos">términos y condiciones</a> y la <a href="#" data-legal="privacidad">política de privacidad</a>. <span class="req" aria-hidden="true">*</span></span></label><div class="ferr" id="err-r_terms" role="alert"></div><br><button type="submit" class="btn" style="width:100%" data-reg>Crear cuenta</button><p class="hint" style="margin-top:10px">Te enviamos un email para verificar tu cuenta. Crear la cuenta no activa tu local en la app.</p>`}
 </form><p class="trust">Sumarte es gratis, sin pagos ni comisiones. Tus datos solo los ve el equipo de Cafeteando.</p>
 ${login?'<p class="hint" style="margin-top:20px;text-align:center"><a href="#" data-legal="terminos">Términos y condiciones</a> · <a href="#" data-legal="privacidad">Política de privacidad</a></p>':''}`)}
 
