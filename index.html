@@ -926,7 +926,7 @@ async function liveLoadRequests() {
       id: q.id, n: p.name || '(sin nombre)', b: p.neighborhood || '—', f: fmt(q.submitted_at || q.created_at),
       s: ST[q.status] || 'pendiente', cupo: p.daily_stock || '—', mail: m.contact_email || '',
       tit: m.contact_name || '', rol: m.role || '', tel: m.phone || '', dir: p.address || '', prov: p.province || '', desc: p.description || '',
-      maps: p.maps_url || '', hor: liveFmtSched(p.schedule), serv: Array.isArray(p.services) ? p.services.join(', ') : '—', benef: '—',
+      maps: p.maps_url || '', hor: liveFmtSched(p.schedule), serv: Array.isArray(p.services) ? p.services.join(', ') : '—', benef: Array.isArray(p.benefits) && p.benefits.length ? p.benefits.map((b) => b.text + (b.cond ? ' (' + b.cond + ')' : '')).join(' · ') : 'Sin beneficio adicional',
     });
   });
 }
@@ -999,6 +999,8 @@ function liveApplyPayload(p) {
   photos = (p.photos || []).map((u, i) => ({ n: 'Foto ' + (i + 1), u, url: u }));
   if (Array.isArray(p.schedule) && p.schedule.length === 7) sched = p.schedule;
   if (p.daily_stock) cupo = p.daily_stock;
+  extra.items = Array.isArray(p.benefits) ? p.benefits.map((b) => ({ text: b.text || '', cond: b.cond || '' })) : [];
+  extra.pub = extra.items.map((x) => x.text);
   contractOk = !!p.contract_version_accepted;
   doneCafe = !!(p.name && p.logo_url && photos.length >= 3 && (svc.size || p.other_services));
   doneDisp = !!(p.schedule && p.daily_stock >= 5);
@@ -1009,6 +1011,7 @@ function liveBuildPayload() {
     description: (FD.cf_desc || '').trim(), other_services: (FD.cf_otros || '').trim(),
     services: [...svc].sort((x, y) => x - y).map((i) => VAR[i]), schedule: sched, daily_stock: cupo,
     photos: photos.map((x) => x.url).filter(Boolean),
+    benefits: extra.items.filter((x) => (x.text || '').trim()).map((x) => ({ text: x.text.trim(), cond: (x.cond || '').trim() })),
   };
   if (FD.cf_name !== undefined && FD.cf_name.trim()) payload.name = FD.cf_name.trim();
   if (addrSel) { payload.address = addrSel.a; payload.neighborhood = curBarrio(); if (FD.ad_prov) payload.province = FD.ad_prov; }
@@ -1889,7 +1892,7 @@ function bind(){
  document.querySelectorAll('[data-extra-del]').forEach(e=>e.onclick=()=>{extra.items.splice(+e.dataset.extraDel,1);render()});
  document.querySelectorAll('[data-extra-text]').forEach(e=>e.oninput=()=>{extra.items[+e.dataset.extraText].text=e.value});
  document.querySelectorAll('[data-extra-cond]').forEach(e=>e.oninput=()=>{extra.items[+e.dataset.extraCond].cond=e.value});
- document.querySelectorAll('[data-extra-save]').forEach(e=>e.onclick=()=>{if(extra.items.some(x=>!x.text.trim())){document.querySelectorAll('[data-extra-text]').forEach(el=>{const bad=!el.value.trim();el.classList.toggle('invalid',bad);el.setAttribute('aria-invalid',bad)});toast('Completá el texto de cada beneficio o quitá los vacíos');return}if(status==='aprobado'){extra.review=true;toast('Beneficios enviados a revisión. Te avisamos por email (simulado)')}else{extra.pub=extra.items.map(x=>x.text);toast('Beneficios guardados (simulado)')}render()});
+ document.querySelectorAll('[data-extra-save]').forEach(e=>e.onclick=()=>{if(extra.items.some(x=>!x.text.trim())){document.querySelectorAll('[data-extra-text]').forEach(el=>{const bad=!el.value.trim();el.classList.toggle('invalid',bad);el.setAttribute('aria-invalid',bad)});toast('Completá el texto de cada beneficio o quitá los vacíos');return}if(api.live){liveSaveDraft().then(ok=>{if(ok){extra.pub=extra.items.map(x=>x.text);toast('Beneficios guardados.');render()}});return}if(status==='aprobado'){extra.review=true;toast('Beneficios enviados a revisión. Te avisamos por email (simulado)')}else{extra.pub=extra.items.map(x=>x.text);toast('Beneficios guardados (simulado)')}render()});
  document.querySelectorAll('[data-legal]').forEach(e=>e.onclick=ev=>{ev.preventDefault();legalModal(e.dataset.legal)});
  document.querySelectorAll('[data-consent]').forEach(e=>e.onchange=()=>{FD.r_consent=e.checked;if(e.checked){const er=document.getElementById('err-r_consent');if(er)er.textContent=''}});
  document.querySelectorAll('[data-terms]').forEach(e=>e.onchange=()=>{FD.r_terms=e.checked;if(e.checked){const er=document.getElementById('err-r_terms');if(er)er.textContent=''}});
