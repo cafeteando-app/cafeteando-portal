@@ -527,6 +527,7 @@ window.PORTAL_CONFIG = {
 
 </script>
 <script>
+const subDate=()=>(typeof api!=='undefined'&&api.live&&window.__subDate)?window.__subDate:'14/10';
 /* Estado global y datos de ejemplo (modo mock) */
 const $=(s,r=document)=>r.querySelector(s);
 const DAYS=['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
@@ -895,6 +896,7 @@ async function liveSaveOnb(final) {
     legal_name: v('ob_rs'), cuit: v('ob_cuit'), instagram: v('ob_social'), how_found: v('ob_how'),
   };
   if (final) { merchant.consent = true; merchant.terms_version = (window.PORTAL_CONFIG || {}).termsVersion || 'v1'; }
+  if (!FD.cf_name) FD.cf_name = FD.ob_name || '';
   const payload = {
     name: v('ob_name'), address: addrSel ? addrSel.a : null, neighborhood: curBarrio() || null,
     province: v('ad_prov'), maps_url: v('ob_maps'),
@@ -923,7 +925,7 @@ async function liveLoadRequests() {
     REQ.push({
       id: q.id, n: p.name || '(sin nombre)', b: p.neighborhood || '—', f: fmt(q.submitted_at || q.created_at),
       s: ST[q.status] || 'pendiente', cupo: p.daily_stock || '—', mail: m.contact_email || '',
-      tit: m.contact_name || '', rol: m.role || '', tel: m.phone || '', dir: p.address || '', desc: p.description || '',
+      tit: m.contact_name || '', rol: m.role || '', tel: m.phone || '', dir: p.address || '', prov: p.province || '', desc: p.description || '',
       maps: p.maps_url || '', hor: p.schedule ? JSON.stringify(p.schedule) : '—', serv: Array.isArray(p.services) ? p.services.join(', ') : '—', benef: '—',
     });
   });
@@ -957,6 +959,7 @@ async function liveHydrate() {
   liveApplyPayload(p);
   const S = { draft: 'borrador', pending: 'pendiente', needs_fix: 'correccion', approved: 'aprobado', rejected: 'correccion' };
   status = S[q.status] || 'borrador';
+  if (q.submitted_at) { const d = new Date(q.submitted_at); window.__subDate = String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0'); }
   if (q.review_note) corrMsg = q.review_note;
   if (m.contact_name && !p.address) { view = 'onb'; ob = 1; mview = 'inicio'; return 'onb'; }
   if (status === 'aprobado') {
@@ -1033,6 +1036,7 @@ async function liveSend(btn) {
       } else toast(r.error);
       return;
     }
+    { const d = new Date(); window.__subDate = String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0'); }
     status = 'pendiente'; view = 'm-pend'; mview = 'inicio'; render();
     toast('Adhesión enviada. Te avisamos por email cuando la revisemos.');
   } finally { btn.disabled = false; }
@@ -1046,19 +1050,50 @@ function parseCoords(t) {
   const lat = +m[1], lng = +m[2];
   return lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180 ? { lat, lng } : null;
 }
+// Geocodificación automática (OpenStreetMap / Nominatim). El admin siempre puede corregir el valor.
+async function liveGeocode(r) {
+  const fromMaps = parseCoords(r.maps || '');
+  if (fromMaps) return { lat: fromMaps.lat, lng: fromMaps.lng, label: 'tomado del link de Google Maps del local' };
+  const tries = [
+    [r.dir, r.b !== '—' ? r.b : '', r.prov, 'Argentina'],
+    [r.dir, r.prov, 'Argentina'],
+  ];
+  for (const parts of tries) {
+    const q = parts.filter(Boolean).join(', ');
+    if (!q) continue;
+    try {
+      const res = await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=ar&accept-language=es&q=' + encodeURIComponent(q));
+      if (!res.ok) continue;
+      const a = await res.json();
+      if (a && a[0]) return { lat: +(+a[0].lat).toFixed(7), lng: +(+a[0].lon).toFixed(7), label: a[0].display_name };
+    } catch (e) { /* sin red o bloqueado: queda manual */ }
+  }
+  return null;
+}
 function liveApprove(r) {
   const m = document.createElement('div');
   m.style.cssText = 'position:fixed;inset:0;background:#2b1d1699;z-index:90;display:grid;place-items:center;padding:16px';
   m.innerHTML = `<div class="card" style="max-width:480px;width:100%;margin:0"><h2>Aprobar y publicar: ${esc(r.n)}</h2>
   <p class="muted" style="margin:6px 0 14px">Se crea el local con su código de canje de 5 dígitos. Queda <b>inactivo</b>: no aparece en la app hasta que lo actives.</p>
   <div class="field"><label for="ap_c">Ubicación en el mapa <span class="req" aria-hidden="true">*</span></label>
-  <input id="ap_c" placeholder="Pegá el link de Google Maps o 'lat, lng' (ej: -34.5875, -58.4210)" value="${esc(r.maps || '')}">
-  <div class="hint">Abrí la dirección (${esc(r.dir)}) en Google Maps y pegá el link o las coordenadas.</div><div class="ferr" id="ap_e" role="alert"></div></div>
+  <input id="ap_c" placeholder="Buscando la ubicación de ${esc(r.dir)}…" value="${esc(r.maps || '')}">
+  <div class="hint" id="ap_h">Buscando la ubicación automáticamente…</div><div class="ferr" id="ap_e" role="alert"></div></div>
   <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn sec" id="ap_x">Cancelar</button><button class="btn ok" id="ap_ok">Aprobar</button></div></div>`;
   document.body.append(m);
   m.querySelector('#ap_x').onclick = () => m.remove();
+  const inp = m.querySelector('#ap_c'), hint = m.querySelector('#ap_h');
+  liveGeocode(r).then((g) => {
+    if (!m.isConnected) return;
+    if (g) {
+      if (!inp.value.trim() || !parseCoords(inp.value)) inp.value = g.lat + ', ' + g.lng;
+      hint.innerHTML = 'Ubicación encontrada automáticamente (' + esc(g.label) + '). <a target="_blank" rel="noopener" href="https://www.google.com/maps?q=' + g.lat + ',' + g.lng + '">Verificar en Google Maps</a>. Si no es correcta, pegá otras coordenadas o un link de Google Maps.';
+    } else {
+      inp.placeholder = "Pegá el link de Google Maps o 'lat, lng' (ej: -34.5875, -58.4210)";
+      hint.textContent = 'No pudimos ubicar la dirección (' + r.dir + ') automáticamente. Abrila en Google Maps y pegá el link o las coordenadas.';
+    }
+  });
   m.querySelector('#ap_ok').onclick = async () => {
-    const c = parseCoords(m.querySelector('#ap_c').value);
+    const c = parseCoords(inp.value);
     if (!c) { m.querySelector('#ap_e').textContent = 'No pudimos leer las coordenadas. Pegá "lat, lng" o un link de Google Maps con @lat,lng.'; return; }
     const b = m.querySelector('#ap_ok'); b.disabled = true;
     const x = await api.approveRequest(r.id, c.lat, c.lng);
@@ -1123,7 +1158,7 @@ function merchV(){
 
 function statusBanner(){
  if(status==='borrador')return `<div class="banner pend"><div><b>Completá tu adhesión</b><br><span class="muted">Tu local todavía no está visible en la app. Llevás 3 de 6 secciones.</span></div><button class="btn sm" data-m="adh">Continuar</button></div>`;
- if(status==='pendiente')return `<div class="banner pend"><div><b>Adhesión en revisión</b><br><span class="muted">Enviada el 14/10. Te avisamos por email cuando el equipo de Cafeteando la revise (suele demorar 2 a 3 días hábiles).</span></div>${bd('pendiente')}</div>`;
+ if(status==='pendiente')return `<div class="banner pend"><div><b>Adhesión en revisión</b><br><span class="muted">Enviada el ${subDate()}. Te avisamos por email cuando el equipo de Cafeteando la revise (suele demorar 2 a 3 días hábiles).</span></div>${bd('pendiente')}</div>`;
  return `<div class="banner ok"><div><b>Tu local está activo en la app</b><br><span class="muted">Los socios ya pueden canjear cafés en ${esc(bizName())}.</span></div>${bd('aprobado')}</div>`}
 
 let openInfo=null;
@@ -1145,7 +1180,7 @@ function heroInicio(){
   sub=status==='correccion'?'Corregí lo pedido y reenviá la adhesión. Mensaje del equipo: «'+esc(corrMsg)+'»':(nx?`Próximo paso: <b>${nx[0]}</b>.`:'Ya completaste todo: revisá y enviá la adhesión.');
   cta=`<button class="btn" data-m="${status==='correccion'?'adh':(nx?nx[2]:'adh')}">${status==='correccion'?'Corregir y reenviar':(nx?'Continuar':'Enviar a revisión')}</button>`;
   extra=`<div class="hero-prog"><span>${n} de 4 pasos completados</span>${bar}</div>`}
- else if(status==='pendiente'){t='Tu adhesión está en revisión';sub='Enviada el 14/10. Te avisamos por email en 2 a 3 días hábiles. No tenés que hacer nada por ahora.'}
+ else if(status==='pendiente'){t='Tu adhesión está en revisión';sub=`Enviada el ${subDate()}. Te avisamos por email en 2 a 3 días hábiles. No tenés que hacer nada por ahora.`}
  else if(status==='aprobado'){t=onMap?'Tu sucursal está activa y recibe canjes':'Tu sucursal está pausada';sub=onMap?'Los socios ya pueden canjear su café acá.':'No figura en la app hasta que la reactives.'}
  else {t='Estado de esta sucursal';sub='Escribinos para resolverlo.'}
  return `<div class="hero"><div class="hero-main"><span class="hero-eyebrow">Sucursal · ${sn}</span><h2>${t}</h2><p class="muted">${sub}</p>${extra}</div>${cta?`<div class="hero-cta">${cta}</div>`:''}</div>`}
@@ -1181,14 +1216,14 @@ function previewApp(){
 function updatePreview(){const e=document.getElementById('appPrev');if(e)e.innerHTML=previewApp()}
 let dirtyKey=null,dirtySnap=null;
 const dkey=()=>mview+':'+cur;
-function saveBar(label){const d=dirtyKey===dkey();return `<div class="savebar ${d?'dirty':''}" role="region" aria-label="Guardado de cambios"><span class="sb-msg" aria-live="polite">${d?'Tenés cambios sin guardar':'Todo guardado'}</span><span class="sb-act"><button class="btn sec" data-discard ${d?'':'hidden'}>Descartar</button><button class="btn" data-save>${label}</button></span></div>`}
+function saveBar(label){const d=dirtyKey===dkey();const need=api.live&&mview==='disp'&&!doneDisp&&(status==='borrador'||status==='correccion');return `<div class="savebar ${d||need?'dirty':''}" role="region" aria-label="Guardado de cambios"><span class="sb-msg" aria-live="polite">${d?'Tenés cambios sin guardar':(need?'Revisá tus horarios y cupo, y confirmalos para completar este paso':'Todo guardado')}</span><span class="sb-act"><button class="btn sec" data-discard ${d?'':'hidden'}>Descartar</button><button class="btn" data-save>${need&&!d?'Confirmar y guardar':label}</button></span></div>`}
 function markDirty(){if(dirtyKey===dkey())return;dirtyKey=dkey();dirtySnap=JSON.stringify({sched,cupo,svc:[...svc],photos,logo,extra,FD});const b=document.querySelector('.savebar');if(b){b.classList.add('dirty');b.querySelector('.sb-msg').textContent='Tenés cambios sin guardar';const d=b.querySelector('[data-discard]');d&&d.removeAttribute('hidden')}}
 function tip(t){return `<span class="tip" tabindex="0" role="note" data-tip="${t}" aria-label="${t}">?</span>`}
 function mInicio(){
  const act=status==='aprobado';
  const sb= status==='correccion'?`<div class="banner corr"><div><b>Tu estado: Cafeteando te pidió correcciones</b><br><span class="muted">Mensaje del equipo: "Falta la foto de la barra. Subí al menos 3 fotos del local y reenviá."</span></div>${bd('correccion')}</div>`
   : status==='borrador'?`<div class="banner pend"><div><b>Tu estado: adhesión pendiente de completar</b><br><span class="muted">Completá los pasos de abajo y enviala a revisión. Tu local todavía no figura en el mapa.</span></div>${bd('borrador')}</div>`
-  : status==='pendiente'?`<div class="banner pend"><div><b>Tu estado: adhesión en revisión</b><br><span class="muted">Enviada el 14/10. Te avisamos por email cuando Cafeteando la revise (2 a 3 días hábiles).</span></div>${bd('pendiente')}</div>`
+  : status==='pendiente'?`<div class="banner pend"><div><b>Tu estado: adhesión en revisión</b><br><span class="muted">Enviada el ${subDate()}. Te avisamos por email cuando Cafeteando la revise (2 a 3 días hábiles).</span></div>${bd('pendiente')}</div>`
   : `<div class="banner ok"><div><b>Tu estado: aprobado</b><br><span class="muted">Tu local está habilitado para recibir canjes.</span></div>${bd('aprobado')}</div>`;
  const left=cooldownLeft();const lock=act&&left>0;
  const mapc=`<div class="card"><div style="display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap"><div style="flex:1;min-width:240px"><h2>Activo para canjear ${tip('Si está apagado, tu local no aparece en la app y no recibe canjes. Usalo solo para excepciones.')}</h2><p class="muted" style="margin-top:4px">${act?(onMap?'Activado: tu local figura en la aplicación y los usuarios pueden realizar sus canjes.':'Desactivado: tu local no figura en la aplicación y no puede recibir canjes.'):'Podrás activarlo cuando Cafeteando apruebe tu adhesión.'}</p></div><div style="display:flex;gap:10px;align-items:center"><span class="hint"><b>${act&&onMap?'Activo':'Inactivo'}</b></span><button class="toggle ${act&&onMap?'on':''}" data-map ${act&&!lock?'':'disabled style="opacity:.4;cursor:not-allowed"'}></button></div></div>
@@ -1301,9 +1336,9 @@ function mAdh(){
   ${upd?`<div class="note" style="margin:10px 0"><b>Cambios de esta versión:</b> ${lc.summary}<br>Vigente desde el ${lc.date}. Tenés hasta el ${lc.deadline||'30 días'} para aceptarla; mientras tanto tu local sigue activo. Tu última versión aceptada: ${accV}.</div>`:`<p class="muted" style="margin:4px 0 12px">Leelo completo y aceptalo al final. Podés descargarlo en PDF cuando quieras.</p>`}
   <div style="max-height:220px;overflow:auto;background:var(--crema-clara);border:1.5px solid var(--line);border-radius:10px;padding:14px;white-space:pre-wrap;font-size:13px">${txt}</div>
   <div style="display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:14px">
-  ${upd?`<label style="font-weight:400;display:flex;gap:8px;margin:0"><input type="checkbox" style="width:auto" data-ctr2> Leí y acepto la nueva versión ${lc.v}</label>`:status==='borrador'?`<label style="font-weight:400;display:flex;gap:8px;margin:0"><input type="checkbox" style="width:auto" data-ctr ${contractOk?'checked':''}> Leí y acepto el contrato de adhesión (versión ${lc.v})</label>`:`<span class="badge b-aprobado">Aceptado el 14/10 · 15:42 · versión ${accV}</span>`}
+  ${upd?`<label style="font-weight:400;display:flex;gap:8px;margin:0"><input type="checkbox" style="width:auto" data-ctr2> Leí y acepto la nueva versión ${lc.v}</label>`:status==='borrador'?`<label style="font-weight:400;display:flex;gap:8px;margin:0"><input type="checkbox" style="width:auto" data-ctr ${contractOk?'checked':''}> Leí y acepto el contrato de adhesión (versión ${lc.v})</label>`:`<span class="badge b-aprobado">Aceptado el ${subDate()}${api.live?'':' · 15:42'} · versión ${accV}</span>`}
   <span style="display:flex;gap:8px">${upd?'<button class="btn sm" data-acc2 disabled style="opacity:.4;cursor:not-allowed">Aceptar versión '+lc.v+'</button>':''}<button class="btn sec sm" data-dl>Descargar PDF</button></span></div></div>`;
- const hist=`<details class="card fold"><summary><h2>Historial</h2></summary><ul class="log" style="margin-top:10px">${status!=='borrador'?`<li>14/10 · Enviaste la adhesión y aceptaste el contrato v1.0</li>${accV!=='1.0'?`<li>${latestC().date.slice(0,5)} · Aceptaste la versión ${accV} del contrato</li>`:''}`:''}${status==='aprobado'?'<li>16/10 · Cafeteando aprobó tu local y se generó tu código de canje</li>':''}<li>12/10 · Completaste tus datos básicos</li><li>12/10 · Creaste tu cuenta</li></ul></details>`;
+ const hist=`<details class="card fold"><summary><h2>Historial</h2></summary><ul class="log" style="margin-top:10px">${status!=='borrador'?`<li>${subDate()} · Enviaste la adhesión y aceptaste el contrato v1.0</li>${accV!=='1.0'?`<li>${latestC().date.slice(0,5)} · Aceptaste la versión ${accV} del contrato</li>`:''}`:''}${status==='aprobado'?'<li>16/10 · Cafeteando aprobó tu local y se generó tu código de canje</li>':''}<li>12/10 · Completaste tus datos básicos</li><li>12/10 · Creaste tu cuenta</li></ul></details>`;
  const send= (status==='borrador'||status==='correccion')?`<div class="card"><h2>Comentario adicional (opcional)</h2>${fld({id:'cm_extra',label:'¿Algo más que quieras contarnos?',tag:'textarea',rows:2})}</div><details class="card guide" style="padding:14px 18px"><summary>¿Qué datos son obligatorios?</summary><p style="margin:8px 0 4px"><b>Obligatorios:</b> nombre del local, persona de contacto, rol, teléfono o WhatsApp, dirección (provincia y ciudad o barrio), horarios y días de atención, cupo diario (mínimo 5), servicios (al menos uno), logo, fotos (mínimo 3) y la aceptación del contrato.</p><p style="margin:4px 0"><b>Opcionales:</b> razón social, CUIT, redes, cómo te enteraste, link de Google Maps, descripción, beneficios adicionales y comentarios.</p></details><div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><div><b>${status==='correccion'?'Reenviar a revisión':'Enviar a revisión'}</b><p class="muted">${all?'Todo listo. Cafeteando revisará tu local.':'Antes completá: '+[!doneCafe&&'Mi cafetería',!doneDisp&&'Disponibilidad',!contractOk&&'aceptar el contrato'].filter(Boolean).join(', ')+'.'}</p></div><button class="btn" data-send ${all?'':'disabled style="opacity:.4;cursor:not-allowed"'}>Enviar adhesión</button></div>`:'';
  return header+'<div class="cols2"><div>'+contrato+'</div><div class="stack">'+send+hist+'</div></div>'}
 
@@ -1573,7 +1608,7 @@ const curBarrio=()=>FD.ad_b!==undefined?FD.ad_b:(addrSel?addrSel.b:'');
 let addrSel={a:'Bonpland 1500',b:'Palermo'},addrText='',pin={x:52,y:46};
 function showAddrErr(m){const i=document.getElementById('ad_in');if(!i)return;i.classList.toggle('invalid',!!m);i.setAttribute('aria-invalid',m?'true':'false');const b=document.getElementById('err-ad_in');if(b)b.textContent=m}
 function addrField(){const sel=addrSel;const v=sel?(sel.custom?sel.a:sel.a+', '+sel.b):addrText;const bval=FD.ad_b!==undefined?FD.ad_b:(sel?sel.b:'');
- return `<div class="field addrf"><label for="ad_in">Dirección <span class="req" aria-hidden="true">*</span><span class="sr"> (obligatorio)</span></label><div class="addrwrap"><input id="ad_in" data-addr-in autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="ad_list" aria-describedby="hint-ad_in err-ad_in" aria-required="true" placeholder="Empezá a escribir calle y número" value="${esc(v)}"><ul id="ad_list" class="sugg" role="listbox" aria-label="Direcciones sugeridas" hidden></ul></div><div class="hint" id="hint-ad_in">Elegí una opción de la lista para ubicar tu local en el mapa. Si tu cafetería está en otra localidad, escribí la dirección completa y elegí "Usar como dirección": te avisamos cuando lleguemos a tu zona. (Simulado: en producción se conecta a un servicio de direcciones.)</div><div class="ferr" id="err-ad_in" role="alert"></div></div>
+ return `<div class="field addrf"><label for="ad_in">Dirección <span class="req" aria-hidden="true">*</span><span class="sr"> (obligatorio)</span></label><div class="addrwrap"><input id="ad_in" data-addr-in autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="ad_list" aria-describedby="hint-ad_in err-ad_in" aria-required="true" placeholder="Empezá a escribir calle y número" value="${esc(v)}"><ul id="ad_list" class="sugg" role="listbox" aria-label="Direcciones sugeridas" hidden></ul></div><div class="hint" id="hint-ad_in">Elegí una opción de la lista para ubicar tu local en el mapa. Si tu cafetería está en otra localidad, escribí la dirección completa y elegí "Usar como dirección": te avisamos cuando lleguemos a tu zona. ${api.live?'':'(Simulado: en producción se conecta a un servicio de direcciones.)'}</div><div class="ferr" id="err-ad_in" role="alert"></div></div>
  <div class="grid g2">${fld({id:'ad_prov',label:'Provincia',rules:'req',tag:'select',opts:PROVS,def:(sel&&!sel.custom)?CABA:'',ph:'Elegí una provincia'})}${fld({id:'ad_b',label:'Ciudad o barrio',rules:'req',def:bval,list:'dl_barrios',listOpts:BARRIOS,ph:'Ej: Palermo',ac:'off'})}</div>
  ${sel?`<div class="mapbox"><div class="map" data-map-area><div class="pin" data-pin tabindex="0" role="img" aria-label="Pin de ubicación. Arrastralo o usá las flechas para ajustarlo." style="left:${pin.x}%;top:${pin.y}%"><svg viewBox="0 0 24 32" width="30" height="40" aria-hidden="true"><path d="M12 0C5.4 0 0 5.2 0 11.7 0 20 12 32 12 32s12-12 12-20.3C24 5.2 18.6 0 12 0z" fill="#A96649"/><circle cx="12" cy="11.5" r="4.5" fill="#fff"/></svg></div></div><p class="hint" style="margin-top:6px">Confirmá que el pin está sobre tu local. Podés arrastrarlo para ajustarlo.</p></div>`:''}`}
 function bindAddr(){const inp=document.querySelector('[data-addr-in]');if(!inp)return;const list=document.getElementById('ad_list');let act=-1,items=[];
