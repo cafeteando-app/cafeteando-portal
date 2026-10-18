@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Cafeteando · Portal de comercios</title>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&family=Red+Hat+Display:wght@500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
 :root{--ink:#2B1D16;--accent:#8F513A;--nav-bg:#2B1D16;--nav-link:#ffffffcc;--nav-on-bg:#ffffff14;--nav-on-fg:#E58F6A;--nav-sub:#E3A784;--nav-hover:#ffffff0d;--nav-who:#ffffff0d;--nav-line:#ffffff14;--bad-text:#B3443A;--bg-neutral:#ECE6E0;--fg-neutral:#5A4F48;--bg-warn:#FFF1D6;--fg-warn:#9A6411;--bg-info:#E3EEF9;--fg-info:#2F5F94;--bg-ok:#DDF1E5;--fg-ok:#2F6A4A;--bg-bad:#F8DEDA;--fg-bad:#9C372E;--bg-susp:#EADDD6;--fg-susp:#6b3b28;--bg-note:#FFF8E6;--bg-local:#EFDDCB;--line-local:#E3A784;color-scheme:light;--terracota:#A96649;--terracota-oscuro:#8F513A;--terracota-claro:#E3A784;--crema:#F6EEE4;--crema-clara:#FBF7F1;--blanco:#fff;--espresso:#2B1D16;--muted:#6F5F55;--line:#E6D9CB;--ok:#3E7D5A;--warn:#B7791F;--bad:#B3443A;--info:#3B6EA5;--r:14px;--sh:0 2px 10px rgba(43,29,22,.08)}
 *{box-sizing:border-box;margin:0}
@@ -572,6 +573,8 @@ html{overflow-x:hidden}body{overflow-x:clip}
 <button data-v="admin">Panel Cafeteando (admin)</button>
 <button id="netbtn">Error de conexión</button><button id="sesbtn">Sesión vencida</button><button id="skipcd">Saltar bloqueo de 5 min</button><span class="sp"></span><span>locales.somoscafeteando.com.ar</span></div>
 <div id="app"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>window.LF=window.L</script>
 <script>
 /* Configuración del portal.
    mode: 'mock'     -> datos de ejemplo en memoria (maqueta), muestra la barra de demo. No se conecta a nada.
@@ -1710,18 +1713,34 @@ function addrField(){const sel=addrSel;const v=sel?(sel.custom?sel.a:sel.a+', '+
 function bindAddr(){const inp=document.querySelector('[data-addr-in]');if(!inp)return;const list=document.getElementById('ad_list');let act=-1,items=[];
  const close=()=>{list.hidden=true;inp.setAttribute('aria-expanded','false');inp.removeAttribute('aria-activedescendant');act=-1};
  const mark=()=>{[...list.querySelectorAll('li[data-ai]')].forEach((li,i)=>li.classList.toggle('act',i===act));if(act>=0)inp.setAttribute('aria-activedescendant','ad_o'+act)};
- const open=q=>{items=ADDRS.filter(a=>(a[0]+' '+a[1]).toLowerCase().includes(q.trim().toLowerCase())).slice(0,6);
-  if(q.trim().length>=3)items.push('use');list.innerHTML=items.map((a,i)=>a==='use'?`<li role="option" id="ad_o${i}" data-ai="${i}" class="use">Usar «${esc(q.trim())}» como dirección (otra localidad)</li>`:`<li role="option" id="ad_o${i}" data-ai="${i}"><b>${a[0]}</b> <small>${a[1]}, CABA</small></li>`).join('')||'<li class="none" role="option" aria-disabled="true">Seguí escribiendo la calle y el número.</li>';
+ const open=q=>{items=(api.live?[]:ADDRS).filter(a=>(a[0]+' '+a[1]).toLowerCase().includes(q.trim().toLowerCase())).slice(0,6);
+  if(q.trim().length>=3)items.push('use');list.innerHTML=items.map((a,i)=>a==='use'?`<li role="option" id="ad_o${i}" data-ai="${i}" class="use">${api.live?'Ubicar «'+esc(q.trim())+'» en el mapa':'Usar «'+esc(q.trim())+'» como dirección (otra localidad)'}</li>`:`<li role="option" id="ad_o${i}" data-ai="${i}"><b>${a[0]}</b> <small>${a[1]}, CABA</small></li>`).join('')||'<li class="none" role="option" aria-disabled="true">Seguí escribiendo la calle y el número.</li>';
   list.hidden=false;inp.setAttribute('aria-expanded','true');act=-1;
   list.querySelectorAll('li[data-ai]').forEach(li=>{li.onmousedown=e=>e.preventDefault();li.onclick=()=>pick(+li.dataset.ai)})};
- const pick=i=>{if(items[i]==='use'){addrSel={a:inp.value.trim(),b:FD.ad_b||'',custom:1};addrText='';pin={x:52,y:46};TOUCH.ad_in=0;render();const n=document.getElementById('ad_b');n&&n.focus();return}const a=items[i];addrSel={a:a[0],b:a[1]};addrText='';FD.ad_b=a[1];FD.ad_prov=CABA;pin={x:52,y:46};TOUCH.ad_in=0;render();const n=document.getElementById('ad_in');if(n)n.focus()};
+ const pick=i=>{if(items[i]==='use'){addrSel={a:inp.value.trim(),b:FD.ad_b||'',custom:1};addrText='';pin={x:52,y:46};if(api.live&&FD.ad_prov===undefined)FD.ad_prov=CABA;TOUCH.ad_in=0;render();const n=document.getElementById('ad_b');n&&n.focus();return}const a=items[i];addrSel={a:a[0],b:a[1]};addrText='';FD.ad_b=a[1];FD.ad_prov=CABA;pin={x:52,y:46};TOUCH.ad_in=0;render();const n=document.getElementById('ad_in');if(n)n.focus()};
  inp.addEventListener('input',()=>{addrText=inp.value;if(addrSel){addrSel=null;const m=document.querySelector('.mapbox');if(m)m.remove()}showAddrErr('');if(inp.value.trim().length>=2)open(inp.value);else close()});
  inp.addEventListener('keydown',e=>{if(list.hidden)return;const n=list.querySelectorAll('li[data-ai]').length;if(e.key==='ArrowDown'){e.preventDefault();act=(act+1)%Math.max(n,1);mark()}else if(e.key==='ArrowUp'){e.preventDefault();act=(act-1+n)%Math.max(n,1);mark()}else if(e.key==='Enter'&&act>=0){e.preventDefault();pick(act)}else if(e.key==='Escape'){e.stopPropagation();close()}});
  inp.addEventListener('blur',()=>{setTimeout(close,150);if(!addrSel&&TOUCH.ad_in!==0&&inp.value.trim())showAddrErr('Para ubicarla en el mapa, elegí una dirección de la lista.')});
  const pn=document.querySelector('[data-pin]'),mp=document.querySelector('[data-map-area]');
- if(pn&&mp){const set=(x,y)=>{pin.x=Math.max(4,Math.min(96,x));pin.y=Math.max(8,Math.min(96,y));pn.style.left=pin.x+'%';pn.style.top=pin.y+'%'};
+ realMap();if(pn&&mp){const set=(x,y)=>{pin.x=Math.max(4,Math.min(96,x));pin.y=Math.max(8,Math.min(96,y));pn.style.left=pin.x+'%';pn.style.top=pin.y+'%'};
   pn.addEventListener('pointerdown',e=>{e.preventDefault();pn.setPointerCapture&&pn.setPointerCapture(e.pointerId);const mv=ev=>{const r=mp.getBoundingClientRect();if(r.width)set((ev.clientX-r.left)/r.width*100,(ev.clientY-r.top)/r.height*100)};const up=()=>{pn.removeEventListener('pointermove',mv);pn.removeEventListener('pointerup',up)};pn.addEventListener('pointermove',mv);pn.addEventListener('pointerup',up)});
   pn.addEventListener('keydown',e=>{const d={ArrowLeft:[-2,0],ArrowRight:[2,0],ArrowUp:[0,-2],ArrowDown:[0,2]}[e.key];if(d){e.preventDefault();set(pin.x+d[0],pin.y+d[1])}})}}
+
+// Mapa real (OpenStreetMap + Leaflet): el pin se ve sobre la calle y se puede arrastrar.
+function realMap(){const box=document.querySelector('[data-map-area]');if(!box||typeof LF==='undefined'||box.dataset.real)return;box.dataset.real='1';
+ const old=box.querySelector('[data-pin]');if(old)old.remove();box.style.background='none';box.style.height='260px';
+ const map=LF.map(box,{zoomControl:true,scrollWheelZoom:false}).setView(pin.lat?[pin.lat,pin.lng]:[-34.6037,-58.3816],pin.lat?17:12);
+ LF.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+ const mk=LF.marker(map.getCenter(),{draggable:true}).addTo(map);
+ mk.on('dragend',()=>{const c=mk.getLatLng();pin.lat=c.lat;pin.lng=c.lng});
+ map.on('click',e=>{mk.setLatLng(e.latlng);pin.lat=e.latlng.lat;pin.lng=e.latlng.lng});
+ const place=async()=>{const val=id=>{const e=document.getElementById(id);return e?e.value:''};const q=[addrSel&&addrSel.a,val('ad_b'),val('ad_prov'),'Argentina'].filter(Boolean).join(', ');
+  try{const r=await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=ar&accept-language=es&q='+encodeURIComponent(q));const a=await r.json();
+   if(a&&a[0]){pin.lat=+a[0].lat;pin.lng=+a[0].lon;mk.setLatLng([pin.lat,pin.lng]);map.setView([pin.lat,pin.lng],17)}}catch(e){}};
+ if(pin.lat){mk.setLatLng([pin.lat,pin.lng])}else place();
+ ['ad_b','ad_prov'].forEach(id=>{const e=document.getElementById(id);if(e)e.addEventListener('change',()=>{pin.lat=null;place()})});
+ setTimeout(()=>map.invalidateSize(),200)}
+
 
 </script>
 <script>
