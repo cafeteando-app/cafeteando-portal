@@ -1721,7 +1721,7 @@ function bindAddr(){const inp=document.querySelector('[data-addr-in]');if(!inp)r
   if(q.trim().length>=3)items.push('use');list.innerHTML=items.map((a,i)=>a==='use'?`<li role="option" id="ad_o${i}" data-ai="${i}" class="use">${api.live?'Ubicar «'+esc(q.trim())+'» en el mapa':'Usar «'+esc(q.trim())+'» como dirección (otra localidad)'}</li>`:`<li role="option" id="ad_o${i}" data-ai="${i}"><b>${a[0]}</b> <small>${a[1]}, CABA</small></li>`).join('')||'<li class="none" role="option" aria-disabled="true">Seguí escribiendo la calle y el número.</li>';
   list.hidden=false;inp.setAttribute('aria-expanded','true');act=-1;
   list.querySelectorAll('li[data-ai]').forEach(li=>{li.onmousedown=e=>e.preventDefault();li.onclick=()=>pick(+li.dataset.ai)})};
- const pick=i=>{if(items[i]==='use'){addrSel={a:inp.value.trim(),b:FD.ad_b||'',custom:1};addrText='';pin={x:52,y:46};if(api.live&&FD.ad_prov===undefined)FD.ad_prov=CABA;TOUCH.ad_in=0;render();const n=document.getElementById('ad_b');n&&n.focus();return}const a=items[i];addrSel={a:a[0],b:a[1]};addrText='';FD.ad_b=a[1];FD.ad_prov=CABA;pin={x:52,y:46};TOUCH.ad_in=0;render();const n=document.getElementById('ad_in');if(n)n.focus()};
+ const pick=i=>{if(items[i]==='use'){addrSel={a:inp.value.trim(),b:FD.ad_b||'',custom:1};addrText='';pin={x:52,y:46};if(api.live){FD.ad_prov=CABA;FD.ad_b='';addrSel.b=''}TOUCH.ad_in=0;render();const n=document.getElementById('ad_b');n&&n.focus();return}const a=items[i];addrSel={a:a[0],b:a[1]};addrText='';FD.ad_b=a[1];FD.ad_prov=CABA;pin={x:52,y:46};TOUCH.ad_in=0;render();const n=document.getElementById('ad_in');if(n)n.focus()};
  inp.addEventListener('input',()=>{addrText=inp.value;if(addrSel){addrSel=null;const m=document.querySelector('.mapbox');if(m)m.remove()}showAddrErr('');if(inp.value.trim().length>=2)open(inp.value);else close()});
  inp.addEventListener('keydown',e=>{if(list.hidden)return;const n=list.querySelectorAll('li[data-ai]').length;if(e.key==='ArrowDown'){e.preventDefault();act=(act+1)%Math.max(n,1);mark()}else if(e.key==='ArrowUp'){e.preventDefault();act=(act-1+n)%Math.max(n,1);mark()}else if(e.key==='Enter'&&act>=0){e.preventDefault();pick(act)}else if(e.key==='Escape'){e.stopPropagation();close()}});
  inp.addEventListener('blur',()=>{setTimeout(close,150);if(!addrSel&&TOUCH.ad_in!==0&&inp.value.trim())showAddrErr('Para ubicarla en el mapa, elegí una dirección de la lista.')});
@@ -1738,11 +1738,21 @@ function realMap(){const box=document.querySelector('[data-map-area]');if(!box||
  const mk=LF.marker(map.getCenter(),{draggable:true}).addTo(map);
  mk.on('dragend',()=>{const c=mk.getLatLng();pin.lat=c.lat;pin.lng=c.lng;pin.moved=true});
  map.on('click',e=>{mk.setLatLng(e.latlng);pin.lat=e.latlng.lat;pin.lng=e.latlng.lng;pin.moved=true});
- const place=async()=>{const val=id=>{const e=document.getElementById(id);return e?e.value:''};const q=[addrSel&&addrSel.a,val('ad_b'),val('ad_prov'),'Argentina'].filter(Boolean).join(', ');
-  try{const r=await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=ar&accept-language=es&q='+encodeURIComponent(q));const a=await r.json();
-   if(a&&a[0]){pin.lat=+a[0].lat;pin.lng=+a[0].lon;if(addrSel&&addrSel.custom)pin.moved=true;mk.setLatLng([pin.lat,pin.lng]);map.setView([pin.lat,pin.lng],17)}}catch(e){}};
+ const norm=x=>(x||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+ const run=async q=>{const r=await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&addressdetails=1&countrycodes=ar&accept-language=es&q='+encodeURIComponent(q));const a=await r.json();return a&&a[0]};
+ const fill=a=>{const ad=a.address||{};const st=norm(ad.state);let prov=PROVS.find(p=>norm(p)===st);
+  if(!prov&&(st.includes('ciudad autonoma')||(norm(ad.city)==='buenos aires'&&!ad.state_district)))prov=CABA;
+  let b='';
+  if(prov===CABA){const cands=[ad.suburb,ad.neighbourhood,ad.quarter,ad.city_district,ad.borough,ad.village].filter(Boolean).map(norm);
+   b=BARRIOS.find(x=>cands.includes(norm(x)))||BARRIOS.find(x=>cands.some(c=>c.includes(norm(x))))||BARRIOS.find(x=>norm(a.display_name).split(',').map(t=>t.trim()).includes(norm(x)))||''}
+  else b=ad.city||ad.town||ad.village||ad.municipality||ad.suburb||'';
+  const ch=(prov&&FD.ad_prov!==prov)||FD.ad_b!==b;if(prov)FD.ad_prov=prov;FD.ad_b=b;if(addrSel)addrSel.b=b;if(ch)render()};
+ const place=async(manual)=>{const val=id=>{const e=document.getElementById(id);return e?e.value:''};const auto=!manual&&!!(addrSel&&addrSel.custom);
+  const q=[addrSel&&addrSel.a,val('ad_b'),val('ad_prov'),'Argentina'].filter(Boolean).join(', ');
+  try{let a=await run(q);if(!a&&auto)a=await run((addrSel.a||'')+', Argentina');
+   if(a){pin.lat=+a.lat;pin.lng=+a.lon;if(auto)pin.moved=true;mk.setLatLng([pin.lat,pin.lng]);map.setView([pin.lat,pin.lng],17);if(auto)fill(a)}}catch(e){}};
  if(pin.lat){mk.setLatLng([pin.lat,pin.lng])}else place();
- ['ad_b','ad_prov'].forEach(id=>{const e=document.getElementById(id);if(e)e.addEventListener('change',()=>{pin.lat=null;pin.moved=true;place()})});
+ ['ad_b','ad_prov'].forEach(id=>{const e=document.getElementById(id);if(e)e.addEventListener('change',()=>{pin.lat=null;pin.moved=true;place(true)})});
  setTimeout(()=>map.invalidateSize(),200)}
 
 
