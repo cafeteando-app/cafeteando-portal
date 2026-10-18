@@ -500,7 +500,7 @@ html.noscroll,html.noscroll body{overflow:auto;height:auto}
 /* ---- Ajustes celular (v mobile-fix): grilla 1 columna, ayuda en la barra superior, barra de guardado compacta ---- */
 @media(max-width:800px){
  .shell{grid-template-columns:minmax(0,1fr)!important}.main{min-width:0;width:100%}
- html,body{overflow-x:hidden}.auth2{overflow-x:hidden}
+ .auth2{overflow-x:hidden}
  .helpwrap{top:7px!important;bottom:auto!important;right:10px!important;flex-direction:column;align-items:flex-end}
  body:has(.bellico) .helpwrap{right:94px!important}
  .helpfab{width:36px;height:36px;min-height:0!important;padding:0;justify-content:center;box-shadow:none;background:var(--nav-who,#ffffff12);border:1px solid var(--nav-line,#ffffff30);font-size:0}
@@ -517,6 +517,32 @@ html.noscroll,html.noscroll body{overflow:auto;height:auto}
  .nav:not(.mnav)::after{content:'';position:fixed;top:0;right:0;width:100px;height:54px;background:linear-gradient(90deg,transparent,var(--nav-bg) 35%);z-index:35;pointer-events:none}
  .nav:not(.mnav) a:last-of-type{margin-right:90px}
 }
+
+/* ---- Ronda portal 2: login sin scroll/reborde, ayuda sin flotar, nav fijo, cursores, modo oscuro ---- */
+html{overflow-x:hidden}body{overflow-x:clip}
+.auth2{overflow:hidden!important}
+.auth2 .a2-lead{margin:14px 0 44px}
+.auth2 .a2-mascot{height:88px}.auth2 .a2-brand{font-size:46px}.auth2 .a2-h1{margin-top:20px}
+.auth2{padding-top:clamp(12px,2.2vh,28px)!important;padding-bottom:clamp(16px,3vh,32px)!important}
+@media(min-width:801px){
+ .shell{align-items:start}
+ .nav{position:sticky!important;top:0;height:100vh;overflow-y:auto;overflow-x:hidden}
+ body:has(.nav) .helpwrap{left:14px!important;right:auto!important;bottom:16px!important;width:212px;align-items:stretch}
+ body:has(.nav) .helpfab{width:100%;justify-content:center;background:#ffffff12;border:1px solid #ffffff30;box-shadow:none;color:#fff}
+ body:has(.nav) .helpfab:hover{background:#ffffff22}
+ body:has(.nav) .helpbox{min-width:0}
+ body:not(:has(.nav)) .helpwrap{top:16px!important;bottom:auto!important;right:18px!important}
+ body:not(:has(.nav)) .helpfab{width:38px;height:38px;padding:0;justify-content:center;font-size:0;box-shadow:none}
+ body:not(:has(.nav)) .helpfab span{font-size:16px;background:#fff}
+ body:not(:has(.nav)) .helpbox{position:fixed;top:60px;right:18px;min-width:240px}
+}
+@media(max-width:1000px) and (min-width:801px){body:has(.nav) .helpwrap{width:172px}}
+.chip,[data-svc],[data-chip],.toggle:not([disabled]),[data-tg],.ltab,.btn:not([disabled]),.tabs button,.nav a,.themeico,.bellico,.helpfab,summary,.eye,[data-lb],.faq-q{cursor:pointer}
+.chip:not(.on):hover,[data-svc]:not(.on):hover{border-color:var(--terracota);background:var(--crema-clara)}
+.chip,[data-svc]{user-select:none;transition:background .15s,border-color .15s,color .15s}
+[data-theme=dark]{--muted:#D6C6B9}
+[data-theme=dark] .hint,[data-theme=dark] .muted,[data-theme=dark] .statusrow>span:first-child,[data-theme=dark] .lb-code,[data-theme=dark] small{color:#D6C6B9}
+[data-theme=dark] .infobox p,[data-theme=dark] .ltab small{color:#D6C6B9}
 
 </style>
 </head>
@@ -772,6 +798,14 @@ const api = (() => {
 
     async myCafeInfo() {
       try { const { data, error } = await client.rpc('my_cafe_info'); return error ? {} : (data || {}); } catch (e) { return {}; }
+    },
+
+    async getEmailPrefs() {
+      try { const { data } = await client.from('merchants').select('email_prefs').maybeSingle(); return (data && data.email_prefs) || {}; } catch (e) { return {}; }
+    },
+
+    async setEmailPref(key, value) {
+      try { const { error } = await client.rpc('set_email_pref', { p_key: key, p_value: !!value }); return !error; } catch (e) { return false; }
     },
 
     async myStats() {
@@ -1410,7 +1444,7 @@ function mCanje(){
  <div class="card"><div class="grid g2">${st.map(([t,d],i)=>`<div style="display:flex;gap:12px"><div class="kpi" style="font-size:26px;min-width:30px">${i+1}</div><div><h3>${t}</h3><p class="muted">${d}</p></div></div>`).join('')}</div></div>
  <div class="cols"><div class="card"><h2>Si el canje no funciona</h2><br><p>• <b>Fuera de horario:</b> el canje solo se habilita dentro de tus franjas.<br>• <b>Cupo agotado:</b> ya se canjeó el cupo diario. Podés subirlo en Disponibilidad.<br>• <b>Límite del socio:</b> cada socio tiene un máximo de canjes por mes.<br>• <b>Local oculto o pendiente:</b> revisá tu estado en Inicio.</p></div>
  <div class="card"><h2>¿Necesitás ayuda?</h2><p class="muted" style="margin:4px 0 12px">Escribinos y te respondemos a la brevedad.</p><button class="btn sm">WhatsApp de soporte</button> <button class="btn sec sm">contactocafeteando@gmail.com</button></div></div>`}
-function mCuenta(){return `<div class="top"><h1>Mi cuenta</h1></div><div class="cols lastfull"><div class="card"><div class="grid g2"><div class="field"><label>Email</label><input value="${esc(bizMail())}" disabled></div>${fld({id:'ac_phone',label:'Teléfono',rules:'req,phone',type:'tel',def:'11 5555-1234',ac:'tel'})}</div><button class="btn sm" data-phone-save>Guardar</button></div><div class="card" data-pwcard><h2>Cambiar contraseña</h2><br><div class="grid g2"><div>${fld({id:'ac_p1',label:'Nueva contraseña',rules:'req,pass',eye:true,ac:'new-password',hint:'Mínimo 8 caracteres, con una letra y un número.'})}</div><div>${fld({id:'ac_p2',label:'Repetir contraseña',rules:'req,match',match:'ac_p1',eye:true,ac:'new-password'})}</div></div><button class="btn sec sm" data-pw-update>Actualizar contraseña</button></div><div class="card"><h2>Documentos legales</h2><p style="margin-top:8px"><a href="#" data-legal="terminos">Términos y condiciones</a> · <a href="#" data-legal="privacidad">Política de privacidad</a> · <a href="#" data-m="adh">Contrato de adhesión (v${accV})</a></p></div><details class="card fold"><summary><h2>Avisos por email</h2></summary><p class="muted" style="margin:10px 0 12px">Te escribimos a ${esc(bizMail())}.</p>${[['Cambios en el estado de tu adhesión (aprobada, correcciones, rechazo)',true,true],['Cambios publicados o rechazados en tu cafetería',true,true],['Recordatorio antes de que termine una pausa programada',true,false],['Novedades de Cafeteando',false,false]].map(([l,on,lock])=>`<div style="display:flex;gap:12px;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--line)"><span>${l}${lock?' <small class="hint">(obligatorio)</small>':''}</span><button class="toggle ${on?'on':''}" ${lock?'disabled style="opacity:.5;cursor:not-allowed"':'data-tg'}></button></div>`).join('')}</details><div class="card" style="border:1.5px solid var(--bad)"><h2 style="color:var(--bad-text)">Baja de cuenta y datos</h2><p class="muted" style="margin:4px 0 12px">Podés pedir la baja de tu cuenta y de tus datos personales. Tu local deja de figurar en la app y no recibe más canjes. Cafeteando procesa el pedido y te confirma por email.</p><button class="btn bad sm" data-baja>Solicitar baja</button></div></div><button class="btn sec" data-logout>Cerrar sesión</button>`}
+function mCuenta(){return `<div class="top"><h1>Mi cuenta</h1></div><div class="cols lastfull"><div class="card"><div class="grid g2"><div class="field"><label>Email</label><input value="${esc(bizMail())}" disabled></div>${fld({id:'ac_phone',label:'Teléfono',rules:'req,phone',type:'tel',def:'11 5555-1234',ac:'tel'})}</div><button class="btn sm" data-phone-save>Guardar</button></div><div class="card" data-pwcard><h2>Cambiar contraseña</h2><br><div class="grid g2"><div>${fld({id:'ac_p1',label:'Nueva contraseña',rules:'req,pass',eye:true,ac:'new-password',hint:'Mínimo 8 caracteres, con una letra y un número.'})}</div><div>${fld({id:'ac_p2',label:'Repetir contraseña',rules:'req,match',match:'ac_p1',eye:true,ac:'new-password'})}</div></div><button class="btn sec sm" data-pw-update>Actualizar contraseña</button></div><div class="card"><h2>Documentos legales</h2><p style="margin-top:8px"><a href="#" data-legal="terminos">Términos y condiciones</a> · <a href="#" data-legal="privacidad">Política de privacidad</a> · <a href="#" data-m="adh">Contrato de adhesión (v${accV})</a></p></div><details class="card fold"><summary><h2>Avisos por email</h2></summary><p class="muted" style="margin:10px 0 12px">Te escribimos a ${esc(bizMail())}.</p>${[['Cambios en el estado de tu adhesión (aprobada, correcciones, rechazo)','',true],['Cambios publicados o rechazados en tu cafetería','',true],['Recordatorio antes de que termine una pausa programada','pause_reminder',false],['Novedades de Cafeteando','news',false]].map(([l,k,lock])=>`<div style="display:flex;gap:12px;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--line)"><span>${l}</span>${lock?'<span class="badge b-aprobado" style="white-space:nowrap">Siempre activo</span>':`<button type="button" class="toggle ${emailPrefs[k]?'on':''}" data-tg="${k}" aria-label="${l}"></button>`}</div>`).join('')}</details><div class="card" style="border:1.5px solid var(--bad)"><h2 style="color:var(--bad-text)">Baja de cuenta y datos</h2><p class="muted" style="margin:4px 0 12px">Podés pedir la baja de tu cuenta y de tus datos personales. Tu local deja de figurar en la app y no recibe más canjes. Cafeteando procesa el pedido y te confirma por email.</p><button class="btn bad sm" data-baja>Solicitar baja</button></div></div><button class="btn sec" data-logout>Cerrar sesión</button>`}
 
 /* ---------- ADMIN ---------- */
 function kgrid(t,items){return `<h3 style="margin:22px 0 10px">${t}</h3><div class="grid g4">${items.map(([l,v,h])=>`<div class="card" style="margin:0"><div class="muted">${l}</div><div class="kpi">${v}</div><div class="hint">${h||'&nbsp;'}</div></div>`).join('')}</div>`}
@@ -1643,14 +1677,14 @@ function onField(el){const p1=document.getElementById('r_p1'),p2=document.getEle
 function bindForms(){
  document.querySelectorAll('[data-f]').forEach(el=>{
   el.addEventListener('input',()=>{FD[el.id]=el.value;if(TOUCH[el.id]||el.classList.contains('invalid'))showErr(el,check(el));onField(el)});
-  el.addEventListener('change',()=>{FD[el.id]=el.value;if(el.id==='ob_rol'){render();const n=document.getElementById('ob_rol');n&&n.focus()}});
+  el.addEventListener('change',()=>{FD[el.id]=el.value;if(el.id==='ob_rol'){render();const n=document.getElementById('ob_rol');n&&n.focus()}if(el.id==='ad_prov'){const cb=curBarrio();if(el.value===CABA){if(!BARRIOS.includes(cb))FD.ad_b=''}else if(BARRIOS.includes(cb))FD.ad_b='';render();const n=document.getElementById('ad_prov');n&&n.focus()}});
   el.addEventListener('blur',()=>{TOUCH[el.id]=1;showErr(el,check(el));onField(el)});
   if(TOUCH[el.id])showErr(el,check(el))});
  document.querySelectorAll('[data-eye]').forEach(b=>b.onclick=()=>{const i=document.getElementById(b.dataset.eye);const show=i.type==='password';i.type=show?'text':'password';b.setAttribute('aria-pressed',show);b.setAttribute('aria-label',show?'Ocultar contraseña':'Mostrar contraseña');b.innerHTML=show?EYEOFF:EYE});
  onField(null);bindAddr()}
 
 /* ---------- dirección con autocompletado y mapa ---------- */
-const BARRIOS=['Palermo','Villa Crespo','Recoleta','Belgrano','San Telmo','Almagro','Colegiales','Caballito','Núñez','Chacarita','Retiro','Balvanera'];
+const BARRIOS=['Agronomía','Almagro','Balvanera','Barracas','Belgrano','Boedo','Caballito','Chacarita','Coghlan','Colegiales','Constitución','Flores','Floresta','La Boca','La Paternal','Liniers','Mataderos','Monte Castro','Montserrat','Nueva Pompeya','Núñez','Palermo','Parque Avellaneda','Parque Chacabuco','Parque Chas','Parque Patricios','Puerto Madero','Recoleta','Retiro','Saavedra','San Cristóbal','San Nicolás','San Telmo','Vélez Sarsfield','Versalles','Villa Crespo','Villa del Parque','Villa Devoto','Villa General Mitre','Villa Lugano','Villa Luro','Villa Ortúzar','Villa Pueyrredón','Villa Real','Villa Riachuelo','Villa Santa Rita','Villa Soldati','Villa Urquiza'];
 const ADDRS=[['Bonpland 1500','Palermo'],['Bonpland 1620','Palermo'],['Thames 1800','Palermo'],['Honduras 4800','Palermo'],['Av. Cabildo 2200','Belgrano'],['Av. Cabildo 2450','Belgrano'],['Av. Corrientes 5100','Villa Crespo'],['Scalabrini Ortiz 1200','Villa Crespo'],['Defensa 900','San Telmo'],['Av. Santa Fe 2900','Recoleta'],['Av. Rivadavia 4200','Almagro'],['Av. Juan B. Justo 3000','Colegiales'],['Av. Rivadavia 5100','Caballito'],['Av. del Libertador 7500','Núñez']];
 const PROVS=["Ciudad Autónoma de Buenos Aires", "Buenos Aires", "Catamarca", "Chaco", "Chubut", "Córdoba", "Corrientes", "Entre Ríos", "Formosa", "Jujuy", "La Pampa", "La Rioja", "Mendoza", "Misiones", "Neuquén", "Río Negro", "Salta", "San Juan", "San Luis", "Santa Cruz", "Santa Fe", "Santiago del Estero", "Tierra del Fuego", "Tucumán"];
 const CABA='Ciudad Autónoma de Buenos Aires';
@@ -1659,7 +1693,7 @@ let addrSel={a:'Bonpland 1500',b:'Palermo'},addrText='',pin={x:52,y:46};
 function showAddrErr(m){const i=document.getElementById('ad_in');if(!i)return;i.classList.toggle('invalid',!!m);i.setAttribute('aria-invalid',m?'true':'false');const b=document.getElementById('err-ad_in');if(b)b.textContent=m}
 function addrField(){const sel=addrSel;const v=sel?(sel.custom?sel.a:sel.a+', '+sel.b):addrText;const bval=FD.ad_b!==undefined?FD.ad_b:(sel?sel.b:'');
  return `<div class="field addrf"><label for="ad_in">Dirección <span class="req" aria-hidden="true">*</span><span class="sr"> (obligatorio)</span></label><div class="addrwrap"><input id="ad_in" data-addr-in autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="ad_list" aria-describedby="hint-ad_in err-ad_in" aria-required="true" placeholder="Empezá a escribir calle y número" value="${esc(v)}"><ul id="ad_list" class="sugg" role="listbox" aria-label="Direcciones sugeridas" hidden></ul></div><div class="hint" id="hint-ad_in">Elegí una opción de la lista para ubicar tu local en el mapa. Si tu cafetería está en otra localidad, escribí la dirección completa y elegí "Usar como dirección": te avisamos cuando lleguemos a tu zona. ${api.live?'':'(Simulado: en producción se conecta a un servicio de direcciones.)'}</div><div class="ferr" id="err-ad_in" role="alert"></div></div>
- <div class="grid g2">${fld({id:'ad_prov',label:'Provincia',rules:'req',tag:'select',opts:PROVS,def:(sel&&!sel.custom)?CABA:'',ph:'Elegí una provincia'})}${fld({id:'ad_b',label:'Ciudad o barrio',rules:'req',def:bval,list:'dl_barrios',listOpts:BARRIOS,ph:'Ej: Palermo',ac:'off'})}</div>
+ <div class="grid g2">${fld({id:'ad_prov',label:'Provincia',rules:'req',tag:'select',opts:PROVS,def:(sel&&!sel.custom)?CABA:'',ph:'Elegí una provincia'})}${(()=>{const pv=FD.ad_prov!==undefined?FD.ad_prov:((sel&&!sel.custom)?CABA:'');return pv===CABA?fld({id:'ad_b',label:'Barrio',rules:'req',tag:'select',opts:(bval&&!BARRIOS.includes(bval))?BARRIOS.concat([bval]):BARRIOS,def:bval,ph:'Elegí un barrio'}):fld({id:'ad_b',label:'Ciudad o localidad',rules:'req',def:bval,ph:'Ej: Rosario',ac:'off'})})()}</div>
  ${sel?`<div class="mapbox"><div class="map" data-map-area><div class="pin" data-pin tabindex="0" role="img" aria-label="Pin de ubicación. Arrastralo o usá las flechas para ajustarlo." style="left:${pin.x}%;top:${pin.y}%"><svg viewBox="0 0 24 32" width="30" height="40" aria-hidden="true"><path d="M12 0C5.4 0 0 5.2 0 11.7 0 20 12 32 12 32s12-12 12-20.3C24 5.2 18.6 0 12 0z" fill="#A96649"/><circle cx="12" cy="11.5" r="4.5" fill="#fff"/></svg></div></div><p class="hint" style="margin-top:6px">Confirmá que el pin está sobre tu local. Podés arrastrarlo para ajustarlo.</p></div>`:''}`}
 function bindAddr(){const inp=document.querySelector('[data-addr-in]');if(!inp)return;const list=document.getElementById('ad_list');let act=-1,items=[];
  const close=()=>{list.hidden=true;inp.setAttribute('aria-expanded','false');inp.removeAttribute('aria-activedescendant');act=-1};
@@ -1889,6 +1923,10 @@ function liveContractPdf() {
 const _hydrateNoContract = liveHydrate;
 liveHydrate = async function () { await liveLoadContract(); return _hydrateNoContract(); };
 
+var emailPrefs = { pause_reminder: true, news: false };
+const _hydrateEmailPrefs = liveHydrate;
+liveHydrate = async function () { const r = await _hydrateEmailPrefs(); try { const p = await api.getEmailPrefs(); emailPrefs = Object.assign({ pause_reminder: true, news: false }, p || {}); } catch (e) { /* defaults */ } return r; };
+
 </script>
 <script>
 /* Eventos, tema y arranque */
@@ -1975,7 +2013,7 @@ function bind(){
  document.querySelectorAll('[data-sel]').forEach(e=>e.onclick=()=>{sel=isNaN(+e.dataset.sel)?e.dataset.sel:+e.dataset.sel;aview='det';render()});
  document.querySelectorAll('[data-svc]').forEach(e=>{e.tabIndex=0;e.setAttribute('role','button');const i=+e.dataset.svc;e.setAttribute('aria-pressed',svc.has(i));const t=()=>{svc.has(i)?svc.delete(i):svc.add(i);e.classList.toggle('on',svc.has(i));e.setAttribute('aria-pressed',svc.has(i));const er=document.getElementById('err-svc');if(er&&svc.size)er.textContent=''};e.onclick=t;e.onkeydown=ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();t()}}});
  document.querySelectorAll('[data-chip]').forEach(e=>e.onclick=()=>{e.classList.toggle('on');e.setAttribute('aria-pressed',e.classList.contains('on'))});
- document.querySelectorAll('[data-tg]').forEach(e=>e.onclick=()=>{e.classList.toggle('on');e.setAttribute('aria-checked',e.classList.contains('on'))});
+ document.querySelectorAll('[data-tg]').forEach(e=>e.onclick=()=>{e.classList.toggle('on');e.setAttribute('aria-checked',e.classList.contains('on'));const k=e.dataset.tg,v=e.classList.contains('on');if(k)emailPrefs[k]=v;if(api.live&&k){api.setEmailPref(k,v).then(ok=>{if(!ok){e.classList.toggle('on');emailPrefs[k]=!v;toast('No se pudo guardar. Probá de nuevo.')}})}});
  document.querySelectorAll('[data-cupo]').forEach(e=>e.onchange=()=>{cupo=e.value===''?NaN:parseInt(e.value,10);render()});
  document.querySelectorAll('[data-ton]').forEach(e=>e.onclick=()=>{sched[+e.dataset.ton].on^=1;render()});
  document.querySelectorAll('[data-radd]').forEach(e=>e.onclick=()=>{const d=sched[+e.dataset.radd];const l=d.r[0][1];d.r.push([l<'17:00'?'17:00':l,'']);d.r[1]=['18:00','22:00'];render()});
