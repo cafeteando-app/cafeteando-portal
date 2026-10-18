@@ -556,7 +556,8 @@ const REQX={
  7:{tit:'Rita Soler',rol:'Socia',tel:'11 2222-8080',dir:'Av. Cabildo 2450',desc:'Cafetería de especialidad en Belgrano.',hor:'L a D 9:00–19:00',serv:'Origen único, blends propios',benef:'2x1 en tostadas (martes)',pub:{}}};
 REQ.forEach(r=>Object.assign(r,REQX[r.id]));
 let fq='',ff='all',netErr=false,helpOpen=false;const WA_NUMBER='';
-const cnt=()=>cur===0?{h:7,m:94}:{h:0,m:0};
+const cnt=()=>(typeof api!=='undefined'&&api.live)?{h:+((window.__stats||{}).today)||0,m:+((window.__stats||{}).month)||0}:(cur===0?{h:7,m:94}:{h:0,m:0});
+const stockN=()=>(typeof api!=='undefined'&&api.live)?(+((window.__stats||{}).stock)||0):15;
 
 </script>
 <script>
@@ -750,6 +751,10 @@ const api = (() => {
 
     async myCafeInfo() {
       try { const { data, error } = await client.rpc('my_cafe_info'); return error ? {} : (data || {}); } catch (e) { return {}; }
+    },
+
+    async myStats() {
+      try { const { data, error } = await client.rpc('my_cafe_stats'); return error ? {} : (data || {}); } catch (e) { return {}; }
     },
 
     async isAdmin() {
@@ -974,7 +979,7 @@ async function liveHydrate() {
   if (q.review_note) corrMsg = q.review_note;
   if (m.contact_name && !p.address) { view = 'onb'; ob = 1; mview = 'inicio'; return 'onb'; }
   if (status === 'aprobado') {
-    const ci = await api.myCafeInfo(); liveCafe = { code: ci.code || '', active: !!ci.active, enabled: !!ci.enabled };
+    window.__stats = await api.myStats(); const ci = await api.myCafeInfo(); liveCafe = { code: ci.code || '', active: !!ci.active, enabled: !!ci.enabled };
     if (ci.code) locals[0].code = ci.code;
     onMap = !!ci.active; cooldownUntil = ci.last_toggle_at ? new Date(ci.last_toggle_at).getTime() + 300000 : 0;
     const pc = await api.myPendingChange();
@@ -1201,7 +1206,7 @@ function heroInicio(){
 function checklist(){
  const items=stepItems();
  return `<div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap"><h2>Pasos para activar esta sucursal</h2></div>${items.map(([l,d,k])=>`<div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)"><span class="badge ${d?'b-aprobado':'b-pendiente'}">${d?'Listo':'Falta'}</span><span style="flex:1">${l}</span>${d?'':`<button class="btn sm sec" data-m="${k}">Completar</button>`}</div>`).join('')}</div>`}
-function ultimos(){if(cnt().h===0)return `<div class="card"><h2>Últimos canjes de hoy</h2><div class="empty"><b>Todavía no hubo canjes hoy</b><p class="muted">Cuando un socio canjee su café en esta sucursal, lo vas a ver acá con la hora.</p></div></div>`;const r=[['16:42','1 café de especialidad'],['15:58','1 café de especialidad'],['14:20','1 café de especialidad'],['12:05','1 café de especialidad'],['09:31','1 café de especialidad']];
+function ultimos(){if(cnt().h===0)return `<div class="card"><h2>Últimos canjes de hoy</h2><div class="empty"><b>Todavía no hubo canjes hoy</b><p class="muted">Cuando un socio canjee su café en esta sucursal, lo vas a ver acá con la hora.</p></div></div>`;const r=(api.live?((window.__stats||{}).recent||[]).map(t=>[t,'1 café de especialidad']):[['16:42','1 café de especialidad'],['15:58','1 café de especialidad'],['14:20','1 café de especialidad'],['12:05','1 café de especialidad'],['09:31','1 café de especialidad']]);
  return `<div class="card"><h2>Últimos canjes de hoy</h2><p class="muted" style="margin:4px 0 12px">Para consultar rápido ante cualquier duda. No se muestran datos personales de los socios.</p><table><tr><th>Hora</th><th>Detalle</th><th>Estado</th></tr>${r.map(x=>`<tr><td><b>${x[0]}</b></td><td>${x[1]}</td><td><span class="badge b-aprobado">Validado</span></td></tr>`).join('')}</table></div>`}
 function schedModal(){const m=document.createElement('div');m.style.cssText='position:fixed;inset:0;background:#2b1d1699;z-index:90;display:grid;place-items:center;padding:16px';m.innerHTML=`<div class="card" style="max-width:440px;width:100%;margin:0"><h2>Programar una pausa</h2><p class="muted" style="margin:6px 0 14px">Tu local se pausa solo en esas fechas y se reactiva automáticamente al terminar. No hace falta que lo hagas a mano.</p><div class="grid g2"><div class="field"><label>Desde *</label><input type="date" id="sd"></div><div class="field"><label>Hasta *</label><input type="date" id="sh"></div></div><div class="field"><label>Motivo</label><select id="sr"><option>Vacaciones</option><option>Fuerza mayor</option><option>Refacciones / obra</option><option>Otro</option></select></div><p class="err" id="se" style="display:none;margin-bottom:10px"></p><div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn sec" id="sc">Cancelar</button><button class="btn" id="sk">Programar</button></div></div>`;document.body.append(m);mountModal(m);m.querySelector('#sc').onclick=()=>m.remove();m.querySelector('#sk').onclick=()=>{const d=m.querySelector('#sd').value,h=m.querySelector('#sh').value,e=m.querySelector('#se');if(!d||!h||h<d){e.style.display='block';e.textContent=!d||!h?'Completá las dos fechas.':'La fecha final debe ser igual o posterior a la inicial.';return}const f=v=>v.split('-').reverse().slice(0,2).join('/');schedPause={from:f(d),to:f(h),reason:m.querySelector('#sr').value.toLowerCase()};m.remove();render();toast('Pausa programada. Te enviamos un email de confirmación (simulado)')}}
 
@@ -1247,7 +1252,7 @@ function mInicio(){
  ${act?`<div class="note" style="margin:14px 0 0">Esta opción es solo para <b>excepciones</b> (vacaciones, fuerza mayor, refacciones). No la uses para el día a día: para cambiar tus días y horarios de atención usá <a style="cursor:pointer" data-m="disp">Disponibilidad</a>. Después de cada cambio, el botón se bloquea por 5 minutos.</div>`:''}</div>`;
  return `<div class="top"><div><h1>Hola, ${esc(bizName())}</h1></div></div>${heroInicio()}
  ${needsUpdate()?`<div class="banner pend"><div><b>Hay una nueva versión del contrato (${latestC().v})</b><br><span class="muted">Leela y aceptala antes del ${latestC().deadline||'plazo indicado'}. Tu local sigue activo mientras tanto.</span></div><button class="btn sm" data-m="adh">Revisar y aceptar</button></div>`:''}
- <div class="grid g3 kpis"><div class="card"><div class="muted">Canjes hoy</div><div class="kpi">${act?cnt().h:'—'}</div>${act?'<div class="bar"><i style="width:${Math.round(cnt().h/15*100)}%"></i></div><div class="hint">de un cupo de 15 · <b>quedan ${15-cnt().h}</b></div>':'<div class="hint">Se activa al aprobarse</div>'}</div>
+ <div class="grid g3 kpis"><div class="card"><div class="muted">Canjes hoy</div><div class="kpi">${act?cnt().h:'—'}</div>${act?`<div class="bar"><i style="width:${Math.min(100,Math.round(cnt().h/(stockN()||1)*100))}%"></i></div><div class="hint">de un cupo de ${stockN()} · <b>quedan ${Math.max(0,stockN()-cnt().h)}</b></div>`:'<div class="hint">Se activa al aprobarse</div>'}</div>
  <div class="card"><div class="muted">Canjes del mes</div><div class="kpi">${act?cnt().m:'—'}</div></div>
  <div class="card"><div class="muted">Código de canje ${tip('Canje: cuando un socio te pide su café gratis. Te muestra este código de 5 dígitos para validarlo.')}</div><div class="kpi">${act?L().code:'—'}</div><div class="hint">${act?'Lo que validan tus clientes':'Se genera automáticamente al aprobarse'}</div></div></div>
  <div class="cols">${mapc}${act?ultimos():''}${status==='borrador'||status==='correccion'?checklist():''}</div>`}
