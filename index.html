@@ -553,7 +553,7 @@ html{overflow-x:hidden}body{overflow-x:clip}
 .nitem.unread:before{left:14px;top:23px;width:8px;height:8px}
 .nitem span{margin-top:4px;font-size:13px;line-height:1.5}
 .nitem small{display:block;margin-top:6px;font-size:12px}
-@media(min-width:801px){.notif{left:264px;top:18px}}
+@media(min-width:801px){.notif{left:24px;top:68px;width:min(380px,calc(100vw - 48px));box-shadow:0 14px 40px #2b1d1633}}
 @media(max-width:800px){.notif{top:60px;left:12px;right:12px;width:auto}}
 .notif>p.muted{padding:18px 22px!important}
 
@@ -979,6 +979,7 @@ async function liveSaveOnb(final) {
   const payload = {
     name: v('ob_name'), address: addrSel ? addrSel.a : null, neighborhood: curBarrio() || null,
     province: v('ad_prov'), maps_url: v('ob_maps'),
+    lat: pin.lat ? +pin.lat.toFixed(7) : null, lng: pin.lat ? +pin.lng.toFixed(7) : null,
   };
   Object.keys(payload).forEach((k) => payload[k] == null && delete payload[k]);
   const r = await api.saveOnboarding(merchant, payload, final && newBranch);
@@ -1008,7 +1009,7 @@ async function liveLoadRequests() {
       tit: m.contact_name || '', rol: m.role || '', tel: m.phone || '', dir: p.address || '', prov: p.province || '', desc: p.description || '',
       logoUrl: p.logo_url || '', photoUrls: Array.isArray(p.photos) ? p.photos : [],
       acc: (accRows.find((a) => a.merchant_id === q.merchant_id && a.version === p.contract_version_accepted) || null),
-      maps: p.maps_url || '', hor: liveFmtSched(p.schedule), serv: Array.isArray(p.services) ? p.services.join(', ') : '—', benef: Array.isArray(p.benefits) && p.benefits.length ? p.benefits.map((b) => b.text + (b.cond ? ' (' + b.cond + ')' : '')).join(' · ') : 'Sin beneficio adicional',
+      maps: p.maps_url || '', pinLat: p.lat != null ? +p.lat : null, pinLng: p.lng != null ? +p.lng : null, hor: liveFmtSched(p.schedule), serv: Array.isArray(p.services) ? p.services.join(', ') : '—', benef: Array.isArray(p.benefits) && p.benefits.length ? p.benefits.map((b) => b.text + (b.cond ? ' (' + b.cond + ')' : '')).join(' · ') : 'Sin beneficio adicional',
     });
   });
 }
@@ -1073,6 +1074,7 @@ async function liveHydrate() {
 
 function liveApplyPayload(p) {
   FD.ob_name = p.name || ''; FD.ob_maps = p.maps_url || '';
+  if (p.lat != null && p.lng != null) { pin.lat = +p.lat; pin.lng = +p.lng; pin.moved = false; } else { pin = { x: 52, y: 46 }; }
   FD.cf_name = p.name || ''; FD.cf_desc = p.description || ''; FD.cf_otros = p.other_services || '';
   if (p.address) { addrSel = { a: p.address, b: p.neighborhood || '' }; FD.ad_b = p.neighborhood || ''; FD.ad_prov = p.province || ''; locals[0].addr = p.address; locals[0].barrio = p.neighborhood || ''; }
   else { addrSel = null; delete FD.ad_b; delete FD.ad_prov; }
@@ -1097,6 +1099,7 @@ function liveBuildPayload() {
   };
   if (FD.cf_name !== undefined && FD.cf_name.trim()) payload.name = FD.cf_name.trim();
   if (addrSel) { payload.address = addrSel.a; payload.neighborhood = curBarrio(); if (FD.ad_prov) payload.province = FD.ad_prov; }
+  if (pin.lat && (status !== 'aprobado' || pin.moved)) { payload.lat = +pin.lat.toFixed(7); payload.lng = +pin.lng.toFixed(7); }
   if (logo && logo.url) payload.logo_url = logo.url;
   if (contractOk) payload.contract_version_accepted = accV;
   return payload;
@@ -1148,6 +1151,7 @@ function parseCoords(t) {
 }
 // Geocodificación automática (OpenStreetMap / Nominatim). El admin siempre puede corregir el valor.
 async function liveGeocode(r) {
+  if (r.pinLat != null && r.pinLng != null) return { lat: r.pinLat, lng: r.pinLng, label: 'ubicación confirmada por el local en el mapa' };
   const fromMaps = parseCoords(r.maps || '');
   if (fromMaps) return { lat: fromMaps.lat, lng: fromMaps.lng, label: 'tomado del link de Google Maps del local' };
   const tries = [
@@ -1217,7 +1221,7 @@ function render(){
 }
 document.querySelectorAll('.demo [data-v]').forEach(b=>b.onclick=()=>{
  if(['verify','forgot'].includes(b.dataset.v)){vEmail='tu@cafeteria.com';vLeft=0;fpSent=false;fpLeft=0}
- resetLocals();if(b.dataset.v==='onb'){addrSel=null;addrText='';delete FD.ad_b}else{addrSel={a:L().addr,b:L().barrio}}extra={items:[],pub:[],review:false};schedPause=null;chg={desc:false,fotos:false};openInfo=b.dataset.v==='m-corr'?0:null;view=b.dataset.v;mview='inicio';step=0;aview='lista';if(b.dataset.v==='admin')aview='resumen';
+ resetLocals();if(b.dataset.v==='onb'){addrSel=null;pin={x:52,y:46};addrText='';delete FD.ad_b}else{addrSel={a:L().addr,b:L().barrio}}extra={items:[],pub:[],review:false};schedPause=null;chg={desc:false,fotos:false};openInfo=b.dataset.v==='m-corr'?0:null;view=b.dataset.v;mview='inicio';step=0;aview='lista';if(b.dataset.v==='admin')aview='resumen';
  status={'m-nuevo':'borrador','m-pend':'pendiente','m-corr':'correccion','m-ok':'aprobado','m-two':'aprobado'}[view]||status;
  if(view==='m-two'){contractOk=doneCafe=doneDisp=true;locals.push({addr:'Av. Cabildo 2200',barrio:'Belgrano',code:'63094',snap:{status:'pendiente',onMap:true,doneCafe:true,doneDisp:true,pauseInfo:null,cooldownUntil:0,schedPause:null,chg:{desc:false,fotos:false},extra:{items:[],pub:[],review:false},photos:[{n:'Foto 1'},{n:'Foto 2'},{n:'Foto 3'}],logo:{n:'logo.png'}}})}
  if(view==='m-corr'){contractOk=true;doneCafe=false;doneDisp=true}
@@ -1289,7 +1293,7 @@ function ultimos(){if(cnt().h===0)return `<div class="card"><h2>Últimos canjes 
 function schedModal(){const m=document.createElement('div');m.style.cssText='position:fixed;inset:0;background:#2b1d1699;z-index:90;display:grid;place-items:center;padding:16px';m.innerHTML=`<div class="card" style="max-width:440px;width:100%;margin:0"><h2>Programar una pausa</h2><p class="muted" style="margin:6px 0 14px">Tu local se pausa solo en esas fechas y se reactiva automáticamente al terminar. No hace falta que lo hagas a mano.</p><div class="grid g2"><div class="field"><label>Desde *</label><input type="text" inputmode="numeric" maxlength="10" placeholder="dd/mm/aaaa" autocomplete="off" data-date id="sd"></div><div class="field"><label>Hasta *</label><input type="text" inputmode="numeric" maxlength="10" placeholder="dd/mm/aaaa" autocomplete="off" data-date id="sh"></div></div><div class="field"><label>Motivo</label><select id="sr"><option>Vacaciones</option><option>Fuerza mayor</option><option>Refacciones / obra</option><option>Otro</option></select></div><p class="err" id="se" style="display:none;margin-bottom:10px"></p><div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn sec" id="sc">Cancelar</button><button class="btn" id="sk">Programar</button></div></div>`;document.body.append(m);mountModal(m);m.querySelector('#sc').onclick=()=>m.remove();m.querySelector('#sk').onclick=()=>{const d=dIso(m.querySelector('#sd').value),h=dIso(m.querySelector('#sh').value),e=m.querySelector('#se');if(!d||!h||h<d){e.style.display='block';e.textContent=!d||!h?'Necesitamos las dos fechas en formato dd/mm/aaaa.':'La fecha final debe ser igual o posterior a la inicial.';return}const f=v=>v.split('-').reverse().slice(0,2).join('/');schedPause={from:f(d),to:f(h),reason:m.querySelector('#sr').value.toLowerCase()};m.remove();render();toast('Pausa programada. Te enviamos un email de confirmación (simulado)')}}
 
 let pvMode='detail';
-function previewApp(){
+function previewApp(){pvMode='detail';
  const nm=(FD.cf_name!==undefined?FD.cf_name:'Café Bonpland')||'Nombre de tu cafetería';
  const addr=addrSel?addrSel.a:L().addr,bar=addrSel?addrSel.b:L().barrio;
  const ph=photos.filter(x=>x.u),hero=ph[0]?ph[0].u:null;
@@ -1352,7 +1356,7 @@ function mCafe(){return `<div class="top"><div><h1>Mi cafetería</h1><p class="m
  ${photosCard()}
  <div class="card" id="svcCard"><h2>Servicios y opciones <span class="req" aria-hidden="true">*</span><span class="sr"> (obligatorio)</span></h2><p class="muted" style="margin:4px 0 12px">Podés elegir todas las que correspondan, para mostrar mejor qué ofrece tu espacio. Con una alcanza.</p><div class="chips">${VAR.map((v,i)=>`<span class="chip ${svc.has(i)?'on':''}" data-svc="${i}">${v}</span>`).join('')}</div><div class="ferr" id="err-svc" role="alert"></div>
  <div style="margin-top:14px">${fld({id:'cf_otros',label:'Otros servicios (opcional)',ph:'Wi-Fi, terraza, desayunos...'})}</div></div></div>
- <div class="pv-col"><div class="pv-tabs" role="tablist" aria-label="Vista previa en la app"><button role="tab" data-pv="detail" class="${pvMode==='detail'?'on':''}">Detalle</button><button role="tab" data-pv="list" class="${pvMode==='list'?'on':''}">En la lista</button></div><div class="appprev" id="appPrev">${previewApp()}</div><p class="hint" style="text-align:center;margin-top:8px">Réplica de la app. Se actualiza mientras completás.</p></div></div>${saveBar(status==='aprobado'?'Enviar cambios a revisión':'Guardar cambios')}`}
+ <div class="pv-col"><div class="appprev" id="appPrev">${previewApp()}</div><p class="hint" style="text-align:center;margin-top:8px">Réplica de la app. Se actualiza mientras completás.</p></div></div>${saveBar(status==='aprobado'?'Enviar cambios a revisión':'Guardar cambios')}`}
 
 </script>
 <script>
@@ -1732,13 +1736,13 @@ function realMap(){const box=document.querySelector('[data-map-area]');if(!box||
  const map=LF.map(box,{zoomControl:true,scrollWheelZoom:false}).setView(pin.lat?[pin.lat,pin.lng]:[-34.6037,-58.3816],pin.lat?17:12);
  LF.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
  const mk=LF.marker(map.getCenter(),{draggable:true}).addTo(map);
- mk.on('dragend',()=>{const c=mk.getLatLng();pin.lat=c.lat;pin.lng=c.lng});
- map.on('click',e=>{mk.setLatLng(e.latlng);pin.lat=e.latlng.lat;pin.lng=e.latlng.lng});
+ mk.on('dragend',()=>{const c=mk.getLatLng();pin.lat=c.lat;pin.lng=c.lng;pin.moved=true});
+ map.on('click',e=>{mk.setLatLng(e.latlng);pin.lat=e.latlng.lat;pin.lng=e.latlng.lng;pin.moved=true});
  const place=async()=>{const val=id=>{const e=document.getElementById(id);return e?e.value:''};const q=[addrSel&&addrSel.a,val('ad_b'),val('ad_prov'),'Argentina'].filter(Boolean).join(', ');
   try{const r=await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=ar&accept-language=es&q='+encodeURIComponent(q));const a=await r.json();
-   if(a&&a[0]){pin.lat=+a[0].lat;pin.lng=+a[0].lon;mk.setLatLng([pin.lat,pin.lng]);map.setView([pin.lat,pin.lng],17)}}catch(e){}};
+   if(a&&a[0]){pin.lat=+a[0].lat;pin.lng=+a[0].lon;if(addrSel&&addrSel.custom)pin.moved=true;mk.setLatLng([pin.lat,pin.lng]);map.setView([pin.lat,pin.lng],17)}}catch(e){}};
  if(pin.lat){mk.setLatLng([pin.lat,pin.lng])}else place();
- ['ad_b','ad_prov'].forEach(id=>{const e=document.getElementById(id);if(e)e.addEventListener('change',()=>{pin.lat=null;place()})});
+ ['ad_b','ad_prov'].forEach(id=>{const e=document.getElementById(id);if(e)e.addEventListener('change',()=>{pin.lat=null;pin.moved=true;place()})});
  setTimeout(()=>map.invalidateSize(),200)}
 
 
@@ -1980,7 +1984,7 @@ function bind(){
  document.querySelectorAll('[data-fpresend]').forEach(e=>e.onclick=()=>{if(api.live){liveForgot(e);return}fpLeft=60;render();toast('Link reenviado (simulado)')});
  document.querySelectorAll('[data-fpopen]').forEach(e=>e.onclick=()=>{delete FD.r_p1;delete FD.r_p2;delete TOUCH.r_p1;delete TOUCH.r_p2;view='reset';render()});
  document.querySelectorAll('[data-rpsave]').forEach(e=>e.onclick=ev=>{ev.preventDefault();if(!validateGroup(document.querySelector('[data-authform]')))return;if(api.live){liveUpdatePassword(e);return}delete FD.r_p1;delete FD.r_p2;tab='login';view='auth';render();toast('Contraseña actualizada. Ya podés iniciar sesión.')});
- document.querySelectorAll('[data-vdone]').forEach(e=>e.onclick=()=>{if(api.live){liveVerifiedCheck();return}view='onb';ob=0;addrSel=null;addrText='';delete FD.ad_b;delete FD.ad_prov;render();toast('Email verificado. ¡Bienvenido!')});
+ document.querySelectorAll('[data-vdone]').forEach(e=>e.onclick=()=>{if(api.live){liveVerifiedCheck();return}view='onb';ob=0;addrSel=null;pin={x:52,y:46};addrText='';delete FD.ad_b;delete FD.ad_prov;render();toast('Email verificado. ¡Bienvenido!')});
  document.querySelectorAll('[data-vresend]').forEach(e=>e.onclick=()=>{if(api.live){liveResend(e);return}vLeft=60;render();toast('Te reenviamos el email de verificación (simulado)')});
  document.querySelectorAll('[data-vchange]').forEach(e=>e.onclick=()=>{tab='reg';view='auth';render()});
  document.querySelectorAll('[data-vexpired]').forEach(e=>e.onclick=()=>{view='expired';render()});
@@ -2034,7 +2038,7 @@ function bind(){
  document.querySelectorAll('[data-legal]').forEach(e=>e.onclick=ev=>{ev.preventDefault();legalModal(e.dataset.legal)});
  document.querySelectorAll('[data-consent]').forEach(e=>e.onchange=()=>{FD.r_consent=e.checked;if(e.checked){const er=document.getElementById('err-r_consent');if(er)er.textContent=''}});
  document.querySelectorAll('[data-terms]').forEach(e=>e.onchange=()=>{FD.r_terms=e.checked;if(e.checked){const er=document.getElementById('err-r_terms');if(er)er.textContent=''}});
- document.querySelectorAll('[data-newloc]').forEach(e=>e.onclick=()=>{saveCur();newBranch=true;view='onb';ob=0;addrSel=null;addrText='';delete FD.ad_b;render()});
+ document.querySelectorAll('[data-newloc]').forEach(e=>e.onclick=()=>{saveCur();newBranch=true;view='onb';ob=0;addrSel=null;pin={x:52,y:46};addrText='';delete FD.ad_b;render()});
  document.querySelectorAll('[data-info]').forEach(e=>e.onclick=()=>{const i=+e.dataset.info;openInfo=openInfo===i?null:i;render()});
  document.querySelectorAll('[data-tab]').forEach(e=>e.onclick=()=>{const i=+e.dataset.tab;if(i===cur)return;saveCur();loadLoc(i);openInfo=null;mview='inicio';render()});
  document.querySelectorAll('[data-obc]').forEach(e=>e.onclick=()=>{view='m-app';newBranch=false;render()});
