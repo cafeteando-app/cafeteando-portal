@@ -557,6 +557,11 @@ html{overflow-x:hidden}body{overflow-x:clip}
 @media(max-width:800px){.notif{top:60px;left:12px;right:12px;width:auto}}
 .notif>p.muted{padding:18px 22px!important}
 
+/* Vista previa fija en su lugar; el mapa nunca tapa la barra de guardado */
+.pv-col{position:static!important}
+.leaflet-container{z-index:0;isolation:isolate}
+.savebar{z-index:1000}
+
 </style>
 </head>
 <body>
@@ -1726,7 +1731,7 @@ function bindAddr(){const inp=document.querySelector('[data-addr-in]');if(!inp)r
  inp.addEventListener('keydown',e=>{if(list.hidden)return;const n=list.querySelectorAll('li[data-ai]').length;if(e.key==='ArrowDown'){e.preventDefault();act=(act+1)%Math.max(n,1);mark()}else if(e.key==='ArrowUp'){e.preventDefault();act=(act-1+n)%Math.max(n,1);mark()}else if(e.key==='Enter'&&act>=0){e.preventDefault();pick(act)}else if(e.key==='Escape'){e.stopPropagation();close()}});
  inp.addEventListener('blur',()=>{setTimeout(close,150);if(!addrSel&&TOUCH.ad_in!==0&&inp.value.trim())showAddrErr('Para ubicarla en el mapa, elegí una dirección de la lista.')});
  const pn=document.querySelector('[data-pin]'),mp=document.querySelector('[data-map-area]');
- realMap();if(pn&&mp){const set=(x,y)=>{pin.x=Math.max(4,Math.min(96,x));pin.y=Math.max(8,Math.min(96,y));pn.style.left=pin.x+'%';pn.style.top=pin.y+'%'};
+ realMap();bindLocalidad();if(pn&&mp){const set=(x,y)=>{pin.x=Math.max(4,Math.min(96,x));pin.y=Math.max(8,Math.min(96,y));pn.style.left=pin.x+'%';pn.style.top=pin.y+'%'};
   pn.addEventListener('pointerdown',e=>{e.preventDefault();pn.setPointerCapture&&pn.setPointerCapture(e.pointerId);const mv=ev=>{const r=mp.getBoundingClientRect();if(r.width)set((ev.clientX-r.left)/r.width*100,(ev.clientY-r.top)/r.height*100)};const up=()=>{pn.removeEventListener('pointermove',mv);pn.removeEventListener('pointerup',up)};pn.addEventListener('pointermove',mv);pn.addEventListener('pointerup',up)});
   pn.addEventListener('keydown',e=>{const d={ArrowLeft:[-2,0],ArrowRight:[2,0],ArrowUp:[0,-2],ArrowDown:[0,2]}[e.key];if(d){e.preventDefault();set(pin.x+d[0],pin.y+d[1])}})}}
 
@@ -1755,6 +1760,17 @@ function realMap(){const box=document.querySelector('[data-map-area]');if(!box||
  ['ad_b','ad_prov'].forEach(id=>{const e=document.getElementById(id);if(e)e.addEventListener('change',()=>{pin.lat=null;pin.moved=true;place(true)})});
  setTimeout(()=>map.invalidateSize(),200)}
 
+
+// Otras provincias: sugerencias de localidades (Georef, API oficial del Estado argentino). Se baja la lista de la provincia una vez y se filtra acá.
+const PROV_ID={'Buenos Aires':'06','Catamarca':'10','Chaco':'22','Chubut':'26','Córdoba':'14','Corrientes':'18','Entre Ríos':'30','Formosa':'34','Jujuy':'38','La Pampa':'42','La Rioja':'46','Mendoza':'50','Misiones':'54','Neuquén':'58','Río Negro':'62','Salta':'66','San Juan':'70','San Luis':'74','Santa Cruz':'78','Santa Fe':'82','Santiago del Estero':'86','Tierra del Fuego':'94','Tucumán':'90'};
+const LOCS={};
+function bindLocalidad(){if(!api.live)return;const inp=document.getElementById('ad_b');if(!inp||inp.tagName!=='INPUT'||inp.dataset.loc)return;inp.dataset.loc='1';
+ let dl=document.getElementById('ad_b_dl');if(!dl){dl=document.createElement('datalist');dl.id='ad_b_dl';document.body.appendChild(dl)}inp.setAttribute('list','ad_b_dl');
+ const nz=x=>(x||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+ const prov=()=>{const e=document.getElementById('ad_prov');return e?e.value:''};
+ const get=async()=>{const p=prov(),id=PROV_ID[p];if(!id)return[];if(!LOCS[p]){try{const r=await fetch('https://apis.datos.gob.ar/georef/api/localidades?max=5000&campos=nombre&orden=nombre&provincia='+id);const j=await r.json();LOCS[p]=[...new Set((j.localidades||[]).map(x=>x.nombre))]}catch(e){return[]}}return LOCS[p]};
+ const show=async()=>{const q=nz(inp.value.trim());const all=await get();const a=q?all.filter(n=>nz(n).startsWith(q)).concat(all.filter(n=>!nz(n).startsWith(q)&&nz(n).includes(q))):all;dl.innerHTML=a.slice(0,15).map(n=>`<option value="${esc(n)}"></option>`).join('')};
+ inp.addEventListener('input',show);inp.addEventListener('focus',show)}
 
 </script>
 <script>
