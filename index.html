@@ -795,7 +795,7 @@ const api = (() => {
     async listRequests() {
       try {
         const { data, error } = await client.from('cafe_requests')
-          .select('id,merchant_id,status,kind,cafe_id,payload,review_note,submitted_at,created_at,merchants(contact_name,role,phone,contact_email)')
+          .select('id,merchant_id,status,kind,cafe_id,payload,review_note,reviewed_by_name,reviewed_at,reviewed_payload,submitted_at,created_at,merchants(contact_name,role,phone,contact_email)')
           .neq('status', 'draft').order('submitted_at', { ascending: false });
         return error ? { ok: false, error: errMsg(error) } : { ok: true, rows: data || [] };
       } catch (e) { return { ok: false, error: errMsg(e) }; }
@@ -1048,11 +1048,11 @@ async function liveLoadRequests() {
   r.rows.forEach((q) => {
     const p = q.payload || {}, m = q.merchants || {};
     if (q.kind === 'change') {
-      REQ.push({ id: q.id, chg: true, changes: p, n: baseName[q.cafe_id] || p.name || '(local)', b: '', f: fmt(q.submitted_at || q.created_at), s: ST[q.status] || 'pendiente', cupo: '—', mail: m.contact_email || '', tit: m.contact_name || '' });
+      REQ.push({ id: q.id, chg: true, changes: p, n: baseName[q.cafe_id] || p.name || '(local)', b: '', f: fmt(q.submitted_at || q.created_at), s: ST[q.status] || 'pendiente', cupo: '—', mail: m.contact_email || '', tit: m.contact_name || '', revBy: q.reviewed_by_name || '', revAt: q.reviewed_at || null });
       return;
     }
     REQ.push({
-      id: q.id, n: p.name || '(sin nombre)', b: p.neighborhood || '—', f: fmt(q.submitted_at || q.created_at),
+      id: q.id, raw: p, prevRaw: q.reviewed_payload || null, revBy: q.reviewed_by_name || '', revAt: q.reviewed_at || null, revNote: q.review_note || '', n: p.name || '(sin nombre)', b: p.neighborhood || '—', f: fmt(q.submitted_at || q.created_at),
       s: ST[q.status] || 'pendiente', cupo: p.daily_stock || '—', mail: m.contact_email || '',
       tit: m.contact_name || '', rol: m.role || '', tel: m.phone || '', dir: p.address || '', prov: p.province || '', desc: p.description || '',
       logoUrl: p.logo_url || '', photoUrls: Array.isArray(p.photos) ? p.photos : [],
@@ -1111,7 +1111,7 @@ async function liveHydrate() {
     const pc = await api.myPendingChange();
     if (pc.ok && pc.data && Object.keys(pc.data).length) {
       liveApplyPayload(Object.assign({}, p, pc.data));
-      chg.desc = Object.keys(pc.data).some((k) => ['name', 'description', 'address', 'neighborhood', 'maps_url', 'services', 'other_services'].includes(k));
+      chg.desc = Object.keys(pc.data).some((k) => ['name', 'description', 'address', 'neighborhood', 'maps_url', 'services', 'other_services', 'benefits', 'lat', 'lng'].includes(k));
       chg.fotos = Object.keys(pc.data).some((k) => ['photos', 'logo_url'].includes(k));
     }
   }
@@ -1592,14 +1592,19 @@ function adminDet(r){const pub=r.s==='aprobado'||r.s==='suspendido';const P=Obje
  const diff=(k,v)=>String(P[k])!==String(v);
  const cmp=[['Nombre','n',r.n],['Dirección','dir',r.dir+', '+r.b],['Cupo diario','cupo',r.cupo],['Descripción','desc',r.desc||'—'],['Beneficio adicional','benef',r.benef]];
  const imgs=adminImgs(r);
- return `<p><a href="#" data-a="lista">← Volver</a></p><br><div class="top"><div><h1>${r.n}</h1><p class="muted">${[r.b,r.mail].filter(x=>x&&x!=='—').join(' · ')}</p></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${bd(r.s)}<button class="btn sec sm" data-edit>Editar datos</button></div></div>
- <div class="card" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn ok" data-dec="ok">${api.live?'Aprobar':'Aprobar y activar'}</button>${api.live&&r.s==='aprobado'?'<button class="btn ok" data-dec="on">Activar en la app</button>':''}<button class="btn warn" data-dec="corr">Pedir correcciones</button><button class="btn bad" data-dec="rej">Rechazar</button><button class="btn sec" data-dec="susp">${api.live?'Desactivar':'Suspender'}</button></div>
- <div class="grid g2" style="align-items:start"><div><div class="card"><h2>Datos enviados</h2><br><table><tr><td class="muted">Contacto</td><td>${esc(r.tit)} · ${esc(r.rol)}</td></tr><tr><td class="muted">Teléfono</td><td>${esc(r.tel)}</td></tr><tr><td class="muted">Dirección</td><td>${esc(r.dir)}, ${r.b}</td></tr><tr><td class="muted">Horario</td><td>${esc(r.hor)}</td></tr><tr><td class="muted">Cupo diario</td><td>${r.cupo}</td></tr><tr><td class="muted">Servicios</td><td>${esc(r.serv)}</td></tr><tr><td class="muted">Descripción</td><td>${r.desc?esc(r.desc):'<span class="muted">Sin descripción</span>'}</td></tr><tr><td class="muted">Beneficio adicional</td><td>${esc(r.benef)}</td></tr></table></div>
- <div class="card"><h2>Imágenes</h2><p class="hint" style="margin:4px 0 10px">Tocá una imagen para verla en grande.</p><div class="photos">${imgs.map((x,i)=>`<button class="ph ${i===0?'logo':''}" data-lb="${i}" aria-label="Ver ${x[0]} en grande" style="border:0;cursor:zoom-in;${x[2]?'padding:0;overflow:hidden;background:#f2eee6':''}">${x[2]?`<img alt="${esc(x[0])}" src="${esc(x[2])}" style="width:100%;height:100%;object-fit:cover;display:block">`:x[1]}</button>`).join('')}</div></div>
+ const CH=adminCh(r);
+ const hl=(k)=>CH.rows[k]!==undefined?' style="background:#fff4d6;border-radius:8px"':'';
+ const was=(k)=>CH.rows[k]!==undefined?`<br><span class="badge b-correccion">Corregido</span> <small class="muted">Antes: ${esc(CH.rows[k])}</small>`:'';
+ const revLine=r.revBy&&r.revAt?`<p class="muted" style="margin:4px 0 0">Última decisión: <b>${esc(r.s==='aprobado'?'Aprobó':(r.s==='correccion'?'Pidió correcciones':(r.s==='rechazado'?'Rechazó':'Revisó')))} ${esc(r.revBy)}</b> · ${accFmt(r.revAt)}</p>`:'';
+ const chBanner=CH.any.length?`<div class="banner pend" style="margin-bottom:12px"><div><b>El local corrigió esto desde tu última revisión</b><br><span class="muted">${CH.any.join(' · ')}. Está marcado en amarillo abajo, con lo que había antes.</span></div></div>`:'';
+ return `<p><a href="#" data-a="lista">← Volver</a></p><br><div class="top"><div><h1>${r.n}</h1><p class="muted">${[r.b,r.mail].filter(x=>x&&x!=='—').join(' · ')}</p>${revLine}</div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${bd(r.s)}<button class="btn sec sm" data-edit>Editar datos</button></div></div>
+ ${chBanner}<div class="card" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn ok" data-dec="ok">${api.live?'Aprobar':'Aprobar y activar'}</button>${api.live&&r.s==='aprobado'?'<button class="btn ok" data-dec="on">Activar en la app</button>':''}<button class="btn warn" data-dec="corr">Pedir correcciones</button><button class="btn bad" data-dec="rej">Rechazar</button><button class="btn sec" data-dec="susp">${api.live?'Desactivar':'Suspender'}</button></div>
+ <div class="grid g2" style="align-items:start"><div><div class="card"><h2>Datos enviados</h2><br><table><tr><td class="muted">Contacto</td><td>${esc(r.tit)} · ${esc(r.rol)}</td></tr><tr><td class="muted">Teléfono</td><td>${esc(r.tel)}</td></tr><tr${hl('dir')}><td class="muted">Dirección</td><td>${esc(r.dir)}, ${r.b}${was('dir')}</td></tr><tr${hl('hor')}><td class="muted">Horario</td><td>${esc(r.hor)}${was('hor')}</td></tr><tr${hl('cupo')}><td class="muted">Cupo diario</td><td>${r.cupo}${was('cupo')}</td></tr><tr${hl('serv')}><td class="muted">Servicios</td><td>${esc(r.serv)}${was('serv')}</td></tr><tr${hl('desc')}><td class="muted">Descripción</td><td>${r.desc?esc(r.desc):'<span class="muted">Sin descripción</span>'}${was('desc')}</td></tr><tr${hl('benef')}><td class="muted">Beneficio adicional</td><td>${esc(r.benef)}${was('benef')}</td></tr></table></div>
+ <div class="card"${CH.imgChanged?' style="background:#fff4d6"':''}><h2>Imágenes ${CH.imgChanged?'<span class="badge b-correccion">Corregidas</span>':''}</h2><p class="hint" style="margin:4px 0 10px">Tocá una imagen para verla en grande.${CH.imgChanged?' Las marcadas como «Nueva» son las que cambió el local.':''}</p><div class="photos">${imgs.map((x,i)=>`<button class="ph ${i===0?'logo':''}" data-lb="${i}" aria-label="Ver ${x[0]} en grande" style="border:0;cursor:zoom-in;${x[2]?'padding:0;overflow:hidden;background:#f2eee6':''}">${x[2]?`<img alt="${esc(x[0])}" src="${esc(x[2])}" style="width:100%;height:100%;object-fit:cover;display:block">`:x[1]}${x[2]&&CH.newImgs.has(x[2])?'<span class="mainb" style="background:#c0392b;color:#fff">Nueva</span>':''}</button>`).join('')}</div></div>
  <div class="card"><h2>Lo que figura hoy en la app</h2>${pub?`<table style="margin-top:8px"><tr><th>Dato</th><th>Cargado por el comercio</th><th>Publicado en la app</th></tr>${cmp.map(([l,k,v])=>`<tr><td class="muted">${l}</td><td>${esc(v)}</td><td>${k==='dir'?esc(r.dir+', '+r.b):esc(P[k]||'—')} ${diff(k,k==='dir'?r.dir:(k==='desc'?(r.desc||''):v))&&!(k==='dir')?'<span class="badge b-correccion">Distinto</span>':''}</td></tr>`).join('')}</table>`:`<p class="muted" style="margin-top:8px">Todavía no se publicó nada en la app.</p>`}</div></div>
  <div><div class="card"><h2>Nota interna</h2><p class="hint" style="margin:4px 0 8px">Solo la ve el equipo de Cafeteando.</p><textarea rows="3" aria-label="Nota interna" placeholder="Ej: Hablé con la dueña, quiere subir el cupo en diciembre."></textarea></div>
  ${r.pend&&r.s==='aprobado'?'<div class="card" style="border:2px solid var(--info)"><h2>Cambios pendientes de revisión</h2><br><p>Descripción: «'+esc((r.pub||{}).desc||'')+'» → «'+esc(r.desc)+'»<br>Foto 2 reemplazada</p><br><button class="btn ok sm" data-pubchg>Publicar cambios</button> <button class="btn sec sm" data-rejchg>Rechazar</button></div>':''}<div class="card"><h2>Estado en la app</h2><br><p>${r.s==='aprobado'?(api.live?'Aprobado. Usá «Activar en la app» para que los socios lo vean.':'Visible en la app, canjes habilitados'):'Todavía no figura en la app'}</p>${api.live?'':'<p class="hint">Así se publica hoy en la tabla de cafés.</p>'}</div>
- <div class="card"><h2>Historial de cambios</h2><ul class="log">${(r.log||[]).map(x=>`<li>${x.d} · ${esc(x.t)}</li>`).join('')}<li>${r.f} · Comercio envió la adhesión</li><li>12/10 · Cuenta creada</li>${r.acc?`<li>${accFmt(r.acc.accepted_at)} · Aceptó el contrato (versión ${esc(r.acc.version)})</li>`:''}</ul></div></div></div>`}
+ <div class="card"><h2>Historial de cambios</h2><ul class="log">${(r.log||[]).map(x=>`<li>${x.d} · ${esc(x.t)}</li>`).join('')}<li>${r.f} · Comercio envió la adhesión</li>${r.revBy&&r.revAt?`<li>${accFmt(r.revAt)} · ${esc(r.s==='aprobado'?'Aprobó':(r.s==='correccion'?'Pidió correcciones':(r.s==='rechazado'?'Rechazó':'Revisó')))}: ${esc(r.revBy)}${r.revNote?' · «'+esc(r.revNote)+'»':''}</li>`:''}<li>12/10 · Cuenta creada</li>${r.acc?`<li>${accFmt(r.acc.accepted_at)} · Aceptó el contrato (versión ${esc(r.acc.version)})</li>`:''}</ul></div></div></div>`}
 function accFmt(d){const x=new Date(d),z=n=>String(n).padStart(2,'0');return z(x.getDate())+'/'+z(x.getMonth()+1)+'/'+x.getFullYear()+' '+z(x.getHours())+':'+z(x.getMinutes())}
 function adminImgs(r){if(api.live){const a=[];if(r.logoUrl)a.push(['Logo',r.n[0],r.logoUrl]);(r.photoUrls||[]).forEach((u,i)=>a.push(['Foto '+(i+1),String(i+1),u]));return a.length?a:[['Sin imágenes','—',null]]}return [['Logo',r.n[0]],['Foto 1','1'],['Foto 2','2'],['Foto 3','3']]}
 function lightbox(r,i){const imgs=adminImgs(r);const m=document.createElement('div');m.style.cssText='position:fixed;inset:0;background:#000000cc;z-index:90;display:grid;place-items:center;padding:16px';
@@ -1696,6 +1701,23 @@ function inviteModal(){const m=document.createElement('div');m.style.cssText='po
  document.body.append(m);mountModal(m);m.querySelector('#ic').onclick=()=>m.remove();
  m.querySelector('#ik').onclick=()=>{const n=m.querySelector('#in_n').value.trim(),e=m.querySelector('#in_m').value.trim();const en=n?'':'Este campo es obligatorio.';const ee=RULES.req(e)||RULES.email(e);m.querySelector('#in_ne').textContent=en;m.querySelector('#in_me').textContent=ee;if(en||ee)return;
   team.push({n,m:e,r:m.querySelector('#in_r').value,e:'Invitación enviada'});activity.unshift({d:nowS(),w:ADMIN,a:'Invitó a '+n+' ('+m.querySelector('#in_r').value+')'});m.remove();render();toast('Invitación enviada a '+e+' (simulado)')}}
+
+/* Qué corrigió el local desde la última vez que se le pidieron correcciones (solo en vivo). */
+function adminCh(r){const o={rows:{},any:[],imgChanged:false,newImgs:new Set()};if(!api.live||!r||r.s!=='pendiente'||!r.prevRaw||!r.raw)return o;
+ const a=r.prevRaw,b=r.raw,J=x=>JSON.stringify(x==null?null:x);const add=(k,label,was)=>{o.rows[k]=was;o.any.push(label)};
+ const sv=p=>[].concat(Array.isArray(p.services)?p.services:[],p.other_services?['Otros: '+p.other_services]:[]).join(', ')||'—';
+ const bn=p=>Array.isArray(p.benefits)&&p.benefits.length?p.benefits.map(x=>x.text).join(' · '):'Sin beneficio adicional';
+ if(J(a.name)!==J(b.name))add('n','Nombre',a.name||'—');
+ if(['address','neighborhood','province','lat','lng'].some(k=>J(a[k])!==J(b[k])))add('dir','Dirección y ubicación',[a.address,a.neighborhood].filter(Boolean).join(', ')||'—');
+ if(J(a.schedule)!==J(b.schedule))add('hor','Horarios',typeof liveFmtSched==='function'?liveFmtSched(a.schedule):'—');
+ if(J(a.daily_stock)!==J(b.daily_stock))add('cupo','Cupo diario',a.daily_stock||'—');
+ if(J(a.services)!==J(b.services)||J(a.other_services)!==J(b.other_services))add('serv','Servicios',sv(a));
+ if(J(a.description)!==J(b.description))add('desc','Descripción',a.description||'Sin descripción');
+ if(J(a.benefits)!==J(b.benefits))add('benef','Beneficios',bn(a));
+ const pa=Array.isArray(a.photos)?a.photos:[],pb=Array.isArray(b.photos)?b.photos:[];
+ pb.forEach(u=>{if(!pa.includes(u))o.newImgs.add(u)});if(a.logo_url!==b.logo_url&&b.logo_url)o.newImgs.add(b.logo_url);
+ if(o.newImgs.size||J(pa)!==J(pb)){o.imgChanged=true;o.any.push('Fotos o logo')}
+ return o}
 
 </script>
 <script>
@@ -1861,7 +1883,9 @@ const ACT_TXT = {
   admin_removed: 'Quitó un admin', policy_changed: 'Cambió la política de revisión',
 };
 const FIELD_ES = { name: 'Nombre', address: 'Dirección', neighborhood: 'Barrio', maps_url: 'Link de Maps', description: 'Descripción', logo_url: 'Logo', photos: 'Fotos',
-  services: 'Servicios', other_services: 'Otros servicios', schedule: 'Horarios', daily_stock: 'Cupo diario', province: 'Provincia' };
+  services: 'Servicios', other_services: 'Otros servicios', schedule: 'Horarios', daily_stock: 'Cupo diario', province: 'Provincia', benefits: 'Beneficios adicionales', lat: 'Ubicación (latitud)', lng: 'Ubicación (longitud)' };
+const ADMIN_NAMES = { 'julianlopezagustin1@gmail.com': 'Julián', 'luciana.bauchi@gmail.com': 'Luciana' };
+const adminName = (e) => ADMIN_NAMES[(e || '').toLowerCase()] || e || '—';
 
 const rpcErr = (e) => {
   const m = (e && e.message) || '';
@@ -1930,7 +1954,7 @@ adminEquipo = function () {
   <p class="hint" style="margin-top:8px">La persona tiene que crear su cuenta en el portal con ese mismo email y verificarlo.</p></div>
   <div class="card"><h2>Qué cambios necesitan revisión</h2><p class="muted" style="margin:4px 0 12px">Cuando un local ya aprobado cambia estos datos: "Directo" se publica al instante; "Revisión" espera tu aprobación.</p>
   <table><tr><th>Dato</th><th>Cómo se publica</th></tr>${P.map((f) => `<tr><td>${esc(f.label)}</td><td><select data-pol="${esc(f.field)}" aria-label="${esc(f.label)}"><option value="review" ${f.mode === 'review' ? 'selected' : ''}>Revisión</option><option value="direct" ${f.mode === 'direct' ? 'selected' : ''}>Directo</option></select></td></tr>`).join('')}</table></div>
-  <div class="card"><h2>Registro de actividad</h2><table><tr><th>Fecha</th><th>Quién</th><th>Qué hizo</th></tr>${A.length ? A.map((a) => `<tr><td>${fmtDT(a.at)}</td><td><b>${esc(a.actor_email || '—')}</b></td><td>${esc(ACT_TXT[a.action] || a.action)}${a.detail && a.detail.name ? ': ' + esc(a.detail.name) : ''}${a.detail && a.detail.email ? ': ' + esc(a.detail.email) : ''}</td></tr>`).join('') : '<tr><td colspan="3" class="muted">Todavía no hay actividad.</td></tr>'}</table></div>`;
+  <div class="card"><h2>Registro de actividad</h2><table><tr><th>Fecha</th><th>Quién</th><th>Qué hizo</th></tr>${A.length ? A.map((a) => `<tr><td>${fmtDT(a.at)}</td><td><b>${esc(adminName(a.actor_email))}</b></td><td>${esc(ACT_TXT[a.action] || a.action)}${a.detail && a.detail.name ? ': ' + esc(a.detail.name) : ''}${a.detail && a.detail.email ? ': ' + esc(a.detail.email) : ''}</td></tr>`).join('') : '<tr><td colspan="3" class="muted">Todavía no hay actividad.</td></tr>'}</table></div>`;
 };
 
 function liveInvit() {
@@ -1988,7 +2012,7 @@ async function liveSaveApproved() {
   const r = await api.submitChange(liveBuildPayload());
   if (!r.ok) { toast(r.error); return false; }
   const d = r.data || {};
-  chg.desc = (d.pending || []).some((k) => ['name', 'description', 'address', 'neighborhood', 'maps_url', 'services', 'other_services'].includes(k)) || chg.desc;
+  chg.desc = (d.pending || []).some((k) => ['name', 'description', 'address', 'neighborhood', 'maps_url', 'services', 'other_services', 'benefits', 'lat', 'lng'].includes(k)) || chg.desc;
   chg.fotos = (d.pending || []).some((k) => ['photos', 'logo_url'].includes(k)) || chg.fotos;
   toast((d.pending || []).length ? 'Los cambios quedaron en revisión. Mientras tanto se muestra la versión publicada.' + ((d.applied || []).length ? ' Horarios/cupo ya se aplicaron.' : '') : ((d.applied || []).length ? 'Horarios y cupo actualizados.' : 'No había cambios para guardar.'));
   return true;
