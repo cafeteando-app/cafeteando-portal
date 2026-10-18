@@ -734,6 +734,17 @@ const api = (() => {
       } catch (e) { return { ok: false, error: errMsg(e) }; }
     },
 
+    async setCafeActive(id, active) {
+      try {
+        const { error } = await client.rpc('admin_set_cafe_active', { p_request_id: id, p_active: !!active });
+        return error ? { ok: false, error: /NOT_APPROVED/.test(error.message || '') ? 'Ese local todavía no está aprobado.' : errMsg(error) } : { ok: true };
+      } catch (e) { return { ok: false, error: errMsg(e) }; }
+    },
+
+    async myCafeInfo() {
+      try { const { data, error } = await client.rpc('my_cafe_info'); return error ? {} : (data || {}); } catch (e) { return {}; }
+    },
+
     async isAdmin() {
       try { const { data, error } = await client.rpc('is_admin'); return !error && data === true; } catch (e) { return false; }
     },
@@ -938,6 +949,7 @@ async function liveHydrate() {
   status = S[q.status] || 'borrador';
   if (q.review_note) corrMsg = q.review_note;
   if (m.contact_name && !p.address) { view = 'onb'; ob = 1; mview = 'inicio'; return 'onb'; }
+  if (status === 'aprobado') { const ci = await api.myCafeInfo(); if (ci.code) locals[0].code = ci.code; }
   view = { borrador: 'm-nuevo', pendiente: 'm-pend', correccion: 'm-corr', aprobado: 'm-ok' }[status];
   mview = 'inicio';
   return view;
@@ -1018,6 +1030,12 @@ function liveApprove(r) {
     m.remove(); await liveLoadRequests(); render();
     toast('Aprobado. Código de canje: ' + x.code + ' (el local queda inactivo hasta activarlo).');
   };
+}
+
+async function liveSetActive(r, active) {
+  const x = await api.setCafeActive(r.id, active);
+  if (!x.ok) { toast(x.error); return; }
+  toast(active ? 'Listo: el local ya figura en la app.' : 'Listo: el local dejó de figurar en la app.');
 }
 
 </script>
@@ -1334,7 +1352,7 @@ function adminDet(r){const pub=r.s==='aprobado'||r.s==='suspendido';const P=Obje
  const cmp=[['Nombre','n',r.n],['Dirección','dir',r.dir+', '+r.b],['Cupo diario','cupo',r.cupo],['Descripción','desc',r.desc||'—'],['Beneficio adicional','benef',r.benef]];
  const imgs=[['Logo',r.n[0]],['Foto 1','1'],['Foto 2','2'],['Foto 3','3']];
  return `<p><a href="#" data-a="lista">← Volver</a></p><br><div class="top"><div><h1>${r.n}</h1><p class="muted">${r.b} · ${r.mail}</p></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${bd(r.s)}<button class="btn sec sm" data-edit>Editar datos</button></div></div>
- <div class="card" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn ok" data-dec="ok">Aprobar y activar</button><button class="btn warn" data-dec="corr">Pedir correcciones</button><button class="btn bad" data-dec="rej">Rechazar</button><button class="btn sec" data-dec="susp">Suspender</button></div>
+ <div class="card" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn ok" data-dec="ok">${api.live?'Aprobar':'Aprobar y activar'}</button>${api.live&&r.s==='aprobado'?'<button class="btn ok" data-dec="on">Activar en la app</button>':''}<button class="btn warn" data-dec="corr">Pedir correcciones</button><button class="btn bad" data-dec="rej">Rechazar</button><button class="btn sec" data-dec="susp">${api.live?'Desactivar':'Suspender'}</button></div>
  <div class="grid g2" style="align-items:start"><div><div class="card"><h2>Datos enviados</h2><br><table><tr><td class="muted">Contacto</td><td>${esc(r.tit)} · ${esc(r.rol)}</td></tr><tr><td class="muted">Teléfono</td><td>${esc(r.tel)}</td></tr><tr><td class="muted">Dirección</td><td>${esc(r.dir)}, ${r.b}</td></tr><tr><td class="muted">Horario</td><td>${esc(r.hor)}</td></tr><tr><td class="muted">Cupo diario</td><td>${r.cupo}</td></tr><tr><td class="muted">Servicios</td><td>${esc(r.serv)}</td></tr><tr><td class="muted">Descripción</td><td>${r.desc?esc(r.desc):'<span class="muted">Sin descripción</span>'}</td></tr><tr><td class="muted">Beneficio adicional</td><td>${esc(r.benef)}</td></tr></table></div>
  <div class="card"><h2>Imágenes</h2><p class="hint" style="margin:4px 0 10px">Tocá una imagen para verla en grande.</p><div class="photos">${imgs.map((x,i)=>`<button class="ph ${i===0?'logo':''}" data-lb="${i}" aria-label="Ver ${x[0]} en grande" style="border:0;cursor:zoom-in">${x[1]}</button>`).join('')}</div></div>
  <div class="card"><h2>Lo que figura hoy en la app</h2>${pub?`<table style="margin-top:8px"><tr><th>Dato</th><th>Cargado por el comercio</th><th>Publicado en la app</th></tr>${cmp.map(([l,k,v])=>`<tr><td class="muted">${l}</td><td>${esc(v)}</td><td>${k==='dir'?esc(r.dir+', '+r.b):esc(P[k]||'—')} ${diff(k,k==='dir'?r.dir:(k==='desc'?(r.desc||''):v))&&!(k==='dir')?'<span class="badge b-correccion">Distinto</span>':''}</td></tr>`).join('')}</table>`:`<p class="muted" style="margin-top:8px">Todavía no se publicó nada en la app (isActive = false).</p>`}</div></div>
@@ -1584,7 +1602,7 @@ function bind(){
  document.querySelectorAll('[data-wa]').forEach(e=>e.onclick=ev=>{ev.preventDefault();if(WA_NUMBER)window.open('https://wa.me/'+WA_NUMBER,'_blank');else toast('Falta cargar el número de WhatsApp de soporte')});
  document.querySelectorAll('[data-helpcanje]').forEach(e=>e.onclick=ev=>{ev.preventDefault();helpOpen=false;mview='canje';render()});
  document.querySelectorAll('[data-reloginx]').forEach(e=>e.onclick=()=>{view='auth';tab='login';render()});
- document.querySelectorAll('[data-dec]').forEach(e=>e.onclick=()=>decide(e.dataset.dec,REQ.find(x=>x.id===sel)));
+ document.querySelectorAll('[data-dec]').forEach(e=>e.onclick=()=>{const r=REQ.find(x=>x.id===sel);if(api.live&&(e.dataset.dec==='on'||e.dataset.dec==='susp')){liveSetActive(r,e.dataset.dec==='on');return}decide(e.dataset.dec,r)});
  document.querySelectorAll('[data-invite]').forEach(e=>e.onclick=inviteModal);
  document.querySelectorAll('[data-role]').forEach(e=>e.onchange=()=>{const i=+e.dataset.role,v=e.value;const admins=team.filter(x=>x.r==='Administrador').length;if(team[i].r==='Administrador'&&v!=='Administrador'&&admins<=1){e.value=team[i].r;document.getElementById('tm-e').textContent='Tiene que quedar al menos una persona con rol Administrador.';return}document.getElementById('tm-e').textContent='';team[i].r=v;activity.unshift({d:nowS(),w:ADMIN,a:'Cambió el rol de '+team[i].n+' a '+v});render();toast('Rol actualizado')});
  document.querySelectorAll('[data-tm-send]').forEach(e=>e.onclick=()=>{const i=+e.dataset.tmSend,inp=document.getElementById('tm'+i),v=inp.value.trim();const er=RULES.req(v)||RULES.email(v);if(er){inp.classList.add('invalid');document.getElementById('tm-e').textContent=er;inp.focus();return}team[i].m=v;team[i].e='Invitación enviada';activity.unshift({d:nowS(),w:ADMIN,a:'Invitó a '+team[i].n});render();toast('Invitación enviada a '+v+' (simulado)')});
