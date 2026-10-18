@@ -1419,6 +1419,7 @@ function adminLista(){const L2=reqFiltered();const chips=[['all','Todas'],['pend
 const BELL='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>';
 let bellOpen=false;const readN=new Set();
 function notifs(){
+ if(api.live&&typeof liveNotifs==='function')return liveNotifs();
  if(view==='admin'){const lc=latestC();const pend=38-lc.acc;const n=[
   {id:'ad1',t:'Nueva solicitud: Café Bonpland',d:'Enviada el 14/10. Lleva 3 días sin revisar.',time:'hace 3 días',go:()=>{sel=1;aview='det'}},
   {id:'ad2',t:'La Grano reenvió sus correcciones',d:'Revisá las fotos actualizadas.',time:'hace 1 día',go:()=>{sel=3;aview='det'}},
@@ -1750,6 +1751,19 @@ function liveInviteToken() {
     if (p && /^[0-9a-f-]{36}$/i.test(p)) { sessionStorage.setItem('pc_invite', p); history.replaceState(null, '', location.pathname + location.hash); }
     return sessionStorage.getItem('pc_invite');
   } catch (e) { return null; }
+}
+
+/* Avisos (campanita) reales */
+function liveNotifs() {
+  if (view === 'admin') {
+    return REQ.filter((r) => r.s === 'pendiente').map((r) => ({ id: 'rq' + r.id, t: (r.chg ? 'Cambios pendientes: ' : 'Nueva solicitud: ') + r.n, d: 'Enviada el ' + r.f + '.', time: r.f, go: () => { sel = r.id; aview = 'det'; } }));
+  }
+  const n = [];
+  if (status === 'correccion') n.push({ id: 'corr', t: 'Cafeteando te pidió correcciones', d: corrMsg, time: '', go: () => { mview = 'adh'; } });
+  if (status === 'aprobado') n.push({ id: 'okk', t: 'Tu local fue aprobado', d: 'Ya tenés tu código de canje.', time: '', go: () => { mview = 'inicio'; } });
+  if (status === 'pendiente') n.push({ id: 'pen', t: 'Tu adhesión está en revisión', d: 'Te avisamos cuando haya novedades.', time: '', go: () => { mview = 'inicio'; } });
+  if (status === 'aprobado' && (chg.desc || chg.fotos)) n.push({ id: 'chg', t: 'Tus cambios están en revisión', d: 'Mientras tanto se muestra la versión publicada.', time: '', go: () => { mview = 'cafe'; } });
+  return n;
 }
 
 </script>
