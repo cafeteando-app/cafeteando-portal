@@ -1979,7 +1979,7 @@ function liveInvit() {
   return `<div class="top"><div><h1>Invitaciones</h1><p class="muted">Locales ya cargados en la app. Invitá al dueño con su email: crea su clave en el portal y reclama su local. Copiá el link y mandáselo.</p></div></div>
   <div class="card"><table><tr><th>Local</th><th>Barrio</th><th>En la app</th><th>Estado</th><th></th></tr>${C.map((c) => `<tr><td><b>${esc(c.name)}</b></td><td>${esc(c.neighborhood || '—')}</td><td>${c.active ? 'Sí' : 'No'}</td>
   <td>${c.claimed ? '<span class="badge b-aprobado">Reclamado</span>' : c.invite ? `<span class="badge b-pendiente">Invitado: ${esc(c.invite.email)}</span>` : '<span class="badge b-borrador">Sin invitar</span>'}</td>
-  <td>${c.claimed ? '' : c.invite ? `<button class="btn sm sec" data-copyinv="${c.invite.token}">Copiar link</button> <button class="btn sm bad" data-revinv="${c.id}">Anular</button>` : `<button class="btn sm" data-inv="${c.id}" data-invn="${esc(c.name)}">Invitar</button>`}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">No hay locales.</td></tr>'}</table></div>`;
+  <td>${c.claimed ? '' : c.invite ? `<button class="btn sm sec" data-reinv="${c.id}" data-reinvm="${esc(c.invite.email)}">Reenviar mail</button> <button class="btn sm sec" data-copyinv="${c.invite.token}">Copiar link</button> <button class="btn sm bad" data-revinv="${c.id}">Anular</button>` : `<button class="btn sm" data-inv="${c.id}" data-invn="${esc(c.name)}">Invitar</button>`}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">No hay locales.</td></tr>'}</table></div>`;
 }
 
 adminDet = function (r) {
@@ -2006,15 +2006,17 @@ function liveBind() {
   $a('[data-pol]', (s) => (s.onchange = async () => { const x = await api.setPolicy(s.dataset.pol, s.value); if (!x.ok) { toast(x.error); await reload(); return; } await reload('Guardado.'); }));
   $a('[data-inv]', (b) => (b.onclick = () => {
     const m = document.createElement('div'); m.style.cssText = 'position:fixed;inset:0;background:#2b1d1699;z-index:90;display:grid;place-items:center;padding:16px';
-    m.innerHTML = `<div class="card" style="max-width:440px;width:100%;margin:0"><h2>Invitar a ${esc(b.dataset.invn)}</h2><p class="muted" style="margin:6px 0 12px">Escribí el email con el que el dueño va a crear su cuenta. Solo ese email podrá reclamar el local.</p>
-    <div class="field"><label for="ivm">Email del dueño</label><input id="ivm" type="email"><div class="ferr" id="ive" role="alert"></div></div><div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn sec" id="ivx">Cancelar</button><button class="btn" id="ivk">Crear invitación</button></div></div>`;
+    m.innerHTML = `<div class="card" style="max-width:440px;width:100%;margin:0"><h2>Invitar a ${esc(b.dataset.invn)}</h2><p class="muted" style="margin:6px 0 12px">Escribí el email del dueño. Le enviamos un mail con el link para reclamar el local y crear su contraseña. Solo ese email podrá reclamarlo.</p>
+    <div class="field"><label for="ivm">Email del dueño</label><input id="ivm" type="email"><div class="ferr" id="ive" role="alert"></div></div><div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn sec" id="ivx">Cancelar</button><button class="btn" id="ivk">Enviar invitación</button></div></div>`;
     document.body.append(m); mountModal(m); m.querySelector('#ivx').onclick = () => m.remove();
     m.querySelector('#ivk').onclick = async () => {
       const x = await api.invite(b.dataset.inv, m.querySelector('#ivm').value); if (!x.ok) { m.querySelector('#ive').textContent = x.error; return; }
+      const sentTo = (m.querySelector('#ivm').value || '').trim().toLowerCase();
       m.remove(); try { await navigator.clipboard.writeText(siteLink(x.data)); } catch (e) { /* sin portapapeles */ }
-      await reload('Invitación creada. Link copiado: mandáselo al dueño.');
+      await reload('Invitación enviada a ' + sentTo + '. También copiamos el link por si hace falta.');
     };
   }));
+  $a('[data-reinv]', (b) => (b.onclick = async () => { b.disabled = true; const x = await api.invite(b.dataset.reinv, b.dataset.reinvm); if (!x.ok) { b.disabled = false; return toast(x.error); } await reload('Invitación reenviada a ' + b.dataset.reinvm + '. El link anterior dejó de valer.'); }));
   $a('[data-copyinv]', (b) => (b.onclick = async () => { try { await navigator.clipboard.writeText(siteLink(b.dataset.copyinv)); toast('Link copiado.'); } catch (e) { toast(siteLink(b.dataset.copyinv)); } }));
   $a('[data-revinv]', (b) => (b.onclick = async () => { const x = await api.revokeInvite(b.dataset.revinv); if (!x.ok) return toast(x.error); await reload('Invitación anulada.'); }));
   $a('[data-chgok]', (b) => (b.onclick = async () => {
