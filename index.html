@@ -607,6 +607,11 @@ html{overflow-x:hidden}body{overflow-x:clip}
 
 .boot{min-height:100vh;display:grid;place-content:center;justify-items:center;gap:6px;text-align:center;color:var(--ink)}.boot b{font-size:26px;letter-spacing:.2px}.boot span{color:var(--muted);font-size:13px;animation:bootp 1.2s ease-in-out infinite}@keyframes bootp{50%{opacity:.4}}
 
+/* Campos en 2 columnas: etiqueta, control y mensajes alineados entre columnas aunque la etiqueta ocupe 2 líneas */
+.grid.g2>.field{display:grid;grid-template-rows:subgrid;grid-row:span 3;row-gap:0;align-content:start}
+.field .fmeta:empty{display:none}
+.grid.g2>.field>label{align-self:end}
+
 </style>
 </head>
 <body>
@@ -1778,7 +1783,7 @@ function fld(o){const id=o.id,rules=o.rules||'',req=rules.split(',').includes('r
  else if(o.tag==='select')ctl=`<select ${c}><option value="">${o.ph||'Falta elegir una opción'}</option>${o.opts.map(x=>`<option ${x===v?'selected':''}>${x}</option>`).join('')}</select>`;
  else if(o.eye)ctl=`<div class="pw"><input type="password" ${c} value="${esc(v)}"><button type="button" class="eye" data-eye="${id}" aria-label="Mostrar contraseña" aria-pressed="false">${EYE}</button></div>`;
  else ctl=`<input type="${o.type||'text'}" ${c} value="${esc(v)}">`;
- return `<div class="field">${lab}${ctl}${o.list?`<datalist id="${o.list}">${o.listOpts.map(x=>`<option value="${x}">`).join('')}</datalist>`:''}${o.hint?`<div class="hint" id="hint-${id}">${o.hint}</div>`:''}<div class="ferr" id="err-${id}" role="alert"></div></div>`}
+ return `<div class="field">${lab}${ctl}<div class="fmeta">${o.list?`<datalist id="${o.list}">${o.listOpts.map(x=>`<option value="${x}">`).join('')}</datalist>`:''}${o.hint?`<div class="hint" id="hint-${id}">${o.hint}</div>`:''}<div class="ferr" id="err-${id}" role="alert"></div></div></div>`}
 function validateGroup(root){let first=null;
  root.querySelectorAll('[data-f]').forEach(el=>{TOUCH[el.id]=1;const m=check(el);showErr(el,m);if(m&&!first)first=el});
  const ad=root.querySelector('[data-addr-in]');if(ad&&!addrSel){TOUCH.ad_in=1;showAddrErr('Para ubicarla en el mapa, elegí una dirección de la lista.');if(!first)first=ad}
