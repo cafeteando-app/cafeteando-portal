@@ -1275,7 +1275,7 @@ function render(){
  $('#app').innerHTML= view==='auth'?authV(): view==='admin'?adminV(): view==='onb'?onbV(): view==='verify'?verifyV(): view==='expired'?expiredV(): view==='forgot'?forgotV(): view==='reset'?resetV(): view==='invite'?inviteV(): merchV();
  const _dm=document.querySelector('.demo');document.documentElement.style.setProperty('--demoh',(_dm?_dm.offsetHeight:0)+'px');document.documentElement.classList.remove('noscroll');
  bind();
- try{const r=(typeof readyNow==='function')&&!['auth','admin','onb','verify','expired','forgot','reset','invite'].includes(view)&&readyNow();if(r&&!readyPrev&&(mview==='cafe'||mview==='disp'))toast('¡Listo! Completaste todos los pasos. Ahora enviá tu adhesión a revisión desde Mi adhesión.');readyPrev=!!r}catch(e){}
+ try{const r=(typeof readyNow==='function')&&!['auth','admin','onb','verify','expired','forgot','reset','invite'].includes(view)&&readyNow();if(r&&!readyPrev&&(mview==='cafe'||mview==='disp'))toast('¡Listo! Completaste todos los pasos. Ya podés enviar tu adhesión a revisión.');readyPrev=!!r}catch(e){}
 }
 document.querySelectorAll('.demo [data-v]').forEach(b=>b.onclick=()=>{
  if(['verify','forgot'].includes(b.dataset.v)){vEmail='tu@cafeteria.com';vLeft=0;fpSent=false;fpLeft=0}
@@ -1317,7 +1317,7 @@ function merchV(){
 
 let readyPrev=false;
 const readyNow=()=>{try{return (status==='borrador')&&stepItems().every(x=>x[1])}catch(e){return false}};
-function readyBanner(){if(!readyNow()||!(mview==='cafe'||mview==='disp'))return '';return `<div class="banner ok" role="status"><div><b>¡Completaste todos los pasos!</b><br><span class="muted">Último paso: enviá tu adhesión a revisión para que Cafeteando pueda aprobar tu local.</span></div><button class="btn sm" data-m="adh">Revisar y enviar a revisión</button></div>`}
+function readyBanner(){if(!readyNow()||!(mview==='cafe'||mview==='disp'))return '';return `<div class="banner ok" role="status"><div><b>¡Completaste todos los pasos!</b><br><span class="muted">Último paso: enviá tu adhesión a revisión para que Cafeteando pueda aprobar tu local.</span></div><button class="btn sm" data-quicksend>Enviar a revisión</button></div>`}
 function statusBanner(){
  if(status==='borrador')return `<div class="banner pend"><div><b>Te falta poco para sumar tu local</b><br><span class="muted">Tu local todavía no está visible en la app. Llevás 3 de 6 secciones.</span></div><button class="btn sm" data-m="adh">Continuar</button></div>`;
  if(status==='pendiente')return `<div class="banner pend"><div><b>Adhesión en revisión</b><br><span class="muted">Enviada el ${subDate()}. Te avisamos por email cuando el equipo de Cafeteando la revise (suele demorar 2 a 3 días hábiles).</span></div>${bd('pendiente')}</div>`;
@@ -1341,7 +1341,7 @@ function heroInicio(){
  if(status==='borrador'||status==='correccion'){
   t=status==='correccion'?'Cafeteando te pidió correcciones':'Para activar tu local, te falta completar unos datos. Te acompañamos en cada paso.';
   sub=status==='correccion'?'Cuando hagas los ajustes que te comentamos, reenviá tu solicitud y la revisamos enseguida. Mensaje del equipo: «'+esc(corrMsg)+'»':(nx?`Próximo paso: <b>${nx[0]}</b>.`:'Ya completaste todo: revisá y enviá la adhesión.');
-  cta=`<button class="btn" data-m="${status==='correccion'?'adh':(nx?nx[2]:'adh')}">${status==='correccion'?'Corregir y reenviar':(nx?'Continuar':'Enviar a revisión')}</button>`;
+  cta=(status==='borrador'&&!nx)?`<button class="btn" data-quicksend>Enviar a revisión</button>`:`<button class="btn" data-m="${status==='correccion'?'adh':(nx?nx[2]:'adh')}">${status==='correccion'?'Corregir y reenviar':(nx?'Continuar':'Enviar a revisión')}</button>`;
   extra=`<div class="hero-prog"><span>${n} de ${items.length} pasos completados</span>${bar}</div>`}
  else if(status==='pendiente'){t='Tu adhesión está en revisión';sub=`Enviada el ${subDate()}. Te avisamos por email en 2 a 3 días hábiles. No tenés que hacer nada por ahora.`}
  else if(status==='aprobado'){t=onMap?'Tu sucursal está activa y recibe canjes':'Tu sucursal está pausada';sub=onMap?'Los socios ya pueden canjear su café acá.':'No figura en la app hasta que la reactives.'}
@@ -2320,6 +2320,7 @@ function bind(){
  document.querySelectorAll('[data-map]').forEach(e=>e.onclick=()=>{if(api.live){liveToggleMap();return}if(onMap){pauseModal()}else{onMap=true;pauseInfo=null;cooldownUntil=Date.now()+300000;render();toast('Local activo nuevamente')}});
  document.querySelectorAll('[data-ctr]').forEach(e=>e.onchange=()=>{contractOk=e.checked;render()});
  document.querySelectorAll('[data-dl]').forEach(e=>e.onclick=()=>{if(api.live&&contractRaw)liveContractPdf();else toast('Descargando contrato.pdf (simulado)')});
+ document.querySelectorAll('[data-quicksend]').forEach(e=>e.onclick=()=>confirmModal({title:'¿Enviar tu adhesión a revisión?',text:'Cafeteando la va a revisar y te avisa por email. Suele demorar 2 a 3 días hábiles.',ok:'Enviar a revisión',onOk:()=>{if(api.live){liveSend(e);return}status='pendiente';render();toast('Adhesión enviada (simulado)')}}));
  document.querySelectorAll('[data-send]').forEach(e=>e.onclick=()=>{if(api.live){liveSend(e);return}status='pendiente';toast('Adhesión enviada. Te enviamos un email de confirmación (simulado)');mview='inicio';render()});
  const on_=$('[data-obn]'),op_=$('[data-obp]');
  if(on_)on_.onclick=async()=>{if(!validateGroup(document.querySelector('[data-step-card]')))return;
