@@ -605,22 +605,12 @@ html{overflow-x:hidden}body{overflow-x:clip}
  .nav .logo{margin-top:40px}
 }
 
+.boot{min-height:100vh;display:grid;place-content:center;justify-items:center;gap:6px;text-align:center;color:var(--ink)}.boot b{font-size:26px;letter-spacing:.2px}.boot span{color:var(--muted);font-size:13px;animation:bootp 1.2s ease-in-out infinite}@keyframes bootp{50%{opacity:.4}}
+
 </style>
 </head>
 <body>
-<div class="demo"><b>MAQUETA</b> datos de ejemplo, nada se guarda. Ver como:
-<button data-v="auth">Login / Registro</button>
-<button data-v="verify">Verificar email</button>
-<button data-v="forgot">Recuperar contraseña</button>
-<button data-v="onb">1. Datos básicos (post-registro)</button>
-<button data-v="m-nuevo">2. Panel: adhesión por completar</button>
-<button data-v="m-pend">3. Panel: en revisión</button>
-<button data-v="m-corr">3b. Panel: requiere correcciones</button>
-<button data-v="m-ok">4. Panel: aprobado</button>
-<button data-v="m-two">5. Panel: 2 sucursales</button>
-<button data-v="admin">Panel Cafeteando (admin)</button>
-<button id="netbtn">Error de conexión</button><button id="sesbtn">Sesión vencida</button><button id="skipcd">Saltar bloqueo de 5 min</button><span class="sp"></span><span>locales.somoscafeteando.com.ar</span></div>
-<div id="app"></div>
+<div id="app"><div class="boot" role="status" aria-live="polite"><b>Cafeteando</b><span>Cargando…</span></div></div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>window.LF=window.L</script>
 <script>
@@ -974,7 +964,13 @@ async function liveLogout() {
 }
 
 // Después de entrar: si viene de verificar el mail va al onboarding; si no, al panel.
+let _alBusy = false;
 async function liveAfterLogin(fromVerify) {
+  if (_alBusy) return;
+  _alBusy = true;
+  try { await _liveAfterLoginRun(fromVerify); } finally { _alBusy = false; }
+}
+async function _liveAfterLoginRun(fromVerify) {
   try { if (await api.isAdmin()) { await liveLoadRequests(); await liveLoadAdmin(); view = 'admin'; aview = 'lista'; render(); return; } } catch (e) { /* sigue como comercio */ }
   const tk = liveInviteToken();
   if (tk) {
@@ -2322,7 +2318,8 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&helpOpen&&!document
 ($('#sesbtn')||{}).onclick=()=>{if(['auth','onb','verify','expired','forgot','reset'].includes(view)){view='m-ok';status='aprobado';render()}sessionExpiredModal()};
 ($('#skipcd')||{}).onclick=()=>{cooldownUntil=0;render();toast('Cooldown reiniciado (solo maqueta)')};
 setInterval(()=>{const e=$('[data-cd]');if(!e)return;const l=cooldownLeft();if(l<=0)render();else e.textContent=fmtLeft(l)},1000);
-if(api.live){render();api.init(liveAuthEvent).then(liveBoot).catch(()=>toast('No pudimos conectar con el servidor.'))}else render();
+if(api.live){api.init(liveAuthEvent).then(s=>{liveBoot(s);const h=(location.hash||'')+'&'+(location.search||'');if(!s&&!/type=recovery/.test(h)&&!liveInviteToken())render()}).catch(()=>{render();toast('No pudimos conectar con el servidor.')})}else render();
+if(api.live)setTimeout(()=>{if(document.querySelector('.boot')){render();toast('No pudimos conectar con el servidor.')}},12000);
 
 /* Fechas en formato dd/mm/aaaa (máscara) */
 function dIso(v){const m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(v||'').trim());if(!m)return '';const d=+m[1],mo=+m[2],y=+m[3];const t=new Date(y,mo-1,d);if(t.getFullYear()!==y||t.getMonth()!==mo-1||t.getDate()!==d)return '';return m[3]+'-'+m[2]+'-'+m[1]}
