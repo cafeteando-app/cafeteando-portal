@@ -107,7 +107,7 @@ tr.click:hover{background:var(--crema-clara);cursor:pointer}
 .week2{display:grid;grid-template-columns:100px 56px 1fr 40px;gap:10px;align-items:start;margin-bottom:12px}
 .week2>b{padding-top:8px}.week2 .toggle{margin-top:6px}
 .rngs{display:flex;flex-direction:column;gap:8px}
-.rng{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.rng input{width:130px;padding:6px 8px}
+.rng{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.rng input,.rng select{width:112px;padding:6px 8px}
 .rng .x{border:0;background:transparent;font-size:20px;color:var(--muted);line-height:1}
 .err{color:var(--bad-text);font-weight:600}
 .plus{width:34px;height:34px;border-radius:50%;border:1.5px solid var(--terracota);background:var(--blanco);color:var(--accent);font-size:20px;line-height:1}
@@ -201,7 +201,7 @@ th{text-transform:uppercase;letter-spacing:.05em;font-size:11px}
  .chart{height:140px;gap:6px}
  .auth .form{padding:22px 16px}
  .banner{padding:14px}
- .rng input{width:110px}
+ .rng input,.rng select{width:110px}
 }
 @media(max-width:480px){.g4{grid-template-columns:1fr}.steps .step{font-size:0;padding-top:28px}.steps .step:before{font-size:12px}.steps .step.cur{font-size:11px}}
 .tabs{background:var(--blanco);border:1.5px solid var(--terracota-claro);padding:4px}
@@ -327,7 +327,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
  .btn,.ltab,.chip,.toggle,.nav a,.themeico,.bellico,.helpfab{min-height:44px}
  .toggle{min-width:52px}
  input,select,textarea{min-height:44px}
- .rng input{min-height:44px}
+ .rng input,.rng select{min-height:44px}
  .mtop{display:flex;align-items:baseline;gap:8px;position:sticky;top:0;z-index:35;background:var(--nav-bg);color:#fff;padding:12px 16px;grid-column:1/-1}.mtop b{font-family:'Red Hat Display';font-size:18px}.mtop small{color:var(--nav-sub);text-transform:uppercase;letter-spacing:.08em;font-size:11px}
  .shell>.mtop{margin:0}
  .nav.mnav{position:fixed;bottom:0;left:0;right:0;top:auto;z-index:50;flex-direction:row;justify-content:space-around;align-items:stretch;padding:6px 6px calc(6px + env(safe-area-inset-bottom));gap:0;overflow:visible;border-top:1px solid var(--nav-line);box-shadow:0 -6px 20px rgba(0,0,0,.2)}
@@ -577,7 +577,7 @@ html{overflow-x:hidden}body{overflow-x:clip}
  .week2>b{padding-top:0;font-size:15px}.week2 .toggle{margin-top:0;justify-self:end}
  .week2 .rngs{grid-column:1/-1}
  .week2>span:last-child{display:none}
- .rng{flex-wrap:wrap;gap:8px}.rng input{flex:1 1 120px;width:auto;min-width:0}
+ .rng{flex-wrap:wrap;gap:8px}.rng input,.rng select{flex:1 1 120px;width:auto;min-width:0}
  .rng span{color:var(--muted)}
  .savebar:not(.dirty){display:none}
  .localbox .lb-title{display:none}
@@ -598,7 +598,7 @@ html{overflow-x:hidden}body{overflow-x:clip}
  .cols,.cols.disp,.cols2{grid-template-columns:1fr}
  .pv-col{max-width:420px;margin:0 auto}
  .savebar{bottom:14px}
- .rng input{width:120px}
+ .rng input,.rng select{width:120px}
  .g4{grid-template-columns:1fr 1fr}
 }
 @media(min-width:801px) and (max-width:1100px){
@@ -1456,6 +1456,9 @@ let cupo=15, newBranch=false;
 const cupoOk=()=>Number.isInteger(cupo)&&cupo>=5;
 let sched=DAYS.map((d,i)=>({on:i<6,r:[i<5?['08:00','19:00']:['09:00','14:00']]}));
 const mins=t=>{const[h,m]=t.split(':').map(Number);return h*60+m};
+/* Horarios en pasos de 30 min (más simple que el selector de reloj). El cierre solo ofrece horas que cumplan el mínimo de 4 hs. */
+const T30=[];for(let m=0;m<1440;m+=30)T30.push(String(Math.floor(m/60)).padStart(2,'0')+':'+(m%60?'30':'00'));
+const tsel=(val,attr,list)=>{const l=list.slice();if(val&&!l.includes(val)){l.push(val);l.sort()}return `<select class="tsel" ${attr}><option value="">--:--</option>${l.map(t=>`<option ${t===val?'selected':''}>${t}</option>`).join('')}</select>`};
 const rOk=r=>r[0]&&r[1]&&mins(r[1])-mins(r[0])>=240;
 const schedOk=()=>sched.every(d=>!d.on||d.r.every(rOk));
 const esc=t=>String(t||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
@@ -1469,7 +1472,7 @@ function extraCard(){const ap=status==='aprobado';const st=extra.review?'<span c
 function mDisp(){return `<div class="top"><div><h1>Disponibilidad</h1><p class="muted">Franjas para canje y cupo diario.</p></div></div>
  <div class="cols disp"><div class="card"><h2>Franjas horarias disponibles para canje ${tip('Franja: rango de horas en que los socios pueden canjear su café en tu local.')}</h2><p class="muted" style="margin:4px 0 14px">Estos horarios son los que figuran en la app para canjear el beneficio y se aplican de inmediato, sin revisión. Cada franja debe ser de al menos 4 horas seguidas.  Se puede elegir una sola franja por día.</p>
  ${sched.map((d,i)=>`<div class="week2"><b>${DAYS[i]}</b><button class="toggle ${d.on?'on':''}" data-ton="${i}"></button>
- <div class="rngs">${d.on?d.r.map((r,k)=>`<div class="rng"><input type="time" value="${r[0]}" data-rin="${i},${k},0"><span>a</span><input type="time" value="${r[1]}" data-rin="${i},${k},1">${d.r.length>1?`<button class="x" data-rdel="${i},${k}" title="Quitar franja">×</button>`:''}${rOk(r)?'':'<small class="err">Mínimo 4 hs seguidas</small>'}</div>`).join(''):'<span class="hint">Cerrado</span>'}</div>
+ <div class="rngs">${d.on?d.r.map((r,k)=>`<div class="rng">${tsel(r[0],`data-rin="${i},${k},0" aria-label="Hora de apertura, ${DAYS[i]}"`,T30.filter(t=>mins(t)<=1410-240))}<span>a</span>${tsel(r[1],`data-rin="${i},${k},1" aria-label="Hora de cierre, ${DAYS[i]}"`,T30.filter(t=>!r[0]||mins(t)-mins(r[0])>=240))}${d.r.length>1?`<button class="x" data-rdel="${i},${k}" title="Quitar franja">×</button>`:''}${rOk(r)?'':'<small class="err">Mínimo 4 hs seguidas</small>'}</div>`).join(''):'<span class="hint">Cerrado</span>'}</div>
  <span></span></div>`).join('')}</div>
  <div class="card"><h2>Cupo diario de cafés ${tip('Cupo: cantidad máxima de cafés que podés entregar por día en canjes.')}</h2><br><div class="field" style="max-width:260px"><label>Cafés por día</label><input type="number" value="${cupo}" min="5" data-cupo style="${cupoOk()?'':'border-color:var(--bad-text)'}"><div class="hint" style="${cupoOk()?'':'color:var(--bad-text);font-weight:600'}">Mínimo obligatorio: 5 cafés por día. Recomendamos 10.</div></div>
  <p class="hint" style="margin-bottom:12px">Cada canje equivale a un café de especialidad. Las variedades las elegís vos al momento del canje: acá solo indicás la cantidad.</p><div class="note">Si bajás el cupo, los canjes ya realizados hoy se respetan: el nuevo valor aplica desde mañana.</div></div>
