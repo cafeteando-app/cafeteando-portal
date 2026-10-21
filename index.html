@@ -643,7 +643,7 @@ const $=(s,r=document)=>r.querySelector(s);
 const DAYS=['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
 const VAR=['Café de filtro','Granos de especialidad','Origen único','Blends propios','Venta de granos','Opciones veganas','Sin TACC','Pet friendly'];
 let view='auth', mview='inicio', step=0, aview='lista', sel=null, tab='login';
-let status='borrador', onMap=true, contractOk=false, doneCafe=false, doneDisp=false, ob=0;
+let status='borrador', onMap=true, contractOk=false, signedOk=true, doneCafe=false, doneDisp=false, ob=0;
 let toastT;
 const toast=m=>{const t=document.createElement('div');t.className='toast';t.setAttribute('role','status');t.setAttribute('aria-live','polite');t.textContent=m;document.body.append(t);clearTimeout(toastT);toastT=setTimeout(()=>t.remove(),2200)};
 const ST={borrador:'Adhesión pendiente',pendiente:'En revisión',correccion:'Requiere correcciones',aprobado:'Aprobado',rechazado:'Rechazado',suspendido:'Suspendido'};
@@ -876,7 +876,7 @@ const api = (() => {
     },
 
     async listAcceptances() {
-      try { const { data, error } = await client.from('portal_contract_acceptances').select('merchant_id,version,accepted_at').order('accepted_at', { ascending: false }); return error ? [] : (data || []); } catch (e) { return []; }
+      try { const { data, error } = await client.from('portal_contract_acceptances').select('merchant_id,version,accepted_at,signer_name,signer_role').order('accepted_at', { ascending: false }); return error ? [] : (data || []); } catch (e) { return []; }
     },
 
     async isAdmin() {
@@ -1057,7 +1057,7 @@ async function liveLoadRequests() {
       s: ST[q.status] || 'pendiente', cupo: p.daily_stock || '—', mail: m.contact_email || '',
       tit: m.contact_name || '', rol: m.role || '', tel: m.phone || '', dir: p.address || '', prov: p.province || '', desc: p.description || '',
       logoUrl: p.logo_url || '', photoUrls: Array.isArray(p.photos) ? p.photos : [],
-      acc: (accRows.find((a) => a.merchant_id === q.merchant_id && a.version === p.contract_version_accepted) || null),
+      acc: (accRows.find((a) => a.merchant_id === q.merchant_id) || null),
       maps: p.maps_url || '', pinLat: p.lat != null ? +p.lat : null, pinLng: p.lng != null ? +p.lng : null, hor: liveFmtSched(p.schedule), serv: Array.isArray(p.services) ? p.services.join(', ') : '—', benef: Array.isArray(p.benefits) && p.benefits.length ? p.benefits.map((b) => b.text + (b.cond ? ' (' + b.cond + ')' : '')).join(' · ') : 'Sin beneficio adicional',
     });
   });
@@ -1079,7 +1079,7 @@ let liveReqId = null, liveMerchantId = null;
 const LIVE_FIELDS = ['cf_name','cf_desc','cf_otros','ob_name','ob_rs','ob_cuit','ob_social','ob_how','ob_titular','ob_rol','ob_rol_otro','ob_wsp','ob_mail','ob_maps'];
 
 function liveCleanState() {
-  svc = new Set(); photos = []; logo = null; cupo = 10; doneCafe = false; doneDisp = false; contractOk = false;
+  svc = new Set(); photos = []; logo = null; cupo = 10; doneCafe = false; doneDisp = false; contractOk = false; signedOk = true;
   sched = DAYS.map((d, i) => ({ on: i < 6, r: [i < 5 ? ['08:00', '19:00'] : ['09:00', '14:00']] }));
   extra = { items: [], pub: [], review: false }; chg = { desc: false, fotos: false }; schedPause = null; pauseInfo = null;
   LIVE_FIELDS.forEach((k) => { FD[k] = ''; });
@@ -1106,7 +1106,7 @@ async function liveHydrate() {
   if (q.review_note) corrMsg = q.review_note;
   if (m.contact_name && !p.address) { view = 'onb'; ob = 1; mview = 'inicio'; return 'onb'; }
   if (status === 'aprobado') {
-    window.__stats = await api.myStats(); const ci = await api.myCafeInfo(); liveCafe = { code: ci.code || '', active: !!ci.active, enabled: !!ci.enabled };
+    window.__stats = await api.myStats(); const ci = await api.myCafeInfo(); liveCafe = { code: ci.code || '', active: !!ci.active, enabled: !!ci.enabled }; signedOk = !!ci.signed; if (signedOk) accV = contracts[contracts.length - 1].v;
     if (ci.code) locals[0].code = ci.code;
     onMap = !!ci.active; cooldownUntil = ci.last_toggle_at ? new Date(ci.last_toggle_at).getTime() + 300000 : 0;
     const pc = await api.myPendingChange();
@@ -1134,7 +1134,7 @@ function liveApplyPayload(p) {
   if (p.daily_stock) cupo = p.daily_stock;
   extra.items = Array.isArray(p.benefits) ? p.benefits.map((b) => ({ text: ((b.text || '') + (b.cond ? ' (' + b.cond + ')' : '')).trim(), cond: '' })) : [];
   extra.pub = extra.items.map((x) => x.text);
-  contractOk = !!p.contract_version_accepted;
+  contractOk = true;
   doneCafe = !!(p.name && p.logo_url && photos.length >= 3 && (svc.size || p.other_services));
   doneDisp = !!(p.schedule && p.daily_stock >= 5);
 }
@@ -1150,7 +1150,6 @@ function liveBuildPayload() {
   if (addrSel) { payload.address = addrSel.a; payload.neighborhood = curBarrio(); if (FD.ad_prov) payload.province = FD.ad_prov; }
   if (pin.lat && (status !== 'aprobado' || pin.moved)) { payload.lat = +pin.lat.toFixed(7); payload.lng = +pin.lng.toFixed(7); }
   if (logo && logo.url) payload.logo_url = logo.url;
-  if (contractOk) payload.contract_version_accepted = accV;
   return payload;
 }
 
@@ -1301,6 +1300,7 @@ const themeBtn=()=>`<button class="themeico" data-theme-toggle aria-label="${pan
 const NIC={"inicio": "<path d=\"M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z\"/>", "cafe": "<path d=\"M4 8h12v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z\"/><path d=\"M16 9h2a2 2 0 0 1 0 5h-2\"/><path d=\"M8 3v2M12 3v2\"/>", "disp": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 7v5l3 2\"/>", "adh": "<path d=\"M7 3h8l4 4v14H7z\"/><path d=\"M15 3v4h4M10 12h6M10 16h6\"/>", "canje": "<rect x=\"3\" y=\"6\" width=\"18\" height=\"12\" rx=\"2\"/><path d=\"M3 10h18M7 15h3\"/>", "cuenta": "<circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 21a8 8 0 0 1 16 0\"/>"};const NSH={"inicio": "Inicio", "cafe": "Cafeter\u00eda", "disp": "Horarios", "adh": "Adhesi\u00f3n", "canje": "Canje", "cuenta": "Cuenta"};
 const MNAV=[['inicio','Inicio'],['cafe','Mi cafetería'],['disp','Disponibilidad'],['adh','Mi adhesión'],['canje','Cómo canjear'],['cuenta','Mi cuenta']];
 function merchV(){
+ if(api.live&&status==='aprobado'&&!signedOk)return signV();
  const nav=`<div class="mtop"><b>Cafeteando</b><small>Comercios</small></div><div class="nav mnav" role="navigation" aria-label="Menú principal">${bellBtn()}${themeBtn()}<div class="logo">Cafeteando</div><div class="sub">Comercios</div>${MNAV.map(([k,l])=>`<a href="#" class="${mview===k?'on':''}" data-m="${k}" ${mview===k?'aria-current="page"':''}><svg class="ni" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${NIC[k]}</svg><span class="lf">${l}</span><span class="ls">${NSH[k]}</span></a>`).join('')}<div class="who"><div class="who-head"><div class="av">${esc(bizName().charAt(0).toUpperCase())}</div><div class="wi"><b>${esc(bizName())}</b><span title="${L().addr}, ${L().barrio}">${L().addr}, ${L().barrio}</span></div></div><span class="mail" title="${esc(api.live?bizMail():'julianlopezagustin1@gmail.com')}">${esc(api.live?bizMail():'julianlopezagustin1@gmail.com')}</span><a class="out" data-logout><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>Cerrar sesión</a></div></div>`;
  const body={inicio:mInicio,cafe:mCafe,disp:mDisp,adh:mAdh,canje:mCanje,cuenta:mCuenta}[mview]();
  return `<a class="skip" href="#main">Saltar al contenido</a><div class="shell">${nav}<div class="main" id="main" role="main" tabindex="-1">${netBanner()}${api.live?partialBanner():''}<div class="localbox"><div class="lb-title">Tus sucursales</div><div class="tabsbar">${locals.map((l,i)=>{const st=i===cur?status:l.snap.status;const om=i===cur?onMap:l.snap.onMap;const dc=st==='aprobado'?(om?'ok':'off'):st;return `<button class="ltab ${i===cur?'on':''}" data-tab="${i}"><i class="dot d-${dc}"></i><span><b>${l.addr}</b><small>${l.barrio}</small></span></button>`}).join('')}<button class="ltab add" data-newloc>+ Agregar sucursal</button></div><div class="statusrow"><span>Estado de esta sucursal</span>${bd(status)}<button class="info" data-info="${cur}" title="¿Qué significa este estado?" aria-expanded="${openInfo===cur}">i</button><span class="lb-code">Código de canje: <b>${status==='aprobado'?L().code:'se genera al aprobarse'}</b></span></div>${infoBox()}</div>${body}</div></div>${bellPanel()}${helpBtn()}`}
@@ -1312,7 +1312,7 @@ function statusBanner(){
 
 let openInfo=null;
 const STINFO={
- borrador:['Adhesión pendiente de completar','Tu sucursal todavía no figura en la app. Próximo paso: completá los pendientes (logo y fotos, horarios y cupo, condiciones del servicio) y enviá la adhesión a revisión.','adh','Ir a Mi adhesión'],
+ borrador:['Adhesión pendiente de completar','Tu sucursal todavía no figura en la app. Próximo paso: completá los pendientes (logo y fotos, horarios y cupo) y enviá la adhesión a revisión.','adh','Ir a Mi adhesión'],
  pendiente:['En revisión','Cafeteando está revisando tu adhesión. Demora entre 2 y 3 días hábiles y te avisamos por email. Próximo paso: esperar la respuesta; no hace falta que hagas nada.',null],
  correccion:['Requiere correcciones','Cafeteando te dejó este mensaje: "Falta la foto de la barra. ¿Nos compartís al menos 3 fotos de tu local? Así los socios te reconocen apenas llegan." Próximo paso: corregí lo pedido y reenviá la adhesión.','adh','Ir a Mi adhesión'],
  aprobado:['Aprobado','Tu sucursal está habilitada. Ya tiene su código de canje y, si el interruptor "Activo para canjear" está encendido, figura en la app y recibe canjes. Próximo paso: ninguno, salvo mantener tus horarios y cupo al día.',null],
@@ -1320,16 +1320,16 @@ const STINFO={
  rechazado:['Rechazado','Cafeteando no pudo aprobar esta adhesión. Escribinos y te contamos el motivo.',null]};
 function infoBox(){if(openInfo!==cur)return '';let inf=(STINFO[status]||STINFO.borrador).slice();if(status==='correccion')inf[1]='Cafeteando te dejó este mensaje: «'+esc(corrMsg)+'»'+(corrSecs.length?' Secciones a corregir: '+corrSecs.join(', ')+'.':'')+' Próximo paso: corregí lo pedido y reenviá la adhesión.';if(status==='rechazado'&&rejMsg)inf[1]='Cafeteando no pudo aprobar esta adhesión. Motivo: «'+esc(rejMsg)+'». Si querés más información, escribinos.';if(status==='suspendido'&&rejMsg)inf[1]='Tu local está suspendido. Motivo: «'+esc(rejMsg)+'». Escribinos y lo resolvemos juntos.';if(status==='correccion'&&corrSecs.length){const M={'Datos del local':['cafe','Mi cafetería'],'Ubicación':['cafe','Mi cafetería'],'Logo y fotos':['cafe','Mi cafetería'],'Beneficios':['cafe','Mi cafetería'],'Titular y contacto':['cuenta','Mi cuenta'],'Horarios y cupo':['disp','Disponibilidad'],'Contrato':['adh','Mi adhesión'],'Condiciones del servicio':['adh','Mi adhesión']};const t=M[corrSecs[0]];if(t){inf[2]=t[0];inf[3]='Ir a '+t[1]}}
 return `<div class="infobox"><b>${inf[0]}</b><p>${inf[1]}</p>${inf[2]?`<button class="btn sm" data-m="${inf[2]}">${inf[3]}</button>`:''}</div>`}
-function stepItems(){return [['Datos básicos del local',true,'cafe'],['Logo, fotos (mínimo 3) y servicios',doneCafe,'cafe'],['Horarios, días y cupo diario (mínimo 5)',doneDisp,'disp'],['Aceptar el contrato de adhesión',contractOk,'adh']]}
+function stepItems(){return [['Datos básicos del local',true,'cafe'],['Logo, fotos (mínimo 3) y servicios',doneCafe,'cafe'],['Horarios, días y cupo diario (mínimo 5)',doneDisp,'disp'],...(api.live?[]:[['Aceptar el contrato de adhesión',contractOk,'adh']])]}
 function heroInicio(){
  const items=stepItems(),n=items.filter(x=>x[1]).length,nx=items.find(x=>!x[1]);const sn=esc(L().addr)+', '+esc(L().barrio);
- const bar=`<div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="4" aria-valuenow="${n}" aria-label="Pasos completados"><i style="width:${n*25}%"></i></div>`;
+ const bar=`<div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="${items.length}" aria-valuenow="${n}" aria-label="Pasos completados"><i style="width:${Math.round(n*100/items.length)}%"></i></div>`;
  let t,sub,cta='',extra='';
  if(status==='borrador'||status==='correccion'){
   t=status==='correccion'?'Cafeteando te pidió correcciones':'Para activar tu local, te falta completar unos datos. Te acompañamos en cada paso.';
   sub=status==='correccion'?'Cuando hagas los ajustes que te comentamos, reenviá tu solicitud y la revisamos enseguida. Mensaje del equipo: «'+esc(corrMsg)+'»':(nx?`Próximo paso: <b>${nx[0]}</b>.`:'Ya completaste todo: revisá y enviá la adhesión.');
   cta=`<button class="btn" data-m="${status==='correccion'?'adh':(nx?nx[2]:'adh')}">${status==='correccion'?'Corregir y reenviar':(nx?'Continuar':'Enviar a revisión')}</button>`;
-  extra=`<div class="hero-prog"><span>${n} de 4 pasos completados</span>${bar}</div>`}
+  extra=`<div class="hero-prog"><span>${n} de ${items.length} pasos completados</span>${bar}</div>`}
  else if(status==='pendiente'){t='Tu adhesión está en revisión';sub=`Enviada el ${subDate()}. Te avisamos por email en 2 a 3 días hábiles. No tenés que hacer nada por ahora.`}
  else if(status==='aprobado'){t=onMap?'Tu sucursal está activa y recibe canjes':'Tu sucursal está pausada';sub=onMap?'Los socios ya pueden canjear su café acá.':'No figura en la app hasta que la reactives.'}
  else {t='Estado de esta sucursal';sub='Escribinos y lo resolvemos juntos.'}
@@ -1436,7 +1436,7 @@ const L=()=>locals[cur];
 const bizName=()=>api.live?((FD.cf_name||FD.ob_name||'').trim()||'Tu local'):'Café Bonpland';
 const bizMail=()=>api.live?((api.user()||{}).email||''):'hola@bonpland.com';
 const latestC=()=>contracts[contracts.length-1];
-const needsUpdate=()=>status!=='borrador'&&accV!==latestC().v;
+const needsUpdate=()=>!api.live&&status!=='borrador'&&accV!==latestC().v;
 const snapOf=()=>({status,onMap,doneCafe,doneDisp,pauseInfo,cooldownUntil,schedPause,chg,extra,photos,logo});
 function saveCur(){locals[cur].snap=snapOf()}
 function loadLoc(i){cur=i;addrSel={a:locals[i].addr,b:locals[i].barrio};const sn=locals[i].snap;if(sn){({status,onMap,doneCafe,doneDisp,pauseInfo,cooldownUntil,schedPause,chg,extra,photos,logo}=sn)}}
@@ -1497,19 +1497,21 @@ const CONTRATO=`CONTRATO DE ADHESIÓN PARA COMERCIOS — CAFETEANDO
 function mAdh(){
  const stepNames=['Enviada','En revisión','Aprobada','Activa'];
  const cur= status==='borrador'?-1: status==='correccion'?0: status==='pendiente'?1:3;
- const all=doneCafe&&doneDisp&&contractOk;
+ const all=doneCafe&&doneDisp&&(api.live||contractOk);
  const header=`<div class="top"><div><h1>Mi adhesión</h1><p class="muted">Estado de tu solicitud y condiciones del servicio.</p></div>${bd(status)}</div>
   <div class="card"><div class="steps">${stepNames.map((n,i)=>`<div class="step ${i<cur?'done':i===cur?'cur':''}" data-n="${i+1}">${n}</div>`).join('')}</div></div>`;
  const lc=latestC();const txt=(api.live&&contractRaw)?contractFilled(true):(contractText||CONTRATO);
  const upd=needsUpdate();
- const contrato=`<div class="card" ${upd?'style="border:2px solid var(--terracota)"':''}><h2>Condiciones del servicio${upd?` — nueva versión ${lc.v}`:''}</h2>
+ const pre=api.live&&status!=='aprobado';
+ const resumen=`<div class="card"><h2>Condiciones del servicio</h2><p class="muted" style="margin:4px 0 10px">Cuando aprobemos tu local, vas a firmar las condiciones del servicio desde acá. Con esa firma queda activado y recibís tu código de canje. En pocas palabras:</p><ul style="margin:0 0 10px 18px;font-size:13px;line-height:1.6"><li>Sumarte es gratis: sin costo de adhesión, comisión ni cargos.</li><li>Vos decidís qué café ofrecés, tus precios y tus horarios (mínimo 4 horas corridas por día de atención).</li><li>Ofrecés un cupo diario de cafés para socios (mínimo 5 por día).</li><li>Cada socio puede canjear 1 café por día y hasta 4 por mes en tu local.</li><li>Podés darte de baja avisando con 15 días de anticipación, sin penalidad.</li></ul><div class="note">Vas a poder leer el texto completo antes de firmar. No necesitás hacer nada con esto ahora.</div></div>`;
+ const contrato=pre?resumen:`<div class="card" ${upd?'style="border:2px solid var(--terracota)"':''}><h2>Condiciones del servicio${upd?` — nueva versión ${lc.v}`:''}</h2>
   ${upd?`<div class="note" style="margin:10px 0"><b>Cambios de esta versión:</b> ${lc.summary}<br>Vigente desde el ${lc.date}. Tenés hasta el ${lc.deadline||'30 días'} para aceptarla; mientras tanto tu local sigue activo. Tu última versión aceptada: ${accV}.</div>`:`<p class="muted" style="margin:4px 0 12px">Leelo completo y aceptalo al final. Podés descargarlo en PDF cuando quieras.</p>`}
   <div style="max-height:min(60vh,520px);overflow:auto;background:var(--crema-clara);border:1.5px solid var(--line);border-radius:10px;padding:14px;white-space:pre-wrap;font-size:13px">${txt}</div>
   <div style="display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:14px">
-  ${upd?`<label style="font-weight:400;display:flex;gap:8px;margin:0"><input type="checkbox" style="width:auto" data-ctr2> Leí y acepto la nueva versión ${lc.v}</label>`:status==='borrador'?`<label style="font-weight:400;display:flex;gap:8px;margin:0"><input type="checkbox" style="width:auto" data-ctr ${contractOk?'checked':''}> Leí y acepto las condiciones del servicio (versión ${lc.v})</label>`:`<span class="badge b-aprobado">Aceptado el ${subDate()}${api.live?'':' · 15:42'} · versión ${accV}</span>`}
+  ${upd?`<label style="font-weight:400;display:flex;gap:8px;margin:0"><input type="checkbox" style="width:auto" data-ctr2> Leí y acepto la nueva versión ${lc.v}</label>`:status==='borrador'?`<label style="font-weight:400;display:flex;gap:8px;margin:0"><input type="checkbox" style="width:auto" data-ctr ${contractOk?'checked':''}> Leí y acepto las condiciones del servicio (versión ${lc.v})</label>`:`<span class="badge b-aprobado">${api.live?'Firmado':'Aceptado el '+subDate()+' · 15:42'} · versión ${accV}</span>`}
   <span style="display:flex;gap:8px">${upd?'<button class="btn sm" data-acc2 disabled style="opacity:.4;cursor:not-allowed">Aceptar versión '+lc.v+'</button>':''}<button class="btn sec sm" data-dl>Descargar PDF</button></span></div></div>`;
- const hist=`<details class="card fold"><summary><h2>Historial</h2></summary><ul class="log" style="margin-top:10px">${status!=='borrador'?`<li>${subDate()} · Enviaste la adhesión y aceptaste las condiciones del servicio v1.0</li>${accV!=='1.0'?`<li>${latestC().date.slice(0,5)} · Aceptaste la versión ${accV} de las condiciones del servicio</li>`:''}`:''}${status==='aprobado'?'<li>16/10 · Cafeteando aprobó tu local y se generó tu código de canje</li>':''}<li>12/10 · Completaste tus datos básicos</li><li>12/10 · Creaste tu cuenta</li></ul></details>`;
- const send= (status==='borrador'||status==='correccion')?`<div class="card"><h2>Comentario adicional (opcional)</h2>${fld({id:'cm_extra',label:'¿Algo más que quieras contarnos?',tag:'textarea',rows:2})}</div><details class="card guide" style="padding:14px 18px"><summary>¿Qué datos son obligatorios?</summary><p style="margin:8px 0 4px"><b>Obligatorios:</b> nombre del local, persona de contacto, rol, teléfono o WhatsApp, dirección (provincia y ciudad o barrio), horarios y días de atención, cupo diario (mínimo 5), servicios (al menos uno), logo, fotos (mínimo 3) y la aceptación de las condiciones del servicio.</p><p style="margin:4px 0"><b>Opcionales:</b> razón social, CUIT, redes, cómo te enteraste, link de Google Maps, descripción, beneficios adicionales y comentarios.</p></details><div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><div><b>${status==='correccion'?'Reenviar a revisión':'Enviar a revisión'}</b><p class="muted">${all?'Todo listo. Cafeteando revisará tu local.':'Antes completá: '+[!doneCafe&&'Mi cafetería',!doneDisp&&'Disponibilidad',!contractOk&&'aceptar las condiciones del servicio'].filter(Boolean).join(', ')+'.'}</p></div><button class="btn" data-send ${all?'':'disabled style="opacity:.4;cursor:not-allowed"'}>Enviar adhesión</button></div>`:'';
+ const hist=`<details class="card fold"><summary><h2>Historial</h2></summary><ul class="log" style="margin-top:10px">${status!=='borrador'?`<li>${subDate()} · Enviaste la adhesión${api.live?'':' y aceptaste las condiciones del servicio v1.0'}</li>${!api.live&&accV!=='1.0'?`<li>${latestC().date.slice(0,5)} · Aceptaste la versión ${accV} de las condiciones del servicio</li>`:''}`:''}${status==='aprobado'?'<li>16/10 · Cafeteando aprobó tu local</li>':''}<li>12/10 · Completaste tus datos básicos</li><li>12/10 · Creaste tu cuenta</li></ul></details>`;
+ const send= (status==='borrador'||status==='correccion')?`<div class="card"><h2>Comentario adicional (opcional)</h2>${fld({id:'cm_extra',label:'¿Algo más que quieras contarnos?',tag:'textarea',rows:2})}</div><details class="card guide" style="padding:14px 18px"><summary>¿Qué datos son obligatorios?</summary><p style="margin:8px 0 4px"><b>Obligatorios:</b> nombre del local, persona de contacto, rol, teléfono o WhatsApp, dirección (provincia y ciudad o barrio), horarios y días de atención, cupo diario (mínimo 5), servicios (al menos uno), logo, fotos (mínimo 3) .</p><p style="margin:4px 0"><b>Opcionales:</b> razón social, CUIT, redes, cómo te enteraste, link de Google Maps, descripción, beneficios adicionales y comentarios.</p></details><div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><div><b>${status==='correccion'?'Reenviar a revisión':'Enviar a revisión'}</b><p class="muted">${all?'Todo listo. Cafeteando revisará tu local.':'Antes completá: '+[!doneCafe&&'Mi cafetería',!doneDisp&&'Disponibilidad',!contractOk&&'aceptar las condiciones del servicio'].filter(Boolean).join(', ')+'.'}</p></div><button class="btn" data-send ${all?'':'disabled style="opacity:.4;cursor:not-allowed"'}>Enviar adhesión</button></div>`:'';
  return header+'<div class="cols2"><div>'+contrato+'</div><div class="stack">'+send+hist+'</div></div>'}
 
 const OBS=['Tu local','Titular y contacto','Ubicación'];
@@ -1605,7 +1607,7 @@ function adminDet(r){const pub=r.s==='aprobado'||r.s==='suspendido';const P=Obje
  <div class="card"><h2>Lo que figura hoy en la app</h2>${pub?`<table style="margin-top:8px"><tr><th>Dato</th><th>Cargado por el comercio</th><th>Publicado en la app</th></tr>${cmp.map(([l,k,v])=>`<tr><td class="muted">${l}</td><td>${esc(v)}</td><td>${k==='dir'?esc(r.dir+', '+r.b):esc(P[k]||'—')} ${diff(k,k==='dir'?r.dir:(k==='desc'?(r.desc||''):v))&&!(k==='dir')?'<span class="badge b-correccion">Distinto</span>':''}</td></tr>`).join('')}</table>`:`<p class="muted" style="margin-top:8px">Todavía no se publicó nada en la app.</p>`}</div></div>
  <div><div class="card"><h2>Nota interna</h2><p class="hint" style="margin:4px 0 8px">Solo la ve el equipo de Cafeteando.</p><textarea rows="3" aria-label="Nota interna" placeholder="Ej: Hablé con la dueña, quiere subir el cupo en diciembre."></textarea></div>
  ${r.pend&&r.s==='aprobado'?'<div class="card" style="border:2px solid var(--info)"><h2>Cambios pendientes de revisión</h2><br><p>Descripción: «'+esc((r.pub||{}).desc||'')+'» → «'+esc(r.desc)+'»<br>Foto 2 reemplazada</p><br><button class="btn ok sm" data-pubchg>Publicar cambios</button> <button class="btn sec sm" data-rejchg>Rechazar</button></div>':''}<div class="card"><h2>Estado en la app</h2><br><p>${r.s==='aprobado'?(api.live?'Aprobado. Usá «Activar en la app» para que los socios lo vean.':'Visible en la app, canjes habilitados'):'Todavía no figura en la app'}</p>${api.live?'':'<p class="hint">Así se publica hoy en la tabla de cafés.</p>'}</div>
- <div class="card"><h2>Historial de cambios</h2><ul class="log">${(r.log||[]).map(x=>`<li>${x.d} · ${esc(x.t)}</li>`).join('')}<li>${r.f} · Comercio envió la adhesión</li>${r.revBy&&r.revAt?`<li>${accFmt(r.revAt)} · ${esc(r.s==='aprobado'?'Aprobó':(r.s==='correccion'?'Pidió correcciones':(r.s==='rechazado'?'Rechazó':'Revisó')))}: ${esc(r.revBy)}${r.revNote?' · «'+esc(r.revNote)+'»':''}</li>`:''}<li>12/10 · Cuenta creada</li>${r.acc?`<li>${accFmt(r.acc.accepted_at)} · Aceptó el contrato (versión ${esc(r.acc.version)})</li>`:''}</ul></div></div></div>`}
+ <div class="card"><h2>Historial de cambios</h2><ul class="log">${(r.log||[]).map(x=>`<li>${x.d} · ${esc(x.t)}</li>`).join('')}<li>${r.f} · Comercio envió la adhesión</li>${r.revBy&&r.revAt?`<li>${accFmt(r.revAt)} · ${esc(r.s==='aprobado'?'Aprobó':(r.s==='correccion'?'Pidió correcciones':(r.s==='rechazado'?'Rechazó':'Revisó')))}: ${esc(r.revBy)}${r.revNote?' · «'+esc(r.revNote)+'»':''}</li>`:''}<li>12/10 · Cuenta creada</li>${r.acc?`<li>${accFmt(r.acc.accepted_at)} · Firmó las condiciones (versión ${esc(r.acc.version)})${r.acc.signer_name?' · '+esc(r.acc.signer_name)+(r.acc.signer_role?', '+esc(r.acc.signer_role):''):''}</li>`:(api.live&&r.s==='aprobado'?'<li><b>Aprobado · falta la firma del local</b> (todavía no está activo)</li>':'')}</ul></div></div></div>`}
 function accFmt(d){const x=new Date(d),z=n=>String(n).padStart(2,'0');return z(x.getDate())+'/'+z(x.getMonth()+1)+'/'+x.getFullYear()+' '+z(x.getHours())+':'+z(x.getMinutes())}
 function adminImgs(r){if(api.live){const a=[];if(r.logoUrl)a.push(['Logo',r.n[0],r.logoUrl]);(r.photoUrls||[]).forEach((u,i)=>a.push(['Foto '+(i+1),String(i+1),u]));return a.length?a:[['Sin imágenes','—',null]]}return [['Logo',r.n[0]],['Foto 1','1'],['Foto 2','2'],['Foto 3','3']]}
 function lightbox(r,i){const imgs=adminImgs(r);const m=document.createElement('div');m.style.cssText='position:fixed;inset:0;background:#000000cc;z-index:90;display:grid;place-items:center;padding:16px';
@@ -1888,7 +1890,7 @@ const ACT_TXT = {
   request_pending: 'Envió una solicitud', request_approved: 'Aprobó', request_rejected: 'Rechazó', request_needs_fix: 'Pidió correcciones',
   change_direct: 'Cambió horarios/cupo (directo)', merchant_on: 'Activó su local', merchant_off: 'Desactivó su local', admin_on: 'Activó en la app',
   admin_off: 'Desactivó de la app', invite_created: 'Creó una invitación', invite_claimed: 'Reclamó su local', admin_added: 'Agregó un admin',
-  admin_removed: 'Quitó un admin', policy_changed: 'Cambió la política de revisión',
+  admin_removed: 'Quitó un admin', merchant_signed: 'Firmó las condiciones', activated_on_sign: 'Local activado al firmar', admin_approved: 'Aprobó', policy_changed: 'Cambió la política de revisión',
 };
 const FIELD_ES = { name: 'Nombre', address: 'Dirección', neighborhood: 'Barrio', maps_url: 'Link de Maps', description: 'Descripción', logo_url: 'Logo', photos: 'Fotos',
   services: 'Servicios', other_services: 'Otros servicios', schedule: 'Horarios', daily_stock: 'Cupo diario', province: 'Provincia', benefits: 'Beneficios adicionales', lat: 'Ubicación (latitud)', lng: 'Ubicación (longitud)' };
@@ -2137,6 +2139,50 @@ async function liveInviteBoot(tk) {
   delete FD.r_p1; delete FD.r_p2; view = 'invite'; render();
 }
 
+
+/* ---------- Firma de las condiciones: el local aprobado firma para quedar activado ---------- */
+let sgName = '', sgRole = '', sgChk = false, sgBusy = false;
+function signV() {
+  const lc = contracts[contracts.length - 1];
+  const roles = ['Dueño/a', 'Socio/a', 'Encargado/a', 'Representante legal', 'Apoderado/a'];
+  if (!sgName) sgName = (FD.ob_titular || '').trim();
+  if (!sgRole) sgRole = FD.ob_rol && FD.ob_rol !== 'Otro' ? FD.ob_rol : '';
+  const ok = sgName.trim().length >= 3 && sgRole && sgChk && !sgBusy;
+  return `<a class="skip" href="#main">Saltar al contenido</a><div id="main" role="main" tabindex="-1" style="max-width:760px;margin:0 auto;padding:32px 18px 60px">
+  <div class="logo" style="margin-bottom:18px">Cafeteando</div>
+  <h1>¡Aprobamos tu local!</h1>
+  <p class="muted" style="margin:8px 0 18px"><b style="color:var(--ink)">${esc(bizName())}</b> ya tiene todo listo. Falta un paso: leé y firmá las condiciones del servicio. Con tu firma el local queda <b>activado</b> y acá mismo te aparece tu <b>código de canje</b>.</p>
+  <div class="card"><h2>Condiciones del servicio (versión ${esc(lc.v)})</h2>
+  <div style="max-height:min(50vh,460px);overflow:auto;background:var(--crema-clara);border:1.5px solid var(--line);border-radius:10px;padding:14px;margin-top:10px;white-space:pre-wrap;font-size:13px">${contractRaw ? contractFilled(true) : 'No pudimos cargar el texto. Recargá la página.'}</div>
+  <div style="margin-top:10px"><button class="btn sec sm" data-dl>Descargar PDF</button></div></div>
+  <div class="card"><h2>Tu firma</h2>
+  <div class="grid g2" style="margin-top:10px"><div class="field"><label for="sg_name">Nombre y apellido</label><input id="sg_name" value="${esc(sgName)}" autocomplete="name"></div>
+  <div class="field"><label for="sg_role">Tu rol en el local</label><select id="sg_role"><option value="">Elegí tu rol</option>${roles.map((r) => `<option ${r === sgRole ? 'selected' : ''}>${r}</option>`).join('')}</select></div></div>
+  <label style="font-weight:400;display:flex;gap:8px;margin:12px 0"><input type="checkbox" style="width:auto" id="sg_chk" ${sgChk ? 'checked' : ''}> Leí las condiciones y las acepto en nombre del local, con el rol indicado.</label>
+  <p class="hint">Queda registrado con fecha, hora, versión y la cuenta desde la que firmás.</p>
+  <button class="btn" style="width:100%;margin-top:12px;${ok ? '' : 'opacity:.4;cursor:not-allowed'}" data-sign ${ok ? '' : 'disabled'}>${sgBusy ? 'Firmando…' : 'Firmar y activar mi local'}</button></div></div>`;
+}
+function sgBind() {
+  const n = document.getElementById('sg_name'), r = document.getElementById('sg_role'), c = document.getElementById('sg_chk'), b = document.querySelector('[data-sign]');
+  if (!n || !b) return;
+  const upd = () => { sgName = n.value; sgRole = r.value; sgChk = c.checked; const ok = sgName.trim().length >= 3 && sgRole && sgChk; b.disabled = !ok; b.style.opacity = ok ? 1 : .4; b.style.cursor = ok ? 'pointer' : 'not-allowed'; };
+  n.oninput = upd; r.onchange = upd; c.onchange = upd;
+  b.onclick = async () => {
+    if (b.disabled || sgBusy) return;
+    sgBusy = true; b.disabled = true; b.textContent = 'Firmando…';
+    try {
+      const v = contracts[contracts.length - 1].v;
+      const res = await api._client().rpc('sign_conditions', { p_version: v, p_name: sgName.trim(), p_role: sgRole });
+      if (res.error) throw res.error;
+      const ci = await api.myCafeInfo();
+      signedOk = true; accV = v; liveCafe = { code: ci.code || '', active: !!ci.active, enabled: !!ci.enabled };
+      if (ci.code) locals[0].code = ci.code;
+      onMap = !!ci.active; mview = 'inicio'; sgBusy = false; render();
+      toast('¡Listo! Tu local quedó activado. Te enviamos un email con el comprobante.');
+    } catch (e) { sgBusy = false; toast('No pudimos registrar la firma. Probá de nuevo en un momento.'); render(); }
+  };
+}
+
 </script>
 <script>
 /* Eventos, tema y arranque */
@@ -2158,6 +2204,7 @@ function bind(){
  document.querySelectorAll('[data-fpsend]').forEach(e=>e.onclick=ev=>{ev.preventDefault();if(!validateGroup(document.querySelector('[data-authform]')))return;if(api.live){liveForgot(e);return}fpSent=true;fpLeft=60;render();toast('Si el email existe, te enviamos el link (simulado)')});
  document.querySelectorAll('[data-fpresend]').forEach(e=>e.onclick=()=>{if(api.live){liveForgot(e);return}fpLeft=60;render();toast('Link reenviado (simulado)')});
  document.querySelectorAll('[data-fpopen]').forEach(e=>e.onclick=()=>{delete FD.r_p1;delete FD.r_p2;delete TOUCH.r_p1;delete TOUCH.r_p2;view='reset';render()});
+ if(typeof sgBind==='function')sgBind();
  document.querySelectorAll('[data-invsave]').forEach(e=>e.onclick=ev=>{ev.preventDefault();if(!validateGroup(document.querySelector('[data-authform]')))return;if(api.live){liveInviteClaim(e);return}toast('Simulado: en la versión real se crea tu cuenta y entrás a tu panel.')});
  document.querySelectorAll('[data-rpsave]').forEach(e=>e.onclick=ev=>{ev.preventDefault();if(!validateGroup(document.querySelector('[data-authform]')))return;if(api.live){liveUpdatePassword(e);return}delete FD.r_p1;delete FD.r_p2;tab='login';view='auth';render();toast('Contraseña actualizada. Ya podés iniciar sesión.')});
  document.querySelectorAll('[data-vdone]').forEach(e=>e.onclick=()=>{if(api.live){liveVerifiedCheck();return}view='onb';ob=0;addrSel=null;pin={x:52,y:46};addrText='';delete FD.ad_b;delete FD.ad_prov;render();toast('Email verificado. ¡Bienvenido!')});
