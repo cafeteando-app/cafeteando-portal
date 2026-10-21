@@ -1530,10 +1530,10 @@ function onbV(){
  <div class="card" data-step-card><h2>${OBS[ob]}</h2><p class="hint" style="margin:4px 0 14px">Los campos con <span class="req">*</span> son obligatorios.</p>${f[ob]}<div style="display:flex;justify-content:space-between;margin-top:20px"><span><button class="btn sec" data-obp ${ob?'':'disabled style="opacity:.4"'}>Atrás</button>${newBranch?' <button class="btn sec" data-obc>Cancelar</button>':''}</span><button class="btn" data-obn>${ob===2?'Ir a mi panel':'Siguiente'}</button></div></div></div>`}
 
 function mCanje(){
- const st=[['El socio pide su café','Cada socio activo tiene derecho a un café de especialidad por visita, dentro de tus franjas horarias y mientras haya cupo.'],
- ['Te muestra la app','El socio abre Cafeteando, elige tu local y toca "Canjear". Le pide el código de tu local.'],
- ['Ingresa tu código de canje','El código es el que ves en Inicio (ej. 48217). Podés tenerlo impreso o visible en el mostrador.'],
- ['La app confirma el canje','Aparece una pantalla de confirmación con fecha y hora. Verificala y servile el café. Elegís vos la variedad.']];
+ const st=[['El socio pide su café','Cada socio activo tiene derecho a un café de la membresía por día, dentro de tus franjas horarias y mientras haya cupo. Para canjearlo, además tiene que pedir al menos un producto adicional en tu local.'],
+ ['Te muestra la app','El socio abre Cafeteando, elige tu local y toca "Canjear". La app le pide el código de tu local.'],
+ ['Compartile tu código','Tu código de canje es el que ves en Inicio. No lo dejes a la vista: compartilo con el socio solo cuando te pide canjear y ya pidió su producto adicional.'],
+ ['Confirmá que el canje fue exitoso','El canje es válido solo si la pantalla del socio muestra «Canje exitoso». Ahí recién podés entregarle su café de la membresía (la variedad la elegís vos). Si el canje falla o no aparece esa pantalla, no entregues el beneficio: significa que el sistema no lo validó. Si creés que es un error, escribinos.']];
  return `<div class="top"><div><h1>Cómo canjear</h1><p class="muted">Guía rápida para vos y tu equipo en el mostrador.</p></div><a class="btn sec sm" target="_blank" rel="noopener" href="https://drive.google.com/uc?export=download&id=1HftbJr6eTFOV5PPTSk_FJT8Hinb3duzx">Descargar guía en PDF</a></div>
  <div class="card"><div class="grid g2">${st.map(([t,d],i)=>`<div style="display:flex;gap:12px"><div class="kpi" style="font-size:26px;min-width:30px">${i+1}</div><div><h3>${t}</h3><p class="muted">${d}</p></div></div>`).join('')}</div></div>
  <div class="cols"><div class="card"><h2>Si el canje no funciona</h2><br><p>• <b>Fuera de horario:</b> el canje solo se habilita dentro de tus franjas.<br>• <b>Cupo agotado:</b> ya se canjeó el cupo diario. Podés subirlo en Disponibilidad.<br>• <b>Límite del socio:</b> cada socio tiene un máximo de canjes por mes.<br>• <b>Local oculto o pendiente:</b> revisá tu estado en Inicio.</p></div>
