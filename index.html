@@ -612,6 +612,9 @@ html{overflow-x:hidden}body{overflow-x:clip}
 .field .fmeta:empty{display:none}
 .grid.g2>.field>label{align-self:end}
 
+.nav .mlogout{display:none}
+@media(max-width:800px){.nav .mlogout{display:block}}
+
 </style>
 </head>
 <body>
@@ -1595,7 +1598,7 @@ function publicarContrato(){const v=document.querySelector('#cv').value.trim(),s
  confirmModal({title:'¿Publicar la versión '+v+'?',text:'Se les va a mostrar a los 38 comercios activos para que la acepten en los próximos '+pl+' días. Su local sigue activo durante ese plazo. Esta acción no se puede deshacer.',ok:'Publicar versión',onOk:()=>{const f=x=>x.split('-').reverse().join('/');const dl=new Date(d+'T00:00:00');dl.setDate(dl.getDate()+pl);const dls=String(dl.getDate()).padStart(2,'0')+'/'+String(dl.getMonth()+1).padStart(2,'0')+'/'+dl.getFullYear();
   activity.unshift({d:nowS(),w:ADMIN,a:'Publicó la versión '+v+' del contrato'});contracts.forEach(c=>c.state='Reemplazada');contracts.push({v,date:f(d),state:'Vigente',acc:0,summary:sm,deadline:dls});contractText=tx;render();toast('Versión '+v+' publicada. '+(document.querySelector('#cm')?'':'')+'Se avisó por email a los comercios (simulado)')}})}
 function adminV(){
- const nav=`<div class="nav" role="navigation" aria-label="Menú principal">${bellBtn()}${themeBtn()}<div class="logo">Cafeteando</div><div class="sub">Administración</div>${[['resumen','Resumen'],['lista','Solicitudes'],['activos','Locales activos'],['contrato','Contrato'],['equipo','Equipo'],...(api.live?[['invit','Invitaciones']]:[]),['cfg','Configuración']].map(([k,l])=>`<a href="#" class="${aview===k||(k==='lista'&&aview==='det')?'on':''}" data-a="${k}" ${aview===k||(k==='lista'&&aview==='det')?'aria-current="page"':''}>${l}</a>`).join('')}<div class="fill"></div><div class="user">${esc(api.live?bizMail():'admin@somoscafeteando.com.ar')}</div></div>`;
+ const nav=`<div class="nav" role="navigation" aria-label="Menú principal">${bellBtn()}${themeBtn()}<div class="logo">Cafeteando</div><div class="sub">Administración</div>${[['resumen','Resumen'],['lista','Solicitudes'],['activos','Locales activos'],['contrato','Contrato'],['equipo','Equipo'],...(api.live?[['invit','Invitaciones']]:[]),['cfg','Configuración']].map(([k,l])=>`<a href="#" class="${aview===k||(k==='lista'&&aview==='det')?'on':''}" data-a="${k}" ${aview===k||(k==='lista'&&aview==='det')?'aria-current="page"':''}>${l}</a>`).join('')}<div class="fill"></div><div class="who"><span class="mail" title="${esc(api.live?bizMail():'admin@somoscafeteando.com.ar')}">${esc(api.live?bizMail():'admin@somoscafeteando.com.ar')}</span><a class="out" data-logout href="#"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>Cerrar sesión</a></div><a href="#" class="mlogout" data-logout>Salir</a></div>`;
  let b='';
  if(aview==='det'){const r=REQ.find(x=>x.id===sel);b=adminDet(r)}
  else if(aview==='resumen')b=adminResumen();
