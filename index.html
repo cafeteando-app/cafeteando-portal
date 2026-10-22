@@ -1266,6 +1266,19 @@ async function liveGeocode(r) {
   return null;
 }
 function liveApprove(r) {
+  confirmModal({ icon: '✅', title: 'Aprobar y publicar: ' + esc(r.n), text: 'Se crea el local con su código de canje de 5 dígitos. Queda inactivo: no aparece en la app hasta que lo actives.', ok: 'Aprobar', cancel: 'Cancelar',
+    onOk: async () => {
+      toast('Aprobando…');
+      const g = await liveGeocode(r);
+      if (!g) { liveApproveManual(r); return; }
+      const x = await api.approveRequest(r.id, g.lat, g.lng);
+      if (!x.ok) { toast(x.error); return; }
+      await liveLoadRequests(); render();
+      toast('Aprobado. Código de canje: ' + x.code + ' (el local queda inactivo hasta activarlo).');
+    } });
+}
+// Solo si no se pudo ubicar la dirección automáticamente: se pide la ubicación a mano.
+function liveApproveManual(r) {
   const m = document.createElement('div');
   m.style.cssText = 'position:fixed;inset:0;background:#2b1d1699;z-index:90;display:grid;place-items:center;padding:16px';
   m.innerHTML = `<div class="card" style="max-width:480px;width:100%;margin:0"><h2>Aprobar y publicar: ${esc(r.n)}</h2>
