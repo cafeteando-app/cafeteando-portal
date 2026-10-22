@@ -1059,7 +1059,7 @@ async function liveSaveOnb(final) {
   if (final) { merchant.consent = true; merchant.terms_version = (window.PORTAL_CONFIG || {}).termsVersion || 'comercios-2026-10'; }
   if (!FD.cf_name) FD.cf_name = FD.ob_name || '';
   const payload = {
-    name: v('ob_name'), address: addrSel ? addrSel.a : null, neighborhood: curBarrio() || null,
+    name: v('ob_name'), address: addrSel ? capAddr(addrSel.a) : null, neighborhood: curBarrio() || null,
     province: v('ad_prov'), maps_url: v('ob_maps'),
     lat: pin.lat ? +pin.lat.toFixed(7) : null, lng: pin.lat ? +pin.lng.toFixed(7) : null,
   };
@@ -1158,7 +1158,7 @@ function liveApplyPayload(p) {
   FD.ob_name = p.name || ''; FD.ob_maps = p.maps_url || '';
   if (p.lat != null && p.lng != null) { pin.lat = +p.lat; pin.lng = +p.lng; pin.moved = false; } else { pin = { x: 52, y: 46 }; }
   FD.cf_name = p.name || ''; FD.cf_desc = p.description || ''; FD.cf_otros = p.other_services || '';
-  if (p.address) { addrSel = { a: p.address, b: p.neighborhood || '' }; FD.ad_b = p.neighborhood || ''; FD.ad_prov = p.province || ''; locals[0].addr = p.address; locals[0].barrio = p.neighborhood || ''; }
+  if (p.address) { p.address = capAddr(p.address); addrSel = { a: p.address, b: p.neighborhood || '' }; FD.ad_b = p.neighborhood || ''; FD.ad_prov = p.province || ''; locals[0].addr = p.address; locals[0].barrio = p.neighborhood || ''; }
   else { addrSel = null; delete FD.ad_b; delete FD.ad_prov; }
   svc = new Set((p.services || []).map((s) => VAR.indexOf(s)).filter((i) => i >= 0));
   if (p.logo_url) logo = { n: 'logo', u: p.logo_url, url: p.logo_url };
@@ -1849,6 +1849,8 @@ const ADDRS=[['Bonpland 1500','Palermo'],['Bonpland 1620','Palermo'],['Thames 18
 const PROVS=["Ciudad Autónoma de Buenos Aires", "Buenos Aires", "Catamarca", "Chaco", "Chubut", "Córdoba", "Corrientes", "Entre Ríos", "Formosa", "Jujuy", "La Pampa", "La Rioja", "Mendoza", "Misiones", "Neuquén", "Río Negro", "Salta", "San Juan", "San Luis", "Santa Cruz", "Santa Fe", "Santiago del Estero", "Tierra del Fuego", "Tucumán"];
 const CABA='Ciudad Autónoma de Buenos Aires';
 const curBarrio=()=>FD.ad_b!==undefined?FD.ad_b:(addrSel?addrSel.b:'');
+const ADDR_LOW=new Set(['de','del','la','las','los','el','y','e','a','en']);
+function capAddr(t){return String(t||'').trim().replace(/\s+/g,' ').split(' ').map((w,i)=>{if(!w)return w;const l=w.toLowerCase();if(i>0&&ADDR_LOW.has(l))return l;return l.charAt(0).toUpperCase()+l.slice(1)}).join(' ')}
 let addrSel={a:'Bonpland 1500',b:'Palermo'},addrText='',pin={x:52,y:46};
 function showAddrErr(m){const i=document.getElementById('ad_in');if(!i)return;i.classList.toggle('invalid',!!m);i.setAttribute('aria-invalid',m?'true':'false');const b=document.getElementById('err-ad_in');if(b)b.textContent=m}
 function addrField(){const sel=addrSel;const v=sel?(sel.custom?sel.a:sel.a+', '+sel.b):addrText;const bval=FD.ad_b!==undefined?FD.ad_b:(sel?sel.b:'');
@@ -1874,10 +1876,10 @@ function bindAddr(){const inp=document.querySelector('[data-addr-in]');if(!inp)r
   list.hidden=false;inp.setAttribute('aria-expanded','true');act=-1;
   list.querySelectorAll('li[data-ai]').forEach(li=>{li.onmousedown=e=>e.preventDefault();li.onclick=()=>pick(+li.dataset.ai)})};
  const pick=i=>{if(items[i]==='use'&&api.live){const q=inp.value.trim();list.innerHTML='<li class="none" role="option" aria-disabled="true">Buscando la dirección…</li>';
-   geoCands(q).then(cs=>{if(!cs.length){addrSel={a:q,b:'',custom:1};addrText='';pin={x:52,y:46};FD.ad_prov=CABA;FD.ad_b='';TOUCH.ad_in=0;render();return}
+   geoCands(q).then(cs=>{if(!cs.length){addrSel={a:capAddr(q),b:'',custom:1};addrText='';pin={x:52,y:46};FD.ad_prov=CABA;FD.ad_b='';TOUCH.ad_in=0;render();return}
     list.innerHTML='<li class="none" role="option" aria-disabled="true">Elegí cuál es tu dirección:</li>'+cs.map((c,k)=>`<li role="option" data-ci="${k}"><b>${esc(c.label)}</b></li>`).join('');list.hidden=false;
-    list.querySelectorAll('li[data-ci]').forEach(li=>{li.onmousedown=e=>e.preventDefault();li.onclick=()=>{const c=cs[+li.dataset.ci];const ad=c.x.address;addrSel={a:q,b:c.m.b,custom:1,fromCand:1};addrText='';pin={lat:+c.x.lat,lng:+c.x.lon,moved:true,orig:{lat:+c.x.lat,lng:+c.x.lon}};if(c.m.prov)FD.ad_prov=c.m.prov;FD.ad_b=c.m.b;TOUCH.ad_in=0;render();const n=document.getElementById('ad_in');if(n)n.focus()}})});return}
-  if(items[i]==='use'){addrSel={a:inp.value.trim(),b:FD.ad_b||'',custom:1};addrText='';pin={x:52,y:46};if(api.live){FD.ad_prov=CABA;FD.ad_b='';addrSel.b=''}TOUCH.ad_in=0;render();const n=document.getElementById('ad_b');n&&n.focus();return}const a=items[i];addrSel={a:a[0],b:a[1]};addrText='';FD.ad_b=a[1];FD.ad_prov=CABA;pin={x:52,y:46};TOUCH.ad_in=0;render();const n=document.getElementById('ad_in');if(n)n.focus()};
+    list.querySelectorAll('li[data-ci]').forEach(li=>{li.onmousedown=e=>e.preventDefault();li.onclick=()=>{const c=cs[+li.dataset.ci];const ad=c.x.address;addrSel={a:capAddr(q),b:c.m.b,custom:1,fromCand:1};addrText='';pin={lat:+c.x.lat,lng:+c.x.lon,moved:true,orig:{lat:+c.x.lat,lng:+c.x.lon}};if(c.m.prov)FD.ad_prov=c.m.prov;FD.ad_b=c.m.b;TOUCH.ad_in=0;render();const n=document.getElementById('ad_in');if(n)n.focus()}})});return}
+  if(items[i]==='use'){addrSel={a:capAddr(inp.value),b:FD.ad_b||'',custom:1};addrText='';pin={x:52,y:46};if(api.live){FD.ad_prov=CABA;FD.ad_b='';addrSel.b=''}TOUCH.ad_in=0;render();const n=document.getElementById('ad_b');n&&n.focus();return}const a=items[i];addrSel={a:a[0],b:a[1]};addrText='';FD.ad_b=a[1];FD.ad_prov=CABA;pin={x:52,y:46};TOUCH.ad_in=0;render();const n=document.getElementById('ad_in');if(n)n.focus()};
  inp.addEventListener('input',()=>{addrText=inp.value;if(addrSel){addrSel=null;const m=document.querySelector('.mapbox');if(m)m.remove()}showAddrErr('');if(inp.value.trim().length>=2)open(inp.value);else close()});
  inp.addEventListener('keydown',e=>{if(list.hidden)return;const n=list.querySelectorAll('li[data-ai]').length;if(e.key==='ArrowDown'){e.preventDefault();act=(act+1)%Math.max(n,1);mark()}else if(e.key==='ArrowUp'){e.preventDefault();act=(act-1+n)%Math.max(n,1);mark()}else if(e.key==='Enter'&&act>=0){e.preventDefault();pick(act)}else if(e.key==='Escape'){e.stopPropagation();close()}});
  inp.addEventListener('blur',()=>{setTimeout(close,150);if(!addrSel&&TOUCH.ad_in!==0&&inp.value.trim())showAddrErr('Para ubicarla en el mapa, elegí una dirección de la lista.')});
