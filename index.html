@@ -1102,7 +1102,7 @@ async function liveLoadRequests() {
       id: q.id, acctAt: m.created_at || null, raw: p, prevRaw: q.reviewed_payload || null, revBy: q.reviewed_by_name || '', revAt: q.reviewed_at || null, revNote: q.review_note || '', n: p.name || '(sin nombre)', b: p.neighborhood || '—', f: fmt(q.submitted_at || q.created_at),
       s: ST[q.status] || 'pendiente', cupo: p.daily_stock || '—', mail: m.contact_email || '',
       tit: m.contact_name || '', rol: m.role || '', tel: m.phone || '', dir: p.address || '', prov: p.province || '', desc: p.description || '',
-      logoUrl: p.logo_url || '', photoUrls: Array.isArray(p.photos) ? p.photos : [],
+      logoUrl: driveImg(p.logo_url || ''), photoUrls: Array.isArray(p.photos) ? p.photos.map(driveImg) : [],
       acc: (accRows.find((a) => a.merchant_id === q.merchant_id) || null),
       maps: p.maps_url || '', pinLat: p.lat != null ? +p.lat : null, pinLng: p.lng != null ? +p.lng : null, hor: liveFmtSched(p.schedule), serv: Array.isArray(p.services) ? p.services.join(', ') : '—', benef: Array.isArray(p.benefits) && p.benefits.length ? p.benefits.map((b) => b.text + (b.cond ? ' (' + b.cond + ')' : '')).join(' · ') : 'Sin beneficio adicional',
     });
@@ -1123,6 +1123,9 @@ function liveFmtSched(s) {
 /* ---------- Comercio: estado real, guardado, subida de fotos y envío ---------- */
 let liveReqId = null, liveMerchantId = null;
 const LIVE_FIELDS = ['cf_name','cf_desc','cf_otros','ob_name','ob_rs','ob_cuit','ob_social','ob_how','ob_titular','ob_rol','ob_rol_otro','ob_wsp','ob_mail','ob_maps'];
+
+// Los locales migrados del formulario traen links de Google Drive (HTML, no imagen): se convierten a URL de imagen directa, igual que en la app.
+function driveImg(u) { const m = String(u || '').match(/(?:[?&]id=|\/d\/)([-\w]{10,})/); return m ? 'https://lh3.googleusercontent.com/d/' + m[1] : u; }
 
 function liveCleanState() {
   svc = new Set(); photos = []; logo = null; cupo = NaN; doneCafe = false; doneDisp = false; contractOk = false; signedOk = true;
@@ -1175,8 +1178,8 @@ function liveApplyPayload(p) {
   if (p.address) { p.address = capAddr(p.address); addrSel = { a: p.address, b: p.neighborhood || '' }; FD.ad_b = p.neighborhood || ''; FD.ad_prov = p.province || ''; locals[0].addr = p.address; locals[0].barrio = p.neighborhood || ''; }
   else { addrSel = null; delete FD.ad_b; delete FD.ad_prov; }
   svc = new Set((p.services || []).map((s) => VAR.indexOf(s)).filter((i) => i >= 0));
-  if (p.logo_url) logo = { n: 'logo', u: p.logo_url, url: p.logo_url };
-  photos = (p.photos || []).map((u, i) => ({ n: 'Foto ' + (i + 1), u, url: u }));
+  if (p.logo_url) logo = { n: 'logo', u: driveImg(p.logo_url), url: driveImg(p.logo_url) };
+  photos = (p.photos || []).map((u0, i) => { const u = driveImg(u0); return { n: 'Foto ' + (i + 1), u, url: u }; });
   if (Array.isArray(p.schedule) && p.schedule.length === 7) sched = p.schedule;
   if (p.daily_stock) cupo = p.daily_stock;
   extra.items = Array.isArray(p.benefits) ? p.benefits.map((b) => ({ text: ((b.text || '') + (b.cond ? ' (' + b.cond + ')' : '')).trim(), cond: '' })) : [];
@@ -2072,7 +2075,7 @@ function liveInvit() {
 adminDet = function (r) {
   if (!api.live || !r || !r.chg) return _mockDet(r);
   const cur = (LIVE_ADMIN.changeCur || {})[r.id] || {};
-  const img = (u, tag) => `<a href="${esc(u)}" target="_blank" rel="noopener" style="display:inline-block;margin:2px 6px 2px 0;position:relative"><img src="${esc(u)}" alt="" style="width:84px;height:84px;object-fit:cover;border-radius:10px;border:1.5px solid var(--line);background:#fff">${tag ? '<span class="badge b-pendiente" style="position:absolute;left:4px;top:4px;font-size:10px;padding:1px 6px">' + tag + '</span>' : ''}</a>`;
+  const img = (u0, tag) => { const u = driveImg(u0); return `<a href="${esc(u)}" target="_blank" rel="noopener" style="display:inline-block;margin:2px 6px 2px 0;position:relative"><img src="${esc(u)}" alt="" style="width:84px;height:84px;object-fit:cover;border-radius:10px;border:1.5px solid var(--line);background:#fff">${tag ? '<span class="badge b-pendiente" style="position:absolute;left:4px;top:4px;font-size:10px;padding:1px 6px">' + tag + '</span>' : ''}</a>`; };
   const show = (k, v, other) => {
     if (v == null || v === '' || (Array.isArray(v) && !v.length)) return '<span class="muted">—</span>';
     if (k === 'logo_url') return img(v, '');
