@@ -635,6 +635,11 @@ html{overflow-x:hidden}body{overflow-x:clip}
 .tour-actions{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
 .tour-nav{display:flex;gap:8px}
 @media(prefers-reduced-motion:reduce){.tour-hole{transition:none}}
+/* Barra de guardado: solo aparece cuando hay algo para guardar */
+.savebar:not(.dirty){display:none!important}
+.savebar.dirty{animation:sbIn .28s ease-out both}
+@keyframes sbIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.savebar.dirty{animation:none}}
 
 </style>
 </head>
