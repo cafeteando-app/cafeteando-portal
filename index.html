@@ -1657,7 +1657,7 @@ function adminV(){
  else if(aview==='contrato')b=adminContrato();
  else if(aview==='equipo')b=adminEquipo();
  else if(aview==='invit')b=liveInvit();
- else if(aview==='activos')b=`<div class="top"><h1>Locales activos</h1></div><div class="card"><table><tr><th>Local</th><th>Barrio</th><th>Cupo</th><th>En la app</th><th></th></tr>${REQ.filter(r=>r.s==='aprobado').map(r=>`<tr><td><b>${r.n}</b></td><td>${r.b}</td><td>${r.cupo}/día</td><td><span class="badge b-aprobado">Visible</span></td><td><button class="btn sm sec" data-sel="${r.id}">Ver</button></td></tr>`).join('')}</table></div>`;
+ else if(aview==='activos')b=`<div class="top"><h1>Locales activos</h1></div><div class="card"><table><tr><th>Local</th><th>Barrio</th><th>Cupo</th><th>En la app</th><th></th></tr>${REQ.filter(r=>r.s==='aprobado'&&!(api.live&&r.chg)).map(r=>`<tr><td><b>${r.n}</b></td><td>${r.b}</td><td>${r.cupo}/día</td><td>${api.live&&!((LIVE_ADMIN.cafeState||{})[r.id])?'<span class="badge b-pendiente">Todavía no visible</span>':'<span class="badge b-aprobado">Visible</span>'}</td><td><button class="btn sm sec" data-sel="${r.id}">Ver</button></td></tr>`).join('')}</table></div>`;
  else if(aview==='cfg')b=`<div class="top"><h1>Configuración</h1></div><div class="card"><div class="grid g2"><div class="field"><label>Cupo diario mínimo</label><input value="5"><div class="hint">Obligatorio. Recomendado para comercios: 10.</div></div><div class="field"><label>Admins</label><input value="admin@somoscafeteando.com.ar" disabled></div></div></div>`;
  else b=adminLista();
  return `<a class="skip" href="#main">Saltar al contenido</a><div class="shell">${nav}<div class="main" id="main" role="main" tabindex="-1">${netBanner()}${b}</div></div>${bellPanel()}`}
