@@ -674,7 +674,7 @@ const VAR=['Café de filtro','Granos de especialidad','Origen único','Blends pr
 let view='auth', mview='inicio', step=0, aview='lista', sel=null, tab='login';
 let status='borrador', onMap=true, contractOk=false, signedOk=true, doneCafe=false, doneDisp=false, ob=0;
 let toastT;
-const toast=m=>{const t=document.createElement('div');t.className='toast';t.setAttribute('role','status');t.setAttribute('aria-live','polite');t.textContent=m;document.body.append(t);clearTimeout(toastT);toastT=setTimeout(()=>t.remove(),2200)};
+const toast=m=>{document.querySelectorAll('.toast').forEach(x=>x.remove());const t=document.createElement('div');t.className='toast';t.setAttribute('role','status');t.setAttribute('aria-live','polite');t.textContent=m;document.body.append(t);clearTimeout(toastT);toastT=setTimeout(()=>t.remove(),2200)};
 const ST={borrador:'Adhesión pendiente',pendiente:'En revisión',correccion:'Requiere correcciones',aprobado:'Aprobado',rechazado:'Rechazado',suspendido:'Suspendido'};
 const bd=s=>`<span class="badge b-${s}">${ST[s]}</span>`;
 const REQ=[
