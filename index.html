@@ -2229,17 +2229,17 @@ function signV() {
   const ok = sgName.trim().length >= 3 && sgRole && sgChk && !sgBusy;
   return `<a class="skip" href="#main">Saltar al contenido</a><div id="main" role="main" tabindex="-1" style="max-width:760px;margin:0 auto;padding:32px 18px 60px">
   <div class="logo" style="margin-bottom:18px">Cafeteando</div>
-  <h1>¡Aprobamos tu local!</h1>
-  <p class="muted" style="margin:8px 0 18px"><b style="color:var(--ink)">${esc(bizName())}</b> ya tiene todo listo. Falta un paso: leé y firmá las condiciones del servicio. Con tu firma el local queda <b>activado</b> y acá mismo te aparece tu <b>código de canje</b>.</p>
-  <div class="card"><h2>Condiciones del servicio (versión ${esc(lc.v)})</h2>
+  <h1>¡Tu local fue aprobado! ☕</h1>
+  <p class="muted" style="margin:8px 0 18px"><b style="color:var(--ink)">${esc(bizName())}</b> ya está listo para sumarse a Cafeteando. Solo falta un último paso: leé las condiciones del servicio y confirmalas con tu nombre. Apenas lo hagas, tu local queda <b>activo</b> y acá mismo te mostramos tu <b>código de canje</b>.</p>
+  <div class="card"><h2>Condiciones del servicio (versión ${esc(lc.v)})</h2><p class="hint" style="margin-top:6px">Tomate unos minutos para leerlas. Si tenés dudas, escribinos antes de confirmar.</p>
   <div style="max-height:min(50vh,460px);overflow:auto;background:var(--crema-clara);border:1.5px solid var(--line);border-radius:10px;padding:14px;margin-top:10px;white-space:pre-wrap;font-size:13px">${contractRaw ? contractFilled(true) : 'No pudimos cargar el texto. Recargá la página.'}</div>
   <div style="margin-top:10px"><button class="btn sec sm" data-dl>Descargar PDF</button></div></div>
-  <div class="card"><h2>Tu firma</h2>
+  <div class="card"><h2>Confirmá con tus datos</h2>
   <div class="grid g2" style="margin-top:10px"><div class="field"><label for="sg_name">Nombre y apellido</label><input id="sg_name" value="${esc(sgName)}" autocomplete="name"></div>
-  <div class="field"><label for="sg_role">Tu rol en el local</label><select id="sg_role"><option value="">Elegí tu rol</option>${roles.map((r) => `<option ${r === sgRole ? 'selected' : ''}>${r}</option>`).join('')}</select></div></div>
-  <label style="font-weight:400;display:flex;gap:8px;margin:12px 0"><input type="checkbox" style="width:auto" id="sg_chk" ${sgChk ? 'checked' : ''}> Leí las condiciones y las acepto en nombre del local, con el rol indicado.</label>
-  <p class="hint">Queda registrado con fecha, hora, versión y la cuenta desde la que firmás.</p>
-  <button class="btn" style="width:100%;margin-top:12px;${ok ? '' : 'opacity:.4;cursor:not-allowed'}" data-sign ${ok ? '' : 'disabled'}>${sgBusy ? 'Firmando…' : 'Firmar y activar mi local'}</button></div></div>`;
+  <div class="field"><label for="sg_role">¿Qué rol tenés en el local?</label><select id="sg_role"><option value="">Elegí una opción</option>${roles.map((r) => `<option ${r === sgRole ? 'selected' : ''}>${r}</option>`).join('')}</select></div></div>
+  <label style="font-weight:400;display:flex;gap:8px;margin:12px 0"><input type="checkbox" style="width:auto" id="sg_chk" ${sgChk ? 'checked' : ''}> Leí las condiciones y las acepto en nombre del local.</label>
+  <p class="hint">Guardamos la fecha, la hora y la versión de las condiciones, y te mandamos un comprobante por email.</p>
+  <button class="btn" style="width:100%;margin-top:12px;${ok ? '' : 'opacity:.4;cursor:not-allowed'}" data-sign ${ok ? '' : 'disabled'}>${sgBusy ? 'Un segundito…' : 'Aceptar y activar mi local'}</button></div></div>`;
 }
 function sgBind() {
   const n = document.getElementById('sg_name'), r = document.getElementById('sg_role'), c = document.getElementById('sg_chk'), b = document.querySelector('[data-sign]');
@@ -2248,7 +2248,7 @@ function sgBind() {
   n.oninput = upd; r.onchange = upd; c.onchange = upd;
   b.onclick = async () => {
     if (b.disabled || sgBusy) return;
-    sgBusy = true; b.disabled = true; b.textContent = 'Firmando…';
+    sgBusy = true; b.disabled = true; b.textContent = 'Un segundito…';
     try {
       const v = contracts[contracts.length - 1].v;
       const res = await api._client().rpc('sign_conditions', { p_version: v, p_name: sgName.trim(), p_role: sgRole });
@@ -2257,8 +2257,8 @@ function sgBind() {
       signedOk = true; accV = v; liveCafe = { code: ci.code || '', active: !!ci.active, enabled: !!ci.enabled };
       if (ci.code) locals[0].code = ci.code;
       onMap = !!ci.active; mview = 'inicio'; sgBusy = false; render();
-      toast('¡Listo! Tu local quedó activado. Te enviamos un email con el comprobante.');
-    } catch (e) { sgBusy = false; toast('No pudimos registrar la firma. Probá de nuevo en un momento.'); render(); }
+      toast('¡Listo! Tu local ya está activo. Te mandamos el comprobante por email.');
+    } catch (e) { sgBusy = false; toast('Uy, no pudimos registrar la aceptación. Probá de nuevo en un momento.'); render(); }
   };
 }
 
