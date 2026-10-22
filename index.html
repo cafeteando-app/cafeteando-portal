@@ -623,6 +623,19 @@ html{overflow-x:hidden}body{overflow-x:clip}
  .auth2 .a2-in.wide .rg2{display:grid;grid-template-columns:1fr 1fr;column-gap:24px;align-items:start}
 }
 
+/* Guía del panel */
+#tour{position:fixed;inset:0;z-index:120}
+.tour-veil{position:fixed;inset:0;background:transparent}
+.tour-hole{position:fixed;border-radius:14px;box-shadow:0 0 0 9999px rgba(20,12,8,.66);pointer-events:none;border:2px solid #E3A784;transition:all .22s ease}
+.tour-hole.none{left:50%;top:50%;width:0;height:0;border:0;box-shadow:0 0 0 9999px rgba(20,12,8,.66)}
+.tour-card{position:fixed;width:min(360px,calc(100vw - 24px));background:var(--blanco,#fff);color:var(--ink,#2B1D16);border-radius:16px;padding:18px 18px 14px;box-shadow:0 18px 50px rgba(0,0,0,.4);border:1.5px solid var(--terracota-claro,#E3C0AD)}
+.tour-card h2{font-size:19px;margin:4px 0 6px}
+.tour-card p{font-size:14px;line-height:1.5;margin:0 0 14px;color:var(--muted,#6b5b52)}
+.tour-step{font-size:11px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;color:var(--terracota,#A96649)}
+.tour-actions{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.tour-nav{display:flex;gap:8px}
+@media(prefers-reduced-motion:reduce){.tour-hole{transition:none}}
+
 </style>
 </head>
 <body>
@@ -1287,6 +1300,7 @@ function render(){
  const _dm=document.querySelector('.demo');document.documentElement.style.setProperty('--demoh',(_dm?_dm.offsetHeight:0)+'px');document.documentElement.classList.remove('noscroll');
  bind();
  try{const r=(typeof readyNow==='function')&&!['auth','admin','onb','verify','expired','forgot','reset','invite'].includes(view)&&readyNow();if(r&&!readyPrev&&(mview==='cafe'||mview==='disp'))toast('¡Listo! Completaste todos los pasos. Ya podés enviar tu adhesión a revisión.');readyPrev=!!r}catch(e){}
+ try{if(typeof tourAuto==='function')tourAuto()}catch(e){}
 }
 document.querySelectorAll('.demo [data-v]').forEach(b=>b.onclick=()=>{
  if(['verify','forgot'].includes(b.dataset.v)){vEmail='tu@cafeteria.com';vLeft=0;fpSent=false;fpLeft=0}
@@ -1776,7 +1790,7 @@ function tickAuth(){if(vLeft>0&&view==='verify'){vLeft--;const e=document.queryS
 setInterval(tickAuth,1000);
 
 
-function helpBtn(){return `<div class="helpwrap">${helpOpen?`<div class="helpbox" role="dialog" aria-label="Ayuda"><b>¿Necesitás ayuda?</b><span class="muted" style="font-size:13px">Escribinos y te respondemos a la brevedad:</span><a href="mailto:contactocafeteando@gmail.com">contactocafeteando@gmail.com</a><a href="#" data-helpcanje>Cómo canjear: paso a paso</a></div>`:''}<button class="helpfab" data-help aria-expanded="${helpOpen}" aria-haspopup="true"><span aria-hidden="true">?</span> Ayuda</button></div>`}
+function helpBtn(){return `<div class="helpwrap">${helpOpen?`<div class="helpbox" role="dialog" aria-label="Ayuda"><b>¿Necesitás ayuda?</b><span class="muted" style="font-size:13px">Escribinos y te respondemos a la brevedad:</span><a href="mailto:contactocafeteando@gmail.com">contactocafeteando@gmail.com</a><a href="#" data-helpcanje>Cómo canjear: paso a paso</a><a href="#" data-tourhelp>Ver la guía del panel</a></div>`:''}<button class="helpfab" data-help aria-expanded="${helpOpen}" aria-haspopup="true"><span aria-hidden="true">?</span> Ayuda</button></div>`}
 function netBanner(){return netErr?`<div class="banner" role="alert" style="background:var(--bg-bad);color:var(--fg-bad)"><div><b>No pudimos conectar con el servidor</b><br><span>Tus cambios no se perdieron. Revisá tu conexión y probamos de nuevo.</span></div><button class="btn sm bad" data-retry>Reintentar</button></div>`:''}
 function sessionExpiredModal(){const m=document.createElement('div');m.style.cssText='position:fixed;inset:0;background:#2b1d16cc;z-index:95;display:grid;place-items:center;padding:16px';m.innerHTML=`<div class="card" style="max-width:420px;width:100%;margin:0"><h2>Tu sesión venció</h2><p class="muted" style="margin:8px 0 14px">Por seguridad cerramos la sesión después de 30 minutos sin actividad. Tus datos están guardados: iniciá sesión de nuevo para seguir.</p><div style="display:flex;justify-content:flex-end"><button class="btn" id="se">Iniciar sesión</button></div></div>`;document.body.append(m);mountModal(m);m.onkeydown=e=>{if(e.key==='Escape')e.stopPropagation()};m.querySelector('#se').onclick=()=>{m.remove();view='auth';tab='login';render()}}
 
@@ -2212,6 +2226,62 @@ function sgBind() {
 
 </script>
 <script>
+/* Guía del panel: aparece sola la primera vez y se puede repetir desde "Ayuda" */
+const TOUR_STEPS=[
+ {t:'¡Te damos la bienvenida a tu panel!',d:'Hacemos un recorrido corto (menos de un minuto) para mostrarte para qué sirve cada cosa. Podés salir cuando quieras y volver a verlo desde el botón «Ayuda».'},
+ {sel:'.localbox',t:'Tus sucursales',d:'Acá elegís con qué sucursal trabajás y ves su estado. Si tenés más de un local, podés sumarlo con «+ Agregar sucursal».'},
+ {sel:'.bellico',t:'Avisos',d:'La campanita te muestra las novedades: cuando revisamos tu adhesión, si te pedimos algún cambio o cuando tu local queda aprobado. El número indica cuántos no leíste.'},
+ {sel:'.themeico',t:'Modo claro u oscuro',d:'Cambia el aspecto del panel entre fondo claro y fondo oscuro, para que lo uses como te resulte más cómodo.'},
+ {sel:'.nav a[data-m="inicio"]',t:'Inicio',d:'Tu resumen: el estado de tu adhesión, los pasos que te faltan, los canjes de hoy y del mes, y tu código de canje cuando el local esté activo.'},
+ {sel:'.nav a[data-m="cafe"]',t:'Mi cafetería',d:'Lo que ven los socios en la app: nombre, descripción, logo, fotos, servicios y beneficios adicionales.'},
+ {sel:'.nav a[data-m="disp"]',t:'Disponibilidad',d:'Tus horarios y días de atención, el cupo diario de cafés y las pausas programadas. También el interruptor para dejar de recibir canjes cuando lo necesites.'},
+ {sel:'.nav a[data-m="adh"]',t:'Mi adhesión',d:'El estado de tu solicitud, su historial y las condiciones del servicio. Desde acá enviás tu local a revisión.'},
+ {sel:'.nav a[data-m="canje"]',t:'Cómo canjear',d:'La guía paso a paso para atender a un socio que viene a canjear su café.'},
+ {sel:'.nav a[data-m="cuenta"]',t:'Mi cuenta',d:'Tu teléfono, tu contraseña, los documentos legales, los avisos por email y la opción de cerrar sesión o pedir la baja.'},
+ {sel:'.helpfab',t:'Ayuda',d:'Si necesitás algo, escribinos desde acá. También podés volver a ver esta guía cuando quieras: está en este menú, en «Ver la guía del panel».'}
+];
+let tourOn=false,tourI=0;
+const tourKey=()=>{try{return 'cf_tour_'+(((api.user()||{}).id)||'x')}catch(e){return 'cf_tour_x'}};
+const tourSeen=()=>{try{return localStorage.getItem(tourKey())==='1'}catch(e){return true}};
+const tourMark=()=>{try{localStorage.setItem(tourKey(),'1')}catch(e){}};
+function tourVisible(sel){const els=[...document.querySelectorAll(sel)];return els.find(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.height>0})||null}
+function tourStart(i){tourOn=true;tourI=i||0;helpOpen=false;tourDraw()}
+function tourEnd(){tourOn=false;tourMark();const t=document.getElementById('tour');if(t)t.remove();document.removeEventListener('keydown',tourKey_);const a=document.querySelector('[data-help]');a&&a.focus&&a.focus()}
+function tourKey_(e){if(!tourOn)return;if(e.key==='Escape'){e.preventDefault();tourEnd()}else if(e.key==='ArrowRight'){e.preventDefault();tourGo(1)}else if(e.key==='ArrowLeft'){e.preventDefault();tourGo(-1)}}
+function tourGo(d){const n=tourI+d;if(n<0)return;if(n>=TOUR_STEPS.length){tourEnd();toast('Listo. Podés volver a ver la guía desde «Ayuda».');return}tourI=n;tourDraw()}
+function tourDraw(){
+ if(!tourOn)return;
+ let box=document.getElementById('tour');
+ if(!box){box=document.createElement('div');box.id='tour';document.body.append(box);document.addEventListener('keydown',tourKey_)}
+ const s=TOUR_STEPS[tourI],last=tourI===TOUR_STEPS.length-1,first=tourI===0;
+ const el=s.sel?tourVisible(s.sel):null;
+ if(el&&el.scrollIntoView)el.scrollIntoView({block:'nearest',inline:'nearest'});
+ const r=el?el.getBoundingClientRect():null;
+ box.innerHTML=`<div class="tour-veil" data-tour-veil></div>${r?`<div class="tour-hole" style="left:${r.left-6}px;top:${r.top-6}px;width:${r.width+12}px;height:${r.height+12}px"></div>`:'<div class="tour-hole none"></div>'}<div class="tour-card" role="dialog" aria-modal="true" aria-labelledby="tour-t"><div class="tour-step">${first?'Guía del panel':'Paso '+tourI+' de '+(TOUR_STEPS.length-1)}</div><h2 id="tour-t">${s.t}</h2><p>${s.d}</p><div class="tour-actions"><button class="btn sec sm" data-tour-skip>${last?'Cerrar':'Salir de la guía'}</button><span class="tour-nav">${first?'':'<button class="btn sec sm" data-tour-prev>Atrás</button>'}<button class="btn sm" data-tour-next>${first?'Empezar':(last?'Terminar':'Siguiente')}</button></span></div></div>`;
+ const card=box.querySelector('.tour-card');
+ const W=window.innerWidth,H=window.innerHeight,cw=card.offsetWidth,ch=card.offsetHeight;
+ let L,T;
+ if(!r){L=(W-cw)/2;T=(H-ch)/2}
+ else if(r.right<W*0.4&&r.width<W*0.5&&W>800){L=r.right+18;T=r.top+r.height/2-ch/2}
+ else{L=r.left+r.width/2-cw/2;T=r.bottom+16;if(T+ch>H-12)T=r.top-ch-16}
+ L=Math.max(12,Math.min(L,W-cw-12));T=Math.max(12,Math.min(T,H-ch-12));
+ card.style.left=L+'px';card.style.top=T+'px';
+ box.querySelector('[data-tour-next]').onclick=()=>tourGo(1);
+ const p=box.querySelector('[data-tour-prev]');if(p)p.onclick=()=>tourGo(-1);
+ box.querySelector('[data-tour-skip]').onclick=tourEnd;
+ box.querySelector('[data-tour-next]').focus();
+}
+window.addEventListener('resize',()=>{if(tourOn)tourDraw()});
+/* arranca sola la primera vez que el comercio ve su panel */
+function tourAuto(){
+ if(tourOn||!api.live||tourSeen())return;
+ if(['auth','admin','onb','verify','expired','forgot','reset','invite'].includes(view))return;
+ if(!document.querySelector('.nav a[data-m="inicio"]'))return;
+ setTimeout(()=>{if(!tourOn&&!tourSeen()&&document.querySelector('.nav a[data-m="inicio"]'))tourStart(0)},700);
+}
+
+</script>
+<script>
 /* Eventos, tema y arranque */
 // Fuera del modo mock se quita la barra de demo (solo existe en la maqueta).
 if(window.PORTAL_CONFIG&&window.PORTAL_CONFIG.mode!=='mock'){const _d=document.querySelector('.demo');_d&&_d.remove()}
@@ -2257,6 +2327,7 @@ function bind(){
   toast('Se exportaron '+rows.length+' solicitudes a CSV')});
  document.querySelectorAll('[data-retry]').forEach(e=>e.onclick=()=>{netErr=false;render();toast('Conexión restablecida')});
  document.querySelectorAll('[data-help]').forEach(e=>e.onclick=ev=>{ev.stopPropagation();helpOpen=!helpOpen;render();if(helpOpen){const f=document.querySelector('.helpbox a,.helpbox button');f&&f.focus()}});
+ document.querySelectorAll('[data-tourhelp]').forEach(e=>e.onclick=ev=>{ev.preventDefault();ev.stopPropagation();helpOpen=false;render();tourStart(0)});
  document.querySelectorAll('[data-helpcanje]').forEach(e=>e.onclick=ev=>{ev.preventDefault();helpOpen=false;mview='canje';render()});
  document.querySelectorAll('[data-reloginx]').forEach(e=>e.onclick=()=>{view='auth';tab='login';render()});
  document.querySelectorAll('[data-dec]').forEach(e=>e.onclick=()=>{const r=REQ.find(x=>x.id===sel);if(api.live&&(e.dataset.dec==='on'||e.dataset.dec==='susp')){liveSetActive(r,e.dataset.dec==='on');return}decide(e.dataset.dec,r)});
