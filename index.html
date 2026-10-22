@@ -2008,6 +2008,7 @@ Object.assign(api, {
   },
   adminSummary: () => api._rpc('admin_summary'),
   adminTeam: () => api._rpc('admin_team'),
+  adminChangeCurrent: () => api._rpc('admin_change_current', {}),
   adminCafeStates: () => api._rpc('admin_request_cafe_states', {}),
   adminHistory: () => api._rpc('admin_request_history', {}),
   adminActivity: () => api._rpc('admin_activity', { p_limit: 30 }),
@@ -2020,7 +2021,8 @@ Object.assign(api, {
 });
 
 async function liveLoadAdmin() {
-  const [s, t, a, c, p, hi, cs] = await Promise.all([api.adminSummary(), api.adminTeam(), api.adminActivity(), api.adminCafes(), api.policy(), api.adminHistory(), api.adminCafeStates()]);
+  const [s, t, a, c, p, hi, cs, cc] = await Promise.all([api.adminSummary(), api.adminTeam(), api.adminActivity(), api.adminCafes(), api.policy(), api.adminHistory(), api.adminCafeStates(), api.adminChangeCurrent()]);
+  LIVE_ADMIN.changeCur = {}; ((cc && cc.ok && cc.data) || []).forEach((x) => { LIVE_ADMIN.changeCur[x.request_id] = x.current || {}; });
   LIVE_ADMIN.cafeState = {}; ((cs && cs.ok && cs.data) || []).forEach((x) => { LIVE_ADMIN.cafeState[x.request_id] = !!x.active; });
   LIVE_ADMIN.history = hi && hi.ok ? hi.data : [];
   LIVE_ADMIN.summary = s.ok ? s.data : null; LIVE_ADMIN.team = t.ok ? t.data : []; LIVE_ADMIN.activity = a.ok ? a.data : [];
@@ -2068,13 +2070,24 @@ function liveInvit() {
 
 adminDet = function (r) {
   if (!api.live || !r || !r.chg) return _mockDet(r);
+  const cur = (LIVE_ADMIN.changeCur || {})[r.id] || {};
+  const img = (u, tag) => `<a href="${esc(u)}" target="_blank" rel="noopener" style="display:inline-block;margin:2px 6px 2px 0;position:relative"><img src="${esc(u)}" alt="" style="width:84px;height:84px;object-fit:cover;border-radius:10px;border:1.5px solid var(--line);background:#fff">${tag ? '<span class="badge b-pendiente" style="position:absolute;left:4px;top:4px;font-size:10px;padding:1px 6px">' + tag + '</span>' : ''}</a>`;
+  const show = (k, v, other) => {
+    if (v == null || v === '' || (Array.isArray(v) && !v.length)) return '<span class="muted">—</span>';
+    if (k === 'logo_url') return img(v, '');
+    if (k === 'photos') return v.map((u) => img(u, other && !other.includes(u) ? 'Nueva' : '')).join('');
+    if (k === 'schedule') return esc(liveFmtSched(v));
+    if (k === 'benefits') return v.map((b) => esc(b.text + (b.cond ? ' (' + b.cond + ')' : ''))).join('<br>');
+    if (Array.isArray(v)) return esc(v.join(', '));
+    return esc(String(v));
+  };
   const rows = Object.keys(r.changes || {}).map((k) => {
-    const v = r.changes[k];
-    const txt = Array.isArray(v) ? (k === 'photos' ? v.length + ' fotos' : (k === 'schedule' ? 'Horarios actualizados' : v.join(', '))) : (k === 'logo_url' ? 'Logo nuevo' : String(v));
-    return `<tr><td><b>${esc(FIELD_ES[k] || k)}</b></td><td>${esc(txt)}</td></tr>`;
+    const nw = r.changes[k], old = cur[k];
+    const same = JSON.stringify(nw) === JSON.stringify(old);
+    return `<tr style="vertical-align:top"><td><b>${esc(FIELD_ES[k] || k)}</b>${same ? '<div class="hint">Sin diferencias con lo publicado</div>' : ''}</td><td>${show(k, old, null)}</td><td style="background:var(--warn-bg,#fff7e0)">${show(k, nw, Array.isArray(old) ? old : null)}</td></tr>`;
   }).join('');
   return `<div class="top"><div><h1>Cambios de ${esc(r.n)}</h1><p class="muted">Enviados el ${esc(r.f)}. Mientras no los aprobés, la app muestra la versión publicada.</p></div></div>
-  <div class="card"><h2>Qué cambió</h2><table><tr><th>Dato</th><th>Nuevo valor</th></tr>${rows || '<tr><td colspan="2" class="muted">Sin datos.</td></tr>'}</table></div>
+  <div class="card"><h2>Qué cambió</h2><p class="muted" style="margin:4px 0 10px">Comparamos lo que hoy ve la app con lo que propone el comercio. Tocá una imagen para verla en grande.</p><table><tr><th>Dato</th><th>Hoy en la app</th><th>Lo que propone</th></tr>${rows || '<tr><td colspan="3" class="muted">Sin datos.</td></tr>'}</table></div>
   <div class="card" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn ok" data-chgok>Aprobar y publicar cambios</button><button class="btn warn" data-dec="corr">Pedir correcciones</button><button class="btn bad" data-dec="rej">Rechazar</button></div>`;
 };
 
