@@ -645,6 +645,13 @@ html{overflow-x:hidden}body{overflow-x:clip}
 .cm-steps>div{display:grid;grid-template-columns:24px 1fr;column-gap:10px;align-items:center}
 .cm-steps b{grid-row:span 2;width:24px;height:24px;border-radius:50%;background:var(--terracota);color:#fff;font-size:13px;display:grid;place-items:center}
 .cm-steps span{font-weight:700;font-size:14px;color:var(--ink)}.cm-steps small{font-size:12.5px;color:var(--muted)}
+/* Registro: más aire, aviso destacado arriba y notas centradas */
+.reg-intro{display:flex;flex-direction:column;gap:2px;background:var(--crema-clara,#faf6ee);border:1.5px solid var(--line);border-left:4px solid var(--terracota);border-radius:12px;padding:12px 16px;margin:2px 0 16px;text-align:left}
+.reg-intro b{font-size:16px;color:var(--ink)}.reg-intro span{font-size:14px;color:var(--ink);opacity:.85}
+.reg-note{font-size:12.5px;color:var(--muted);margin:-2px 0 14px;line-height:1.45}
+.reg-foot{font-size:12.5px;color:var(--muted);text-align:center;margin:10px 0 0}
+.reg-foot.req-note{margin-top:4px;font-size:12px}
+.auth2 .a2-in.wide .chk{font-size:13px;line-height:1.4}
 
 </style>
 </head>
@@ -961,7 +968,7 @@ async function liveRegister(btn) {
   authBusy(btn, true);
   try {
     const email = (FD.r_mail || '').trim();
-    const r = await api.signUp({ email, password: FD.r_p1 || '', businessName: (FD.r_name || '').trim() });
+    const r = await api.signUp({ email, password: FD.r_p1 || '', businessName: capAuto('r_name', (FD.r_name || '').trim()) });
     if (!r.ok) { authError(r.error); return; }
     vEmail = email; vLeft = 60;
     if (r.needsVerify) { view = 'verify'; render(); }
@@ -1062,7 +1069,7 @@ function partialBanner() { return ''; }
 
 // Arma y guarda lo cargado en el onboarding (tabla merchants + borrador en cafe_requests).
 async function liveSaveOnb(final) {
-  const v = (k) => ((FD[k] || '') + '').trim() || null;
+  const v = (k) => capAuto(k, ((FD[k] || '') + '').trim()) || null;
   const role = FD.ob_rol === 'Otro' ? (v('ob_rol_otro') || 'Otro') : v('ob_rol');
   const merchant = {
     contact_name: v('ob_titular'), role, phone: v('ob_wsp'), contact_email: v('ob_mail') || ((api.user() || {}).email || null),
@@ -1196,7 +1203,7 @@ function liveBuildPayload() {
     benefits: extra.items.filter((x) => (x.text || '').trim()).map((x) => ({ text: x.text.trim(), cond: '' })),
   };
   if (status === 'aprobado' || doneDisp) { payload.schedule = sched; payload.daily_stock = cupo; }
-  if (FD.cf_name !== undefined && FD.cf_name.trim()) payload.name = FD.cf_name.trim();
+  if (FD.cf_name !== undefined && FD.cf_name.trim()) payload.name = capAuto('cf_name', FD.cf_name.trim());
   if ((FD.ob_maps || '').trim()) payload.maps_url = FD.ob_maps.trim();
   if (addrSel) { payload.address = addrSel.a; payload.neighborhood = curBarrio(); if (FD.ad_prov) payload.province = FD.ad_prov; }
   if (pin.lat && (status !== 'aprobado' || pin.moved)) { payload.lat = +pin.lat.toFixed(7); payload.lng = +pin.lng.toFixed(7); }
@@ -1352,9 +1359,9 @@ function authFrame(inner,o){o=o||{};return `<div class="auth2"><i class="ab ab1"
 function authV(){const login=tab==='login';return authFrame(`<div class="tabs" role="tablist"><button role="tab" aria-selected="${login}" class="${login?'on':''}" data-t="login">Iniciar sesión</button><button role="tab" aria-selected="${!login}" class="${!login?'on':''}" data-t="reg">Crear cuenta</button></div>
 <form novalidate data-authform onsubmit="return false">
 ${login?`${fld({id:'l_mail',label:'Email',rules:'req,email',type:'email',def:api.live?'':'hola@bonpland.com',ac:'email'})}${fld({id:'l_pass',label:'Contraseña',rules:'req',eye:true,def:api.live?'':'demo12345',ac:'current-password'})}<p class="hint" style="margin-bottom:14px"><a href="#" data-forgot>Olvidé mi contraseña</a></p><button type="submit" class="btn" style="width:100%" data-login>Ingresar</button>`
-:`<p class="hint" style="margin-bottom:12px">Los campos con <span class="req">*</span> son obligatorios.</p><div class="rg2"><div>${fld({id:'r_name',label:'Nombre de la cafetería',rules:'req',ph:'Ej: Café Bonpland',ac:'organization'})}</div><div>${fld({id:'r_mail',label:'Email',rules:'req,email',type:'email',ph:'tu@cafeteria.com',ac:'email'})}<p class="hint" style="margin:-4px 0 12px">Este email queda asociado a tu cafetería y <b>no puede usarse también para crear una cuenta de cliente en la app</b>. Si querés usar la app como cliente, registrate con un email distinto.</p></div></div><div class="rg2"><div>${fld({id:'r_p1',label:'Contraseña',rules:'req,pass',eye:true,ac:'new-password'})}<ul class="prules" aria-label="Requisitos de la contraseña"><li id="pr-len">Mínimo 8 caracteres</li><li id="pr-mix">Al menos una letra y un número</li></ul></div><div>${fld({id:'r_p2',label:'Repetir contraseña',rules:'req,match',match:'r_p1',eye:true,ac:'new-password'})}<div id="pr-match" class="pmatch" aria-live="polite"></div></div></div>
-<label class="chk" style="margin-bottom:8px"><input type="checkbox" id="r_consent" data-consent ${FD.r_consent?'checked':''} aria-describedby="err-r_consent"> <span>Acepto que mis datos personales sean tratados por Cafeteando con el fin de ser contactado sobre la incorporación a la red. Entiendo que puedo solicitar la eliminación de mis datos en cualquier momento desde mi panel o escribiendo a contactocafeteando@gmail.com. <span class="req" aria-hidden="true">*</span></span></label><div class="ferr" id="err-r_consent" role="alert"></div><label class="chk"><input type="checkbox" id="r_terms" data-terms ${FD.r_terms?'checked':''} aria-describedby="err-r_terms"> <span>Acepto los <a href="#" data-legal="terminos">términos y condiciones</a> y la <a href="#" data-legal="privacidad">política de privacidad</a>. <span class="req" aria-hidden="true">*</span></span></label><div class="ferr" id="err-r_terms" role="alert"></div><br><button type="submit" class="btn" style="width:100%" data-reg>Crear cuenta</button><p class="hint" style="margin-top:10px">Te enviamos un email para verificar tu cuenta. Crear la cuenta no activa tu local en la app.</p>`}
-</form><p class="trust">Sumarte es gratis, sin pagos ni comisiones. Tus datos solo los ve el equipo de Cafeteando.</p>
+:`<div class="reg-intro"><b>Registrarte es muy sencillo</b><span>Sumarte es gratis, sin pagos ni comisiones. Tus datos solo los ve el equipo de Cafeteando.</span></div><div class="rg2"><div>${fld({id:'r_name',label:'Nombre de la cafetería',rules:'req',ph:'Ej: Café Bonpland',ac:'organization'})}</div><div>${fld({id:'r_mail',label:'Email',rules:'req,email',type:'email',ph:'tu@cafeteria.com',ac:'email'})}</div></div><p class="reg-note">Este email queda asociado a tu cafetería y <b>no puede usarse también para crear una cuenta de cliente en la app</b>. Si querés usar la app como cliente, registrate con un email distinto.</p><div class="rg2"><div>${fld({id:'r_p1',label:'Contraseña',rules:'req,pass',eye:true,ac:'new-password'})}<ul class="prules" aria-label="Requisitos de la contraseña"><li id="pr-len">Mínimo 8 caracteres</li><li id="pr-mix">Al menos una letra y un número</li></ul></div><div>${fld({id:'r_p2',label:'Repetir contraseña',rules:'req,match',match:'r_p1',eye:true,ac:'new-password'})}<div id="pr-match" class="pmatch" aria-live="polite"></div></div></div>
+<label class="chk" style="margin-bottom:8px"><input type="checkbox" id="r_consent" data-consent ${FD.r_consent?'checked':''} aria-describedby="err-r_consent"> <span>Acepto que mis datos personales sean tratados por Cafeteando con el fin de ser contactado sobre la incorporación a la red. Entiendo que puedo solicitar la eliminación de mis datos en cualquier momento desde mi panel o escribiendo a contactocafeteando@gmail.com. <span class="req" aria-hidden="true">*</span></span></label><div class="ferr" id="err-r_consent" role="alert"></div><label class="chk"><input type="checkbox" id="r_terms" data-terms ${FD.r_terms?'checked':''} aria-describedby="err-r_terms"> <span>Acepto los <a href="#" data-legal="terminos">términos y condiciones</a> y la <a href="#" data-legal="privacidad">política de privacidad</a>. <span class="req" aria-hidden="true">*</span></span></label><div class="ferr" id="err-r_terms" role="alert"></div><br><button type="submit" class="btn" style="width:100%" data-reg>Crear cuenta</button><p class="reg-foot">Te enviamos un email para verificar tu cuenta. Crear la cuenta no activa tu local en la app.</p><p class="reg-foot req-note"><span class="req">*</span> Campo obligatorio</p>`}
+</form>${login?'<p class="trust">Sumarte es gratis, sin pagos ni comisiones. Tus datos solo los ve el equipo de Cafeteando.</p>':''}
 ${login?'<p class="hint" style="margin-top:20px;text-align:center"><a href="#" data-legal="terminos">Términos y condiciones</a> · <a href="#" data-legal="privacidad">Política de privacidad</a></p>':''}`,{cls:login?'':'wide'})}
 
 </script>
@@ -1876,7 +1883,7 @@ function bindForms(){
  document.querySelectorAll('[data-f]').forEach(el=>{
   el.addEventListener('input',()=>{FD[el.id]=el.value;if(TOUCH[el.id]||el.classList.contains('invalid'))showErr(el,check(el));onField(el)});
   el.addEventListener('change',()=>{FD[el.id]=el.value;if(el.id==='ob_rol'){render();const n=document.getElementById('ob_rol');n&&n.focus()}if(el.id==='ad_prov'){const cb=curBarrio();if(el.value===CABA){if(!BARRIOS.includes(cb))FD.ad_b=''}else if(BARRIOS.includes(cb))FD.ad_b='';render();const n=document.getElementById('ad_prov');n&&n.focus()}});
-  el.addEventListener('blur',()=>{TOUCH[el.id]=1;showErr(el,check(el));onField(el)});
+  el.addEventListener('blur',()=>{if(CAP_MODE[el.id]){const nv=capAuto(el.id,el.value.trim());if(nv!==el.value){el.value=nv;FD[el.id]=nv}}TOUCH[el.id]=1;showErr(el,check(el));onField(el)});
   if(TOUCH[el.id])showErr(el,check(el))});
  document.querySelectorAll('[data-eye]').forEach(b=>b.onclick=()=>{const i=document.getElementById(b.dataset.eye);const show=i.type==='password';i.type=show?'text':'password';b.setAttribute('aria-pressed',show);b.setAttribute('aria-label',show?'Ocultar contraseña':'Mostrar contraseña');b.innerHTML=show?EYEOFF:EYE});
  onField(null);bindAddr()}
@@ -1887,6 +1894,10 @@ const ADDRS=[['Bonpland 1500','Palermo'],['Bonpland 1620','Palermo'],['Thames 18
 const PROVS=["Ciudad Autónoma de Buenos Aires", "Buenos Aires", "Catamarca", "Chaco", "Chubut", "Córdoba", "Corrientes", "Entre Ríos", "Formosa", "Jujuy", "La Pampa", "La Rioja", "Mendoza", "Misiones", "Neuquén", "Río Negro", "Salta", "San Juan", "San Luis", "Santa Cruz", "Santa Fe", "Santiago del Estero", "Tierra del Fuego", "Tucumán"];
 const CABA='Ciudad Autónoma de Buenos Aires';
 const curBarrio=()=>FD.ad_b!==undefined?FD.ad_b:(addrSel?addrSel.b:'');
+/* Mayúscula inicial automática: nombres de personas (cada palabra) y de locales (primera letra). No toca el resto de las letras. */
+const CAP_MODE={r_name:'first',ob_name:'first',cf_name:'first',ob_titular:'words',ob_rol_otro:'first',sg_name:'words'};
+const NAME_LOW=new Set(['de','del','la','las','los','el','y','e','da','do','van','von','di']);
+function capAuto(id,t){const m=CAP_MODE[id];if(!m)return t;t=String(t||'').replace(/^\s+/,'').replace(/\s{2,}/g,' ');if(m==='first')return t.charAt(0).toUpperCase()+t.slice(1);return t.split(' ').map((w,i)=>(!w||(i>0&&NAME_LOW.has(w.toLowerCase())&&w===w.toLowerCase()))?w:w.charAt(0).toUpperCase()+w.slice(1)).join(' ')}
 const ADDR_LOW=new Set(['de','del','la','las','los','el','y','e','a','en']);
 function capAddr(t){return String(t||'').trim().replace(/\s+/g,' ').split(' ').map((w,i)=>{if(!w)return w;const l=w.toLowerCase();if(i>0&&ADDR_LOW.has(l))return l;return l.charAt(0).toUpperCase()+l.slice(1)}).join(' ')}
 let addrSel={a:'Bonpland 1500',b:'Palermo'},addrText='',pin={x:52,y:46};
