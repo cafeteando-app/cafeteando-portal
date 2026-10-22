@@ -2025,6 +2025,7 @@ adminResumen = function () {
 
 adminEquipo = function () {
   if (!api.live) return _mockEquipo();
+  if (!window.__actAt || Date.now() - window.__actAt > 8000) { window.__actAt = Date.now(); api.adminActivity().then((r) => { if (r.ok && JSON.stringify(r.data) !== JSON.stringify(LIVE_ADMIN.activity)) { LIVE_ADMIN.activity = r.data; if (view === 'admin' && aview === 'equipo') render(); } }); }
   const T = LIVE_ADMIN.team, A = LIVE_ADMIN.activity, P = LIVE_ADMIN.policy;
   return `<div class="top"><div><h1>Equipo</h1><p class="muted">Quién de Cafeteando puede entrar al panel. Cada acción queda registrada.</p></div></div>
   <div class="card"><h2>Personas con acceso</h2><table><tr><th>Email</th><th>Rol</th><th>Estado</th><th></th></tr>${T.map((x) => `<tr><td><b>${esc(x.email)}</b></td><td>${x.role === 'admin' ? 'Administrador' : 'Revisor'}</td><td>${x.registered ? '<span class="badge b-aprobado">Activo</span>' : '<span class="badge b-pendiente">Falta que se registre</span>'}</td><td><button class="btn sm bad" data-rmadm="${esc(x.email)}">Quitar</button></td></tr>`).join('')}</table>
@@ -2033,7 +2034,7 @@ adminEquipo = function () {
   <p class="hint" style="margin-top:8px">La persona tiene que crear su cuenta en el portal con ese mismo email y verificarlo.</p></div>
   <div class="card"><h2>Qué cambios necesitan revisión</h2><p class="muted" style="margin:4px 0 12px">Cuando un local ya aprobado cambia estos datos: "Directo" se publica al instante; "Revisión" espera tu aprobación.</p>
   <table><tr><th>Dato</th><th>Cómo se publica</th></tr>${P.map((f) => `<tr><td>${esc(f.label)}</td><td><select data-pol="${esc(f.field)}" aria-label="${esc(f.label)}"><option value="review" ${f.mode === 'review' ? 'selected' : ''}>Revisión</option><option value="direct" ${f.mode === 'direct' ? 'selected' : ''}>Directo</option></select></td></tr>`).join('')}</table></div>
-  <div class="card"><h2>Registro de actividad</h2><table><tr><th>Fecha</th><th>Quién</th><th>Qué hizo</th></tr>${A.length ? A.map((a) => `<tr><td>${fmtDT(a.at)}</td><td><b>${esc(adminName(a.actor_email))}</b></td><td>${esc(ACT_TXT[a.action] || a.action)}${a.detail && a.detail.name ? ': ' + esc(a.detail.name) : ''}${a.detail && a.detail.email ? ': ' + esc(a.detail.email) : ''}</td></tr>`).join('') : '<tr><td colspan="3" class="muted">Todavía no hay actividad.</td></tr>'}</table></div>`;
+  <div class="card"><h2>Registro de actividad</h2><table><tr><th>Fecha</th><th>Quién</th><th>Café</th><th>Qué hizo</th></tr>${A.length ? A.map((a) => `<tr><td>${fmtDT(a.at)}</td><td><b>${esc(adminName(a.actor_email))}</b></td><td>${a.cafe ? esc(a.cafe) : '<span class="muted">—</span>'}</td><td>${esc(ACT_TXT[a.action] || a.action)}${a.detail && a.detail.email ? ': ' + esc(a.detail.email) : ''}</td></tr>`).join('') : '<tr><td colspan="4" class="muted">Todavía no hay actividad.</td></tr>'}</table></div>`;
 };
 
 function liveInvit() {
