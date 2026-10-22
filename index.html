@@ -1149,6 +1149,7 @@ async function liveHydrate() {
   status = S[q.status] || 'borrador';
   if (q.submitted_at) { const d = new Date(q.submitted_at); window.__subDate = String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0'); }
   if (q.review_note) corrMsg = q.review_note;
+  corrTouched = !!(q.status === 'needs_fix' && q.reviewed_payload && JSON.stringify(q.payload) !== JSON.stringify(q.reviewed_payload));
   if (m.contact_name && !p.address) { view = 'onb'; ob = 1; mview = 'inicio'; return 'onb'; }
   if (status === 'aprobado') {
     window.__stats = await api.myStats(); const ci = await api.myCafeInfo(); liveCafe = { code: ci.code || '', active: !!ci.active, enabled: !!ci.enabled }; signedOk = !!ci.signed; if (signedOk) accV = contracts[contracts.length - 1].v;
@@ -1354,8 +1355,10 @@ function merchV(){
  return `<a class="skip" href="#main">Saltar al contenido</a><div class="shell">${nav}<div class="main" id="main" role="main" tabindex="-1">${netBanner()}${api.live?partialBanner():''}${readyBanner()}<div class="localbox"><div class="lb-title">Tus sucursales</div><div class="tabsbar">${locals.map((l,i)=>{const st=i===cur?status:l.snap.status;const om=i===cur?onMap:l.snap.onMap;const dc=st==='aprobado'?(om?'ok':'off'):st;return `<button class="ltab ${i===cur?'on':''}" data-tab="${i}"><i class="dot d-${dc}"></i><span><b>${l.addr}</b><small>${l.barrio}</small></span></button>`}).join('')}<button class="ltab add" data-newloc>+ Agregar sucursal</button></div><div class="statusrow"><span>Estado de esta sucursal</span>${bd(status)}<button class="info" data-info="${cur}" title="¿Qué significa este estado?" aria-expanded="${openInfo===cur}">i</button><span class="lb-code">Código de canje: <b>${status==='aprobado'?L().code:'se genera al aprobarse'}</b></span></div>${infoBox()}</div>${body}</div></div>${bellPanel()}${helpBtn()}`}
 
 let readyPrev=false;
-const readyNow=()=>{try{return (status==='borrador')&&stepItems().every(x=>x[1])}catch(e){return false}};
-function readyBanner(){if(!readyNow()||!(mview==='cafe'||mview==='disp'))return '';return `<div class="banner ok" role="status"><div><b>¡Completaste todos los pasos!</b><br><span class="muted">Último paso: enviá tu adhesión a revisión para que Cafeteando pueda aprobar tu local.</span></div><button class="btn sm" data-quicksend>Enviar a revisión</button></div>`}
+let corrTouched=false;
+const corrTarget=()=>{const m=String(corrMsg||'');if(/horarios|cupo|disponibilidad/i.test(m))return 'disp';if(/contrato|condiciones|titular|contacto/i.test(m))return 'adh';return 'cafe'};
+const readyNow=()=>{try{return ((status==='borrador')&&stepItems().every(x=>x[1]))||(status==='correccion'&&corrTouched)}catch(e){return false}};
+function readyBanner(){if(!readyNow()||!(mview==='cafe'||mview==='disp'))return '';return `<div class="banner ok" role="status"><div>${status==='correccion'?'<b>¡Listo, hiciste los ajustes!</b><br><span class="muted">Reenviá tu adhesión para que Cafeteando la vuelva a revisar.</span>':'<b>¡Completaste todos los pasos!</b><br><span class="muted">Último paso: enviá tu adhesión a revisión para que Cafeteando pueda aprobar tu local.</span>'}</div><button class="btn sm" data-quicksend>Enviar a revisión</button></div>`}
 function statusBanner(){
  if(status==='borrador')return `<div class="banner pend"><div><b>Te falta poco para sumar tu local</b><br><span class="muted">Tu local todavía no está visible en la app. Llevás 3 de 6 secciones.</span></div><button class="btn sm" data-m="adh">Continuar</button></div>`;
  if(status==='pendiente')return `<div class="banner pend"><div><b>Adhesión en revisión</b><br><span class="muted">Enviada el ${subDate()}. Te avisamos por email cuando el equipo de Cafeteando la revise (suele demorar 2 a 3 días hábiles).</span></div>${bd('pendiente')}</div>`;
@@ -1379,8 +1382,8 @@ function heroInicio(){
  if(status==='borrador'||status==='correccion'){
   t=status==='correccion'?'Cafeteando te pidió correcciones':'Para activar tu local, te falta completar unos datos. Te acompañamos en cada paso.';
   sub=status==='correccion'?'Cuando hagas los ajustes que te comentamos, reenviá tu solicitud y la revisamos enseguida. Mensaje del equipo: «'+esc(corrMsg)+'»':(nx?`Próximo paso: <b>${nx[0]}</b>.`:'Ya completaste todo: revisá y enviá la adhesión.');
-  cta=(status==='borrador'&&!nx)?`<button class="btn" data-quicksend>Enviar a revisión</button>`:`<button class="btn" data-m="${status==='correccion'?'adh':(nx?nx[2]:'adh')}">${status==='correccion'?'Corregir y reenviar':(nx?'Continuar':'Enviar a revisión')}</button>`;
-  extra=`<div class="hero-prog"><span>${n} de ${items.length} pasos completados</span>${bar}</div>`}
+  cta=(status==='correccion'&&api.live)?(corrTouched?`<button class="btn" data-quicksend>Reenviar a revisión</button>`:`<button class="btn" data-m="${corrTarget()}">Ir a corregir</button>`):(status==='borrador'&&!nx)?`<button class="btn" data-quicksend>Enviar a revisión</button>`:`<button class="btn" data-m="${status==='correccion'?'adh':(nx?nx[2]:'adh')}">${status==='correccion'?'Corregir y reenviar':(nx?'Continuar':'Enviar a revisión')}</button>`;
+  if(status==='correccion'&&api.live)extra='';else extra=`<div class="hero-prog"><span>${n} de ${items.length} pasos completados</span>${bar}</div>`}
  else if(status==='pendiente'){t='Tu adhesión está en revisión';sub=`Enviada el ${subDate()}. Te avisamos por email en 2 a 3 días hábiles. No tenés que hacer nada por ahora.`}
  else if(status==='aprobado'){t=onMap?'Tu sucursal está activa y recibe canjes':'Tu sucursal está pausada';sub=onMap?'Los socios ya pueden canjear su café acá.':'No figura en la app hasta que la reactives.'}
  else {t='Estado de esta sucursal';sub='Escribinos y lo resolvemos juntos.'}
@@ -1661,7 +1664,7 @@ function adminDet(r){const pub=r.s==='aprobado'||r.s==='suspendido';const P=Obje
  <div class="card"><h2>Lo que figura hoy en la app</h2>${pub?`<table style="margin-top:8px"><tr><th>Dato</th><th>Cargado por el comercio</th><th>Publicado en la app</th></tr>${cmp.map(([l,k,v])=>`<tr><td class="muted">${l}</td><td>${esc(v)}</td><td>${k==='dir'?esc(r.dir+', '+r.b):esc(P[k]||'—')} ${diff(k,k==='dir'?r.dir:(k==='desc'?(r.desc||''):v))&&!(k==='dir')?'<span class="badge b-correccion">Distinto</span>':''}</td></tr>`).join('')}</table>`:`<p class="muted" style="margin-top:8px">Todavía no se publicó nada en la app.</p>`}</div></div>
  <div><div class="card"><h2>Nota interna</h2><p class="hint" style="margin:4px 0 8px">Solo la ve el equipo de Cafeteando.</p><textarea rows="3" aria-label="Nota interna" placeholder="Ej: Hablé con la dueña, quiere subir el cupo en diciembre."></textarea></div>
  ${r.pend&&r.s==='aprobado'?'<div class="card" style="border:2px solid var(--info)"><h2>Cambios pendientes de revisión</h2><br><p>Descripción: «'+esc((r.pub||{}).desc||'')+'» → «'+esc(r.desc)+'»<br>Foto 2 reemplazada</p><br><button class="btn ok sm" data-pubchg>Publicar cambios</button> <button class="btn sec sm" data-rejchg>Rechazar</button></div>':''}<div class="card"><h2>Estado en la app</h2><br><p>${r.s==='aprobado'?(api.live?'Aprobado. Usá «Activar en la app» para que los socios lo vean.':'Visible en la app, canjes habilitados'):'Todavía no figura en la app'}</p>${api.live?'':'<p class="hint">Así se publica hoy en la tabla de cafés.</p>'}</div>
- <div class="card"><h2>Historial de cambios</h2><ul class="log">${(r.log||[]).map(x=>`<li>${x.d} · ${esc(x.t)}</li>`).join('')}<li>${r.f} · Comercio envió la adhesión</li>${r.revBy&&r.revAt?`<li>${accFmt(r.revAt)} · ${esc(r.s==='aprobado'?'Aprobó':(r.s==='correccion'?'Pidió correcciones':(r.s==='rechazado'?'Rechazó':'Revisó')))}: ${esc(r.revBy)}${r.revNote?' · «'+esc(r.revNote)+'»':''}</li>`:''}${r.acctAt?`<li>${accFmt(r.acctAt)} · Cuenta creada</li>`:(api.live?'':'<li>12/10 · Cuenta creada</li>')}${r.acc?`<li>${accFmt(r.acc.accepted_at)} · Firmó las condiciones (versión ${esc(r.acc.version)})${r.acc.signer_name?' · '+esc(r.acc.signer_name)+(r.acc.signer_role?', '+esc(r.acc.signer_role):''):''}</li>`:(api.live&&r.s==='aprobado'?'<li><b>Aprobado · falta la firma del local</b> (todavía no está activo)</li>':'')}</ul></div></div></div>`}
+ <div class="card"><h2>Historial de cambios</h2><ul class="log">${api.live?liveHistoryHtml(r):`${(r.log||[]).map(x=>`<li>${x.d} · ${esc(x.t)}</li>`).join('')}<li>${r.f} · Comercio envió la adhesión</li>${r.revBy&&r.revAt?`<li>${accFmt(r.revAt)} · ${esc(r.s==='aprobado'?'Aprobó':(r.s==='correccion'?'Pidió correcciones':(r.s==='rechazado'?'Rechazó':'Revisó')))}: ${esc(r.revBy)}${r.revNote?' · «'+esc(r.revNote)+'»':''}</li>`:''}${r.acctAt?`<li>${accFmt(r.acctAt)} · Cuenta creada</li>`:(api.live?'':'<li>12/10 · Cuenta creada</li>')}${r.acc?`<li>${accFmt(r.acc.accepted_at)} · Firmó las condiciones (versión ${esc(r.acc.version)})${r.acc.signer_name?' · '+esc(r.acc.signer_name)+(r.acc.signer_role?', '+esc(r.acc.signer_role):''):''}</li>`:(api.live&&r.s==='aprobado'?'<li><b>Aprobado · falta la firma del local</b> (todavía no está activo)</li>':'')})`}</ul></div></div></div>`}
 function accFmt(d){const x=new Date(d),z=n=>String(n).padStart(2,'0');return z(x.getDate())+'/'+z(x.getMonth()+1)+'/'+x.getFullYear()+' '+z(x.getHours())+':'+z(x.getMinutes())}
 function adminImgs(r){if(api.live){const a=[];if(r.logoUrl)a.push(['Logo',r.n[0],r.logoUrl]);(r.photoUrls||[]).forEach((u,i)=>a.push(['Foto '+(i+1),String(i+1),u]));return a.length?a:[['Sin imágenes','—',null]]}return [['Logo',r.n[0]],['Foto 1','1'],['Foto 2','2'],['Foto 3','3']]}
 function lightbox(r,i){const imgs=adminImgs(r);const m=document.createElement('div');m.style.cssText='position:fixed;inset:0;background:#000000cc;z-index:90;display:grid;place-items:center;padding:16px';
@@ -1945,7 +1948,7 @@ function bindLocalidad(){if(!api.live)return;const inp=document.getElementById('
 <script>
 /* Funciones reales (modo supabase) para: edición de locales aprobados, interruptor, invitaciones,
    equipo, actividad, resumen y política de revisión. En modo mock no hace nada. */
-const LIVE_ADMIN = { summary: null, team: [], activity: [], cafes: [], policy: [] };
+const LIVE_ADMIN = { history: [], summary: null, team: [], activity: [], cafes: [], policy: [] };
 const ACT_TXT = {
   request_pending: 'Envió una solicitud', request_approved: 'Aprobó', request_rejected: 'Rechazó', request_needs_fix: 'Pidió correcciones',
   change_direct: 'Cambió horarios/cupo (directo)', merchant_on: 'Activó su local', merchant_off: 'Desactivó su local', admin_on: 'Activó en la app',
@@ -1991,6 +1994,7 @@ Object.assign(api, {
   },
   adminSummary: () => api._rpc('admin_summary'),
   adminTeam: () => api._rpc('admin_team'),
+  adminHistory: () => api._rpc('admin_request_history', {}),
   adminActivity: () => api._rpc('admin_activity', { p_limit: 30 }),
   addAdmin: (email, role) => api._rpc('admin_add_admin', { p_email: email, p_role: role }),
   removeAdmin: (email) => api._rpc('admin_remove_admin', { p_email: email }),
@@ -2001,7 +2005,8 @@ Object.assign(api, {
 });
 
 async function liveLoadAdmin() {
-  const [s, t, a, c, p] = await Promise.all([api.adminSummary(), api.adminTeam(), api.adminActivity(), api.adminCafes(), api.policy()]);
+  const [s, t, a, c, p, hi] = await Promise.all([api.adminSummary(), api.adminTeam(), api.adminActivity(), api.adminCafes(), api.policy(), api.adminHistory()]);
+  LIVE_ADMIN.history = hi && hi.ok ? hi.data : [];
   LIVE_ADMIN.summary = s.ok ? s.data : null; LIVE_ADMIN.team = t.ok ? t.data : []; LIVE_ADMIN.activity = a.ok ? a.data : [];
   LIVE_ADMIN.cafes = c.ok ? c.data : []; LIVE_ADMIN.policy = p;
 }
@@ -2244,6 +2249,36 @@ function sgBind() {
   };
 }
 
+/* Historial claro de una solicitud (panel de admin), en orden cronológico inverso. */
+function liveHistoryHtml(r) {
+  const H = (LIVE_ADMIN.history || []).filter((h) => h.request_id === r.id);
+  const items = []; let fixed = false;
+  H.forEach((h) => {
+    const who = esc(adminName(h.actor_email)), d = h.detail || {}, chg = d.kind === 'change';
+    let t = null;
+    switch (h.action) {
+      case 'request_pending': t = chg ? 'El comercio envió cambios para revisar' : (fixed ? 'El comercio reenvió la solicitud con las correcciones' : 'El comercio envió la solicitud de adhesión'); break;
+      case 'request_needs_fix': fixed = true; t = who + ' pidió correcciones' + (d.note ? ' · «' + esc(d.note) + '»' : ''); break;
+      case 'request_approved': t = who + (chg ? ' aprobó los cambios solicitados' : ' aprobó la solicitud de adhesión'); break;
+      case 'request_rejected': t = who + (chg ? ' rechazó los cambios solicitados' : ' rechazó la solicitud de adhesión') + (d.note ? ' · «' + esc(d.note) + '»' : ''); break;
+      case 'merchant_signed': t = 'El comercio firmó las condiciones del servicio' + (d.version ? ' (versión ' + esc(d.version) + ')' : '') + (d.name ? ' · ' + esc(d.name) + (d.role ? ', ' + esc(d.role) : '') : ''); break;
+      case 'activated_on_sign': t = 'El local quedó activo en la app (se activó al firmar)'; break;
+      case 'merchant_on': t = 'El comercio activó su local para canjes'; break;
+      case 'merchant_off': t = 'El comercio pausó su local (dejó de recibir canjes)'; break;
+      case 'admin_on': t = who + ' activó el local en la app'; break;
+      case 'admin_off': t = who + ' desactivó el local de la app'; break;
+      case 'invite_created': t = who + ' creó la invitación para reclamar este local'; break;
+      case 'invite_claimed': t = 'El comercio reclamó su local desde la invitación'; break;
+      case 'change_direct': t = 'El comercio cambió horarios o cupo (se publicó directo)'; break;
+      default: t = null;
+    }
+    if (t) items.push([h.at, t]);
+  });
+  if (r.acctAt) items.push([r.acctAt, 'El comercio creó su cuenta en el portal']);
+  items.sort((a, b) => new Date(b[0]) - new Date(a[0]));
+  return items.map((i) => '<li>' + accFmt(i[0]) + ' · ' + i[1] + '</li>').join('') || '<li class="muted">Todavía no hay movimientos.</li>';
+}
+
 </script>
 <script>
 /* Guía del panel: aparece sola la primera vez y se puede repetir desde "Ayuda" */
@@ -2408,7 +2443,7 @@ function bind(){
    if(status==='aprobado'){chg.desc=true;chg.fotos=true;if(addrSel&&addrSel.a!==L().addr)chg.addr=true}else if(addrSel){L().addr=addrSel.a;L().barrio=curBarrio()}
   }
   if(mview==='disp')doneDisp=true;
-  if(api.live){const ok=await liveSaveDraft();if(!ok){if(mview==='cafe')doneCafe=false;if(mview==='disp')doneDisp=false;return}toast('Guardado.');dirtyKey=null;render();return}
+  if(api.live){const ok=await liveSaveDraft();if(!ok){if(mview==='cafe')doneCafe=false;if(mview==='disp')doneDisp=false;return}if(status==='correccion')corrTouched=true;toast(status==='correccion'?'Guardado. Volvé a Inicio para reenviar a revisión.':'Guardado.');dirtyKey=null;render();return}
   toast(mview==='cafe'&&status==='aprobado'?'Cambios enviados a revisión (simulado)':'Guardado (simulado)');
   dirtyKey=null;render()});
  document.querySelectorAll('[data-phone-save]').forEach(e=>e.onclick=()=>{const c=e.closest('.card');if(!validateGroup(c))return;if(!api.live){toast('Datos guardados (simulado)');return}const v=(FD.ac_phone!==undefined?FD.ac_phone:FD.ob_wsp)||'';e.disabled=true;api.savePhone(v).then(r=>{e.disabled=false;if(r.ok){FD.ob_wsp=v;toast('Teléfono actualizado')}else toast(r.error||'No pudimos guardar el teléfono')})});
