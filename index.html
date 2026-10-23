@@ -1189,7 +1189,7 @@ async function liveLoadRequests() {
       return;
     }
     REQ.push(Object.assign(brInfo(q), {
-      id: q.id, acctAt: m.created_at || null, raw: p, prevRaw: q.reviewed_payload || null, revBy: q.reviewed_by_name || '', revAt: q.reviewed_at || null, revNote: q.review_note || '', n: p.name || '(sin nombre)', b: p.neighborhood || '—', f: fmt(q.submitted_at || q.created_at),
+      id: q.id, cafeId: q.cafe_id || null, acctAt: m.created_at || null, raw: p, prevRaw: q.reviewed_payload || null, revBy: q.reviewed_by_name || '', revAt: q.reviewed_at || null, revNote: q.review_note || '', n: p.name || '(sin nombre)', b: p.neighborhood || '—', f: fmt(q.submitted_at || q.created_at),
       s: ST[q.status] || 'pendiente', cupo: p.daily_stock || '—', mail: m.contact_email || '',
       tit: m.contact_name || '', rol: m.role || '', tel: m.phone || '', dir: p.address || '', prov: p.province || '', desc: p.description || '',
       logoUrl: driveImg(p.logo_url || ''), photoUrls: Array.isArray(p.photos) ? p.photos.map(driveImg) : [],
@@ -1764,13 +1764,14 @@ function publicarContrato(){const v=document.querySelector('#cv').value.trim(),s
  confirmModal({title:'¿Publicar la versión '+v+'?',text:'Se les va a mostrar a los 38 comercios activos para que la acepten en los próximos '+pl+' días. Su local sigue activo durante ese plazo. Esta acción no se puede deshacer.',ok:'Publicar versión',onOk:()=>{const f=x=>x.split('-').reverse().join('/');const dl=new Date(d+'T00:00:00');dl.setDate(dl.getDate()+pl);const dls=String(dl.getDate()).padStart(2,'0')+'/'+String(dl.getMonth()+1).padStart(2,'0')+'/'+dl.getFullYear();
   activity.unshift({d:nowS(),w:ADMIN,a:'Publicó la versión '+v+' del contrato'});contracts.forEach(c=>c.state='Reemplazada');contracts.push({v,date:f(d),state:'Vigente',acc:0,summary:sm,deadline:dls});contractText=tx;render();toast('Versión '+v+' publicada. '+(document.querySelector('#cm')?'':'')+'Se avisó por email a los comercios (simulado)')}})}
 function adminV(){
- const nav=`<div class="nav" role="navigation" aria-label="Menú principal">${bellBtn()}${themeBtn()}<div class="logo">Cafeteando</div><div class="sub">Administración</div>${[['resumen','Resumen'],['lista','Solicitudes'],['activos','Locales adheridos'],['contrato','Contrato'],['equipo','Equipo'],...(api.live?[['invit','Invitaciones']]:[]),...(api.live?[]:[['cfg','Configuración']])].map(([k,l])=>`<a href="#" class="${aview===k||(k==='lista'&&aview==='det')?'on':''}" data-a="${k}" ${aview===k||(k==='lista'&&aview==='det')?'aria-current="page"':''}>${l}</a>`).join('')}<div class="fill"></div><div class="who"><span class="mail" title="${esc(api.live?bizMail():'admin@somoscafeteando.com.ar')}">${esc(api.live?bizMail():'admin@somoscafeteando.com.ar')}</span><a class="out" data-logout href="#"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>Cerrar sesión</a></div><a href="#" class="mlogout" data-logout>Salir</a></div>`;
+ const nav=`<div class="nav" role="navigation" aria-label="Menú principal">${bellBtn()}${themeBtn()}<div class="logo">Cafeteando</div><div class="sub">Administración</div>${[['resumen','Resumen'],['lista','Solicitudes'],['activos','Locales adheridos'],['contrato','Contrato'],['equipo','Equipo'],...(api.live?[]:[['cfg','Configuración']])].map(([k,l])=>`<a href="#" class="${aview===k||(k==='lista'&&aview==='det')?'on':''}" data-a="${k}" ${aview===k||(k==='lista'&&aview==='det')?'aria-current="page"':''}>${l}</a>`).join('')}<div class="fill"></div><div class="who"><span class="mail" title="${esc(api.live?bizMail():'admin@somoscafeteando.com.ar')}">${esc(api.live?bizMail():'admin@somoscafeteando.com.ar')}</span><a class="out" data-logout href="#"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>Cerrar sesión</a></div><a href="#" class="mlogout" data-logout>Salir</a></div>`;
  let b='';
  if(aview==='det'){const r=REQ.find(x=>x.id===sel);b=adminDet(r)}
  else if(aview==='resumen')b=adminResumen();
  else if(aview==='contrato')b=adminContrato();
  else if(aview==='equipo')b=adminEquipo();
  else if(aview==='invit')b=liveInvit();
+ else if(aview==='activos'&&api.live)b=liveInvit();
  else if(aview==='activos')b=`<div class="top"><h1>Locales adheridos</h1></div><div class="card"><table><tr><th>Local</th><th>Barrio</th><th>Cupo</th><th>En la app</th><th></th></tr>${REQ.filter(r=>r.s==='aprobado'&&!(api.live&&r.chg)).map(r=>`<tr><td><b>${r.n}</b>${brTag(r)}${r.brNum>1&&r.dir?'<div class="hint">'+esc(r.dir)+'</div>':''}</td><td>${r.b}</td><td>${r.cupo}/día</td><td>${api.live&&!((LIVE_ADMIN.cafeState||{})[r.id])?'<span class="badge b-pendiente">Todavía no visible</span>':'<span class="badge b-aprobado">Visible</span>'}</td><td><button class="btn sm sec" data-sel="${r.id}">Ver</button></td></tr>`).join('')}</table></div>`;
  else if(aview==='cfg')b=`<div class="top"><h1>Configuración</h1></div><div class="card"><div class="grid g2"><div class="field"><label>Cupo diario mínimo</label><input value="5"><div class="hint">Obligatorio. Recomendado para comercios: 10.</div></div><div class="field"><label>Admins</label><input value="admin@somoscafeteando.com.ar" disabled></div></div></div>`;
  else b=adminLista();
@@ -2184,11 +2185,19 @@ adminEquipo = function () {
 };
 
 function liveInvit() {
-  const C = LIVE_ADMIN.cafes;
-  return `<div class="top"><div><h1>Invitaciones</h1><p class="muted">Locales ya cargados en la app. Invitá al dueño con su email: crea su clave en el portal y reclama su local. Copiá el link y mandáselo.</p></div></div>
-  <div class="card"><table><tr><th>Local</th><th>Barrio</th><th>En la app</th><th>Estado</th><th></th></tr>${C.map((c) => `<tr><td><b>${esc(c.name)}</b></td><td>${esc(c.neighborhood || '—')}</td><td>${c.active ? 'Sí' : 'No'}</td>
-  <td>${c.claimed ? '<span class="badge b-aprobado">Reclamado</span>' : c.invite ? `<span class="badge b-pendiente">Invitado: ${esc(c.invite.email)}</span>` : '<span class="badge b-borrador">Sin invitar</span>'}</td>
-  <td>${c.claimed ? '' : c.invite ? `<button class="btn sm sec" data-reinv="${c.id}" data-reinvm="${esc(c.invite.email)}">Reenviar mail</button> <button class="btn sm sec" data-copyinv="${c.invite.token}">Copiar link</button> <button class="btn sm bad" data-revinv="${c.id}">Anular</button>` : `<button class="btn sm" data-inv="${c.id}" data-invn="${esc(c.name)}">Invitar</button>`}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">No hay locales.</td></tr>'}</table></div>`;
+  const C = (LIVE_ADMIN.cafes || []).slice();
+  const rank = (c) => (c.claimed ? 0 : c.invite ? 1 : 2);
+  C.sort((x, y) => rank(x) - rank(y) || String(x.name).localeCompare(String(y.name)));
+  const reqOf = (c) => REQ.find((r) => r.cafeId === c.id && r.s === 'aprobado' && !r.chg) || REQ.find((r) => r.cafeId === c.id && !r.chg);
+  const row = (c) => {
+    const rq = reqOf(c);
+    const st = c.claimed ? '<span class="badge b-aprobado">Adherido</span>' : c.invite ? `<span class="badge b-pendiente">Invitación enviada</span><div class="hint">${esc(c.invite.email)}</div>` : '<span class="badge b-borrador">Sin invitar</span>';
+    const ver = rq ? `<button class="btn sm sec" data-sel="${rq.id}">Ver</button>` : '';
+    const inv = c.claimed ? '' : c.invite ? `<button class="btn sm sec" data-reinv="${c.id}" data-reinvm="${esc(c.invite.email)}">Reenviar mail</button> <button class="btn sm sec" data-copyinv="${c.invite.token}">Copiar link</button> <button class="btn sm bad" data-revinv="${c.id}">Anular</button>` : `<button class="btn sm" data-inv="${c.id}" data-invn="${esc(c.name)}">Invitar</button>`;
+    return `<tr><td><b>${esc(c.name)}</b></td><td>${esc(c.neighborhood || '—')}</td><td>${c.active ? '<span class="badge b-aprobado">Visible</span>' : '<span class="badge b-pendiente">No visible</span>'}</td><td>${st}</td><td style="white-space:nowrap;text-align:right">${ver} ${inv}</td></tr>`;
+  };
+  return `<div class="top"><div><h1>Locales adheridos</h1><p class="muted">Todos los locales de la red. Los que ya estaban cargados en la app se invitan desde acá con el email del dueño: crea su clave en el portal y reclama su local.</p></div></div>
+  <div class="card"><table><tr><th>Local</th><th>Barrio</th><th>En la app</th><th>Estado</th><th></th></tr>${C.map(row).join('') || '<tr><td colspan="5" class="muted">No hay locales.</td></tr>'}</table></div>`;
 }
 
 adminDet = function (r) {
