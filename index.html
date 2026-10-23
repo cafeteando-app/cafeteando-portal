@@ -727,6 +727,7 @@ h2{font-size:17px;font-weight:700}
 h3{font-size:14px;font-weight:700}
 table{font-size:13px}
 @media(max-width:800px){h1{font-size:22px}}
+.cols.disp{align-items:start}
 
 </style>
 </head>
@@ -1655,14 +1656,14 @@ function extraCard(){const ap=status==='aprobado';const st=extra.review?'<span c
  ${it.length?`<div class="note" style="margin:14px 0 0">Los beneficios adicionales los bonifica el local: Cafeteando no interviene ni cobra nada. Pasan por revisión de Cafeteando antes de publicarse.</div>`:''}
  ${extra.review&&extra.pub.length?`<p class="hint" style="margin-top:10px">Mientras tanto, los usuarios ven: ${extra.pub.map(t=>'«'+esc(t)+'»').join(' · ')}</p>`:''}</div>`}
 function mDisp(){return `<div class="top"><div><h1>Disponibilidad</h1><p class="muted">Franjas para canje y cupo diario.</p></div></div>
- <div class="cols disp"><div class="card"><h2>Franjas horarias disponibles para canje ${tip('Franja: rango de horas en que los socios pueden canjear su café en tu local.')}</h2><p class="muted" style="margin:4px 0 14px">Estos horarios son los que figuran en la app para canjear el beneficio y se aplican de inmediato, sin revisión. Cada franja debe ser de al menos 4 horas seguidas.  Se puede elegir una sola franja por día.</p>
+ <div class="cols disp"><div class="stack"><div class="card"><h2>Franjas horarias disponibles para canje ${tip('Franja: rango de horas en que los socios pueden canjear su café en tu local.')}</h2><p class="muted" style="margin:4px 0 14px">Estos horarios son los que figuran en la app para canjear el beneficio y se aplican de inmediato, sin revisión. Cada franja debe ser de al menos 4 horas seguidas.  Se puede elegir una sola franja por día.</p>
  ${sched.map((d,i)=>`<div class="week2"><b>${DAYS[i]}</b><button class="toggle ${d.on?'on':''}" data-ton="${i}"></button>
  <div class="rngs">${d.on?d.r.map((r,k)=>`<div class="rng">${tsel(r[0],`data-rin="${i},${k},0" aria-label="Hora de apertura, ${DAYS[i]}"`,T30.filter(t=>mins(t)<=1410-240))}<span>a</span>${tsel(r[1],`data-rin="${i},${k},1" aria-label="Hora de cierre, ${DAYS[i]}"`,T30.filter(t=>!r[0]||mins(t)-mins(r[0])>=240))}${d.r.length>1?`<button class="x" data-rdel="${i},${k}" title="Quitar franja">×</button>`:''}${rOk(r)||(!r[0]&&!r[1])?'':'<small class="err">Mínimo 4 hs seguidas</small>'}</div>`).join(''):'<span class="hint">Cerrado</span>'}</div>
- <span></span></div>`).join('')}</div>
+ <span></span></div>`).join('')}</div><details class="card fold"><summary><h2>Días cerrados especiales</h2></summary><p class="hint" style="margin:10px 0">Todavía no cargaste cierres especiales.</p><div class="grid g3"><div><label>Desde</label><input type="text" inputmode="numeric" maxlength="10" placeholder="dd/mm/aaaa" autocomplete="off" data-date></div><div><label>Hasta</label><input type="text" inputmode="numeric" maxlength="10" placeholder="dd/mm/aaaa" autocomplete="off" data-date></div><div style="align-self:end"><button class="btn sec">Agregar cierre</button></div></div><p class="hint" style="margin-top:8px">Feriados y vacaciones. Se muestran como "cerrado" en la app.</p></details></div><div class="stack">
  <div class="card"><h2>Cupo diario de cafés ${tip('Cupo: cantidad máxima de cafés que podés entregar por día en canjes.')}</h2><br><div class="field" style="max-width:260px"><label>Cafés por día</label><input type="number" value="${Number.isInteger(cupo)?cupo:''}" placeholder="Ej: 10" min="5" data-cupo style="${cupoOk()||!Number.isInteger(cupo)?'':'border-color:var(--bad-text)'}"><div class="hint" style="${cupoOk()?'':'color:var(--bad-text);font-weight:600'}">Mínimo obligatorio: 5 cafés por día. Recomendamos 10.</div></div>
  <p class="hint" style="margin-bottom:12px">Cada canje equivale a un café de especialidad. Las variedades las elegís vos al momento del canje: acá solo indicás la cantidad.</p><div class="note">Si bajás el cupo, los canjes ya realizados hoy se respetan: el nuevo valor aplica desde mañana.</div></div>
  ${extraCard()}
- <details class="card fold"><summary><h2>Días cerrados especiales</h2></summary><p class="hint" style="margin:10px 0">Todavía no cargaste cierres especiales.</p><div class="grid g3"><div><label>Desde</label><input type="text" inputmode="numeric" maxlength="10" placeholder="dd/mm/aaaa" autocomplete="off" data-date></div><div><label>Hasta</label><input type="text" inputmode="numeric" maxlength="10" placeholder="dd/mm/aaaa" autocomplete="off" data-date></div><div style="align-self:end"><button class="btn sec">Agregar cierre</button></div></div><p class="hint" style="margin-top:8px">Feriados y vacaciones. Se muestran como "cerrado" en la app.</p></details></div>${saveBar('Guardar cambios')}`}
+ </div></div>${saveBar('Guardar cambios')}`}
 
 </script>
 <script>
