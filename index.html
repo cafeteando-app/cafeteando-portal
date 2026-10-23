@@ -728,6 +728,13 @@ h3{font-size:14px;font-weight:700}
 table{font-size:13px}
 @media(max-width:800px){h1{font-size:22px}}
 .cols.disp{align-items:start}
+/* Disponibilidad: columnas que terminan a la misma altura */
+.cols.disp{align-items:stretch}
+.cols.disp>.stack{height:100%}
+.cols.disp>.stack:first-child>:first-child,.cols.disp>.stack:last-child>:last-child{flex:1 1 auto}
+/* Textos justificados en el panel */
+.main .card p,.main .card .hint,.main .note,.main .banner span.muted,.main .top p.muted{text-align:justify;text-align-last:left;hyphens:manual}
+.main .field .hint{text-align:left}
 
 </style>
 </head>
