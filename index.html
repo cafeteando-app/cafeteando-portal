@@ -2252,10 +2252,10 @@ function liveInvit() {
     const st = c.claimed ? '<span class="badge b-aprobado">Adherido</span>' : c.invite ? `<span class="badge b-pendiente">Invitación enviada</span><div class="hint">${esc(c.invite.email)}</div>` : '<span class="badge b-borrador">Sin invitar</span>';
     const ver = rq ? `<button class="btn sm sec" data-sel="${rq.id}">Ver</button>` : '';
     const inv = c.claimed ? '' : c.invite ? `<button class="btn sm sec" data-reinv="${c.id}" data-reinvm="${esc(c.invite.email)}">Reenviar mail</button> <button class="btn sm sec" data-copyinv="${c.invite.token}">Copiar link</button> <button class="btn sm bad" data-revinv="${c.id}">Anular</button>` : `<button class="btn sm" data-inv="${c.id}" data-invn="${esc(c.name)}">Invitar</button>`;
-    return `<tr><td><b>${esc(c.name)}</b></td><td>${esc(c.neighborhood || '—')}</td><td>${c.active ? '<span class="badge b-aprobado">Visible</span>' : '<span class="badge b-pendiente">No visible</span>'}</td><td>${st}</td><td style="white-space:nowrap;text-align:right">${ver} ${inv}</td></tr>`;
+    return `<tr><td><b>${esc(c.name)}</b></td><td>${esc(c.neighborhood || '—')}</td><td>${rq ? (rq.brTot > 1 ? `<span class="badge b-pendiente">Sucursal ${rq.brNum} de ${rq.brTot}</span>` : '<span class="muted">Única</span>') : '<span class="muted">—</span>'}</td><td>${c.active ? '<span class="badge b-aprobado">Visible</span>' : '<span class="badge b-pendiente">No visible</span>'}</td><td>${st}</td><td style="white-space:nowrap;text-align:right">${ver} ${inv}</td></tr>`;
   };
   return `<div class="top"><div><h1>Locales adheridos</h1><p class="muted">Todos los locales de la red. Los que ya estaban cargados en la app se invitan desde acá con el email del dueño: crea su clave en el portal y reclama su local.</p></div></div>
-  <div class="card"><table><tr><th>Local</th><th>Barrio</th><th>En la app</th><th>Estado</th><th></th></tr>${C.map(row).join('') || '<tr><td colspan="5" class="muted">No hay locales.</td></tr>'}</table></div>`;
+  <div class="card"><table><tr><th>Local</th><th>Barrio</th><th>Sucursal</th><th>En la app</th><th>Estado</th><th></th></tr>${C.map(row).join('') || '<tr><td colspan="6" class="muted">No hay locales.</td></tr>'}</table></div>`;
 }
 
 adminDet = function (r) {
