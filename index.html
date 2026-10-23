@@ -1099,7 +1099,7 @@ async function liveUpdatePassword(btn) {
   try {
     const r = await api.updatePassword(FD.r_p1 || '');
     if (!r.ok) { authError(r.error); return; }
-    delete FD.r_p1; delete FD.r_p2;
+    delete FD.r_p1; delete FD.r_p2; clearRecovery();
     await api.signOut();
     tab = 'login'; view = 'auth'; render();
     toast('Contraseña actualizada. Ya podés iniciar sesión.');
@@ -1148,12 +1148,27 @@ async function _liveAfterLoginRun(fromVerify) {
   render();
 }
 
+// ---- Recuperación de contraseña: nunca debe terminar en un ingreso automático ----
+// El link del mail trae una sesión temporal. supabase-js la procesa y borra el hash de la URL antes de
+// que arranque el portal, así que la detección tiene que hacerse acá, apenas carga el script.
+try { if (/type=recovery/.test((location.hash || '') + '&' + (location.search || ''))) sessionStorage.setItem('pc_recovery', '1'); } catch (e) { /* sin sessionStorage */ }
+function recoveryFlag() { try { return sessionStorage.getItem('pc_recovery') === '1'; } catch (e) { return false; } }
+function clearRecovery() { try { sessionStorage.removeItem('pc_recovery'); } catch (e) { /* ok */ } }
+function isRecoverySession(sess) {
+  try {
+    const t = sess && sess.access_token; if (!t) return false;
+    const pl = JSON.parse(atob(t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return (pl.amr || []).some((a) => a && a.method === 'recovery');
+  } catch (e) { return false; }
+}
+
 // Eventos de Supabase Auth (link de verificación, link de recuperación, cierre de sesión).
 function liveAuthEvent(ev, sess) {
-  if (ev === 'PASSWORD_RECOVERY') { delete FD.r_p1; delete FD.r_p2; view = 'reset'; render(); return; }
+  if (ev === 'PASSWORD_RECOVERY') { try { sessionStorage.setItem('pc_recovery', '1'); } catch (e) { /* ok */ } delete FD.r_p1; delete FD.r_p2; view = 'reset'; render(); return; }
   if (ev === 'SIGNED_IN' && sess && api.isMerchant(sess.user) && ['auth', 'verify', 'expired'].includes(view) && /type=signup|type=email/.test(location.hash + location.search)) {
     liveAfterLogin(true);
   }
+  if (ev === 'SIGNED_OUT') clearRecovery();
   if (ev === 'SIGNED_OUT' && !['auth', 'forgot', 'reset', 'verify', 'expired'].includes(view)) { view = 'auth'; render(); }
 }
 
@@ -1162,6 +1177,8 @@ function liveBoot(session) {
   const h = (location.hash || '') + '&' + (location.search || '');
   if (/error_code=otp_expired|error=access_denied/.test(h)) { view = 'expired'; render(); return; }
   if (/type=recovery/.test(h)) return; // lo maneja PASSWORD_RECOVERY
+  // Sesión que viene de un link de recuperación: se queda en "crear contraseña nueva", nunca entra al portal.
+  if (session && (recoveryFlag() || isRecoverySession(session))) { view = 'reset'; render(); return; }
   { const tk = liveInviteToken(); if (tk && !session) { liveInviteBoot(tk); return; } }
   if (session) {
     (async () => {
@@ -2002,7 +2019,7 @@ function verifyV(){return authFrame(`<h2 style="font-size:24px">Revisá tu corre
 function expiredV(){return authFrame(`<h2 style="font-size:24px">El link venció</h2><p class="muted" style="margin:8px 0 16px">Por seguridad, los links de verificación duran 24 horas. Podés pedir uno nuevo y te lo enviamos al instante.</p><button class="btn" style="width:100%;margin-bottom:10px" data-vnew>Enviarme un link nuevo</button><p class="hint" style="text-align:center"><a href="#" data-tologin>Volver a iniciar sesión</a></p>`)}
 function forgotV(){return authFrame(fpSent?`<h2 style="font-size:24px">Revisá tu correo</h2><p class="muted" style="margin:8px 0 16px">Si <b style="color:var(--ink)">${esc(FD.fp_mail||'')}</b> tiene una cuenta, te enviamos un mail con un link para crear una contraseña nueva. El link es válido por 1 hora.</p><button class="btn sec" style="width:100%;margin-bottom:10px" data-fpresend ${fpLeft>0?'disabled style="width:100%;opacity:.5;cursor:not-allowed"':''}>${fpLeft>0?'Reenviar en <span data-fpcd>'+mmss(fpLeft)+'</span>':'Reenviar link'}</button>${api.live?'<div class="note" style="text-align:left"><b>¿Qué sigue?</b><br>Abrí el mail y tocá <b>«Crear contraseña nueva»</b>. Si no lo ves en unos minutos, revisá Spam o Promociones.</div>':'<button class="btn" style="width:100%" data-fpopen>Abrir el link del email (simular)</button>'}<p class="hint" style="margin-top:16px;text-align:center"><a href="#" data-tologin>Volver a iniciar sesión</a></p>`
 :`<h2 style="font-size:24px">Recuperar contraseña</h2><p class="muted" style="margin:8px 0 16px">Escribí el email de tu cuenta y te enviamos un link para crear una contraseña nueva.</p><form novalidate data-authform onsubmit="return false">${fld({id:'fp_mail',label:'Email',rules:'req,email',type:'email',ph:'tu@cafeteria.com',ac:'email'})}<button type="submit" class="btn" style="width:100%" data-fpsend>Enviar link</button></form><p class="hint" style="margin-top:16px;text-align:center"><a href="#" data-tologin>Volver a iniciar sesión</a></p>`)}
-function resetV(){return authFrame(`<h2 style="font-size:24px">Creá tu contraseña nueva</h2><p class="muted" style="margin:8px 0 16px">Te recomendamos una contraseña segura, que no uses en otros sitios.</p><form novalidate data-authform onsubmit="return false">${fld({id:'r_p1',label:'Contraseña nueva',rules:'req,pass',eye:true,ac:'new-password'})}<ul class="prules" aria-label="Requisitos de la contraseña"><li id="pr-len">Mínimo 8 caracteres</li><li id="pr-mix">Al menos una letra y un número</li></ul>${fld({id:'r_p2',label:'Repetir contraseña',rules:'req,match',match:'r_p1',eye:true,ac:'new-password'})}<div id="pr-match" class="pmatch" aria-live="polite"></div><button type="submit" class="btn" style="width:100%" data-rpsave>Guardar contraseña</button></form>`)}
+function resetV(){return authFrame(`<h2 style="font-size:24px">Creá tu contraseña nueva</h2><p class="muted" style="margin:8px 0 16px">Te recomendamos una contraseña segura, que no uses en otros sitios.</p><form novalidate data-authform onsubmit="return false">${fld({id:'r_p1',label:'Contraseña nueva',rules:'req,pass',eye:true,ac:'new-password'})}<ul class="prules" aria-label="Requisitos de la contraseña"><li id="pr-len">Mínimo 8 caracteres</li><li id="pr-mix">Al menos una letra y un número</li></ul>${fld({id:'r_p2',label:'Repetir contraseña',rules:'req,match',match:'r_p1',eye:true,ac:'new-password'})}<div id="pr-match" class="pmatch" aria-live="polite"></div><button type="submit" class="btn" style="width:100%" data-rpsave>Guardar contraseña</button><button type="button" class="btn sec" style="width:100%;margin-top:8px" data-rpcancel>Cancelar</button></form>`)}
 /* Pantalla especial: local migrado, la persona invitada solo reclama su local y crea su contraseña */
 let invInfo=null,invBad=false;
 function inviteV(){
@@ -2603,6 +2620,7 @@ function bind(){
  document.querySelectorAll('[data-fpopen]').forEach(e=>e.onclick=()=>{delete FD.r_p1;delete FD.r_p2;delete TOUCH.r_p1;delete TOUCH.r_p2;view='reset';render()});
  if(typeof sgBind==='function')sgBind();
  document.querySelectorAll('[data-invsave]').forEach(e=>e.onclick=ev=>{ev.preventDefault();if(!validateGroup(document.querySelector('[data-authform]')))return;if(api.live){liveInviteClaim(e);return}toast('Simulado: en la versión real se crea tu cuenta y entrás a tu panel.')});
+ document.querySelectorAll('[data-rpcancel]').forEach(e=>e.onclick=async()=>{delete FD.r_p1;delete FD.r_p2;if(api.live){clearRecovery();await api.signOut()}tab='login';view='auth';render()});
  document.querySelectorAll('[data-rpsave]').forEach(e=>e.onclick=ev=>{ev.preventDefault();if(!validateGroup(document.querySelector('[data-authform]')))return;if(api.live){liveUpdatePassword(e);return}delete FD.r_p1;delete FD.r_p2;tab='login';view='auth';render();toast('Contraseña actualizada. Ya podés iniciar sesión.')});
  document.querySelectorAll('[data-vdone]').forEach(e=>e.onclick=()=>{if(api.live){liveVerifiedCheck();return}view='onb';ob=0;addrSel=null;pin={x:52,y:46};addrText='';delete FD.ad_b;delete FD.ad_prov;render();toast('Email verificado. ¡Bienvenido!')});
  document.querySelectorAll('[data-vresend]').forEach(e=>e.onclick=()=>{if(api.live){liveResend(e);return}vLeft=60;render();toast('Te reenviamos el email de verificación (simulado)')});
