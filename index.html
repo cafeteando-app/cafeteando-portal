@@ -749,6 +749,9 @@ table{font-size:13px}
 /* Textos legales justificados */
 .legaltxt p,.legaltxt li{text-align:justify;text-align-last:left;hyphens:manual}
 
+/* Visor de imágenes del admin: la foto se adapta al recuadro y los botones quedan siempre visibles */
+.lbimg{aspect-ratio:auto;height:min(62vh,560px)}
+
 </style>
 </head>
 <body>
@@ -1871,7 +1874,7 @@ function adminDet(r){const pub=r.s==='aprobado'||r.s==='suspendido';const P=Obje
 function accFmt(d){const x=new Date(d),z=n=>String(n).padStart(2,'0');return z(x.getDate())+'/'+z(x.getMonth()+1)+'/'+x.getFullYear()+' '+z(x.getHours())+':'+z(x.getMinutes())}
 function adminImgs(r){if(api.live){const a=[];if(r.logoUrl)a.push(['Logo',r.n[0],r.logoUrl]);(r.photoUrls||[]).forEach((u,i)=>a.push(['Foto '+(i+1),String(i+1),u]));return a.length?a:[['Sin imágenes','—',null]]}return [['Logo',r.n[0]],['Foto 1','1'],['Foto 2','2'],['Foto 3','3']]}
 function lightbox(r,i){const imgs=adminImgs(r);const m=document.createElement('div');m.style.cssText='position:fixed;inset:0;background:#000000cc;z-index:90;display:grid;place-items:center;padding:16px';
- const draw=()=>{m.innerHTML=`<div class="card" style="max-width:760px;width:100%;margin:0"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px"><h2>${imgs[i][0]} <small class="muted" style="font-weight:400">(${i+1} de ${imgs.length})</small></h2><button class="btn sec sm" id="lc">Cerrar</button></div><div class="lbimg" role="img" aria-label="${imgs[i][0]}" ${imgs[i][2]?'style="background:#f2eee6"':''}>${imgs[i][2]?`<img alt="" src="${esc(imgs[i][2])}" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:14px">`:`<span>${imgs[i][1]}</span>`}</div><div style="display:flex;justify-content:space-between;gap:8px;margin-top:12px"><button class="btn sec sm" id="lp" ${i===0?'disabled':''}>← Anterior</button><button class="btn sec sm" id="ld">Descargar</button><button class="btn sec sm" id="ln" ${i===imgs.length-1?'disabled':''}>Siguiente →</button></div></div>`;
+ const draw=()=>{m.innerHTML=`<div class="card" style="max-width:760px;width:100%;margin:0;max-height:94vh;overflow:auto" role="dialog" aria-modal="true"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px"><h2>${imgs[i][0]} <small class="muted" style="font-weight:400">(${i+1} de ${imgs.length})</small></h2><button class="btn sec sm" id="lc">Cerrar</button></div><div class="lbimg" role="img" aria-label="${imgs[i][0]}" ${imgs[i][2]?'style="background:#f2eee6"':''}>${imgs[i][2]?`<img alt="" src="${esc(imgs[i][2])}" style="width:100%;height:100%;object-fit:contain;border-radius:14px">`:`<span>${imgs[i][1]}</span>`}</div><div style="display:flex;justify-content:space-between;gap:8px;margin-top:12px"><button class="btn sec sm" id="lp" ${i===0?'disabled':''}>← Anterior</button><button class="btn sec sm" id="ld">Descargar</button><button class="btn sec sm" id="ln" ${i===imgs.length-1?'disabled':''}>Siguiente →</button></div></div>`;
   m.querySelector('#lc').onclick=()=>m.remove();m.querySelector('#lp').onclick=()=>{i--;draw();m.querySelector('#ln').focus()};m.querySelector('#ln').onclick=()=>{i++;draw();m.querySelector('#lp').focus()};m.querySelector('#ld').onclick=()=>{if(imgs[i][2])window.open(imgs[i][2],'_blank','noopener');else toast('Descargando imagen (simulado)')}};
  draw();document.body.append(m);mountModal(m)}
 function editModal(r){const m=document.createElement('div');m.style.cssText='position:fixed;inset:0;background:#2b1d1699;z-index:90;display:grid;place-items:center;padding:16px';
