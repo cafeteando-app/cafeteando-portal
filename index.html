@@ -1337,13 +1337,38 @@ async function liveSaveDraft() {
   liveReqId = r.id; return true;
 }
 
-async function liveUpload(file, kind) {
+// Achica la imagen antes de subirla: fotos a 1600 px y logo a 1000 px, para que la app y el portal carguen rápido.
+async function compressImage(file, kind) {
+  const maxDim = kind === 'logo' ? 1000 : 1600;
+  try {
+    let bmp;
+    if (window.createImageBitmap) { try { bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }); } catch (e) { bmp = await createImageBitmap(file); } }
+    else { bmp = await new Promise((ok, ko) => { const im = new Image(), u = URL.createObjectURL(file); im.onload = () => { URL.revokeObjectURL(u); ok(im); }; im.onerror = ko; im.src = u; }); }
+    const w0 = bmp.width, h0 = bmp.height, k = Math.min(1, maxDim / Math.max(w0, h0));
+    const w = Math.max(1, Math.round(w0 * k)), h = Math.max(1, Math.round(h0 * k));
+    const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+    const cx = cv.getContext('2d'); 
+    const png = kind === 'logo' && file.type === 'image/png';
+    if (!png) { cx.fillStyle = '#ffffff'; cx.fillRect(0, 0, w, h); }
+    cx.drawImage(bmp, 0, 0, w, h);
+    const blob = await new Promise((res) => cv.toBlob(res, png ? 'image/png' : 'image/jpeg', 0.85));
+    if (!blob) return file;
+    if (blob.size >= file.size && file.size <= 5 * 1024 * 1024) return file;
+    const ext = png ? 'png' : 'jpg';
+    return new File([blob], (file.name || 'imagen').replace(/\.[^.]+$/, '') + '.' + ext, { type: blob.type });
+  } catch (e) { return file; }
+}
+
+async function liveUpload(file0, kind) {
   if (!liveMerchantId) { const m = await api.loadMine(); if (m.ok && m.merchant) liveMerchantId = m.merchant.id; }
   if (!liveMerchantId) { toast('Primero completá los datos del onboarding.'); return; }
+  toast('Procesando imagen…');
+  const file = await compressImage(file0, kind);
+  if (file.size > 5 * 1024 * 1024) { toast('La imagen sigue pesando demasiado. Probá con otra.'); return; }
   toast('Subiendo imagen…');
   const r = await api.uploadMedia(file, liveMerchantId);
   if (!r.ok) { toast(r.error); return; }
-  if (kind === 'logo') logo = { n: file.name, u: r.url, url: r.url }; else photos.push({ n: file.name, u: r.url, url: r.url });
+  if (kind === 'logo') logo = { n: file0.name, u: r.url, url: r.url }; else photos.push({ n: file0.name, u: r.url, url: r.url });
   render();
 }
 
@@ -1593,9 +1618,9 @@ function mInicio(){
 
 function photosCard(){const n=photos.length;
  return `<div class="card" id="photosCard"><h2>Logo y fotos ${chgBadge(chg.fotos)}</h2>
- <details class="guide" open><summary>Recomendaciones para el logo y las fotos</summary><ul><li><b>Logo (obligatorio):</b> preferentemente cuadrado, PNG o JPG, de al menos 1000 × 1000 px. Ideal: PNG con fondo transparente y buena resolución.</li><li>Si tu logo no es cuadrado, podés subirlo igual: nosotros lo adaptamos para que se vea bien en la app.</li><li>El logo tiene que incluir de forma clara el <b>nombre del local</b>, porque se usa para identificarlo dentro de la aplicación.</li><li><b>Fotos (mínimo 3, hasta 5):</b> preferentemente JPG o PNG, con buena resolución.</li><li>Te recomendamos fotos del espacio, la fachada, los productos o alguna imagen que represente la experiencia de tu cafetería.</li><li>No hace falta que renombres los archivos: el portal los asocia automáticamente a tu local.</li></ul></details>
+ <details class="guide" open><summary>Recomendaciones para el logo y las fotos</summary><ul><li><b>Logo (obligatorio):</b> preferentemente cuadrado, PNG o JPG, de al menos 1000 × 1000 px. Ideal: PNG con fondo transparente y buena resolución.</li><li>Si tu logo no es cuadrado, podés subirlo igual: nosotros lo adaptamos para que se vea bien en la app.</li><li>El logo tiene que incluir de forma clara el <b>nombre del local</b>, porque se usa para identificarlo dentro de la aplicación.</li><li><b>Fotos (mínimo 3, hasta 5):</b> preferentemente JPG o PNG, con buena resolución, de hasta 10 MB cada una. Las achicamos automáticamente para que la app cargue rápido.</li><li>Te recomendamos fotos del espacio, la fachada, los productos o alguna imagen que represente la experiencia de tu cafetería.</li><li>No hace falta que renombres los archivos: el portal los asocia automáticamente a tu local.</li></ul></details>
  <label style="margin-top:14px">Logo <span class="req" aria-hidden="true">*</span><span class="sr"> (obligatorio)</span></label>
- <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap"><div class="ph logo" style="width:84px;height:84px;aspect-ratio:auto;${logo&&logo.u?`background-image:url(${logo.u});background-size:cover`:''}">${logo&&!logo.u?'B':''}${!logo?'<span style="font-size:11px">Sin logo</span>':''}</div><label class="btn sec sm filebtn" tabindex="0">${logo?'Reemplazar logo':'Subir logo'}<input type="file" accept="image/png,image/jpeg" hidden data-logo-file></label><span class="hint">${logo?esc(logo.n):'PNG o JPG · mínimo recomendado 1000 × 1000 px · hasta 5 MB'}</span></div><div class="ferr" id="err-logo" role="alert"></div>
+ <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap"><div class="ph logo" style="width:84px;height:84px;aspect-ratio:auto;${logo&&logo.u?`background-image:url(${logo.u});background-size:cover`:''}">${logo&&!logo.u?'B':''}${!logo?'<span style="font-size:11px">Sin logo</span>':''}</div><label class="btn sec sm filebtn" tabindex="0">${logo?'Reemplazar logo':'Subir logo'}<input type="file" accept="image/png,image/jpeg" hidden data-logo-file></label><span class="hint">${logo?esc(logo.n):'PNG o JPG · mínimo recomendado 1000 × 1000 px · hasta 10 MB'}</span></div><div class="ferr" id="err-logo" role="alert"></div>
  <label style="margin-top:18px">Fotos del local <span class="req" aria-hidden="true">*</span><span class="sr"> (obligatorio)</span> <span class="hint" style="font-weight:400">· ${n} de 5 (mínimo 3)</span></label>
  ${n===0?'<div class="empty" style="margin:10px 0"><b>Todavía no subiste fotos</b><p class="muted">Necesitamos al menos 3 para mostrar tu local. Empezá por la fachada o la barra.</p></div>':''}<div class="photos">${photos.map((x,i)=>`<div class="phwrap"><div class="ph" style="${x.u?`background-image:url(${x.u});background-size:cover;background-position:center`:''}">${i===0?'<span class="mainb">Principal</span>':''}${x.u?'':`<span>${esc(x.n)}</span>`}</div><div class="phtools"><button type="button" data-ph-l="${i}" aria-label="Mover foto ${i+1} hacia la izquierda" ${i===0?'disabled':''}>←</button><button type="button" data-ph-r="${i}" aria-label="Mover foto ${i+1} hacia la derecha" ${i===n-1?'disabled':''}>→</button><button type="button" data-ph-c="${i}" aria-label="Recortar foto ${i+1}">Recortar</button><button type="button" data-ph-d="${i}" aria-label="Quitar foto ${i+1}">×</button></div></div>`).join('')}${n<5?`<label class="ph empty addph" tabindex="0">+ Agregar<input type="file" accept="image/jpeg,image/png" hidden data-ph-file></label>`:''}</div>
  <div class="ferr" id="err-photos" role="alert"></div><p class="hint" style="margin-top:8px">La primera foto es la que se ve en la lista de cafeterías. Podés usar las flechas para reordenarlas.</p></div>`}
@@ -2656,8 +2681,8 @@ function bind(){
  document.querySelectorAll('[data-phone-save]').forEach(e=>e.onclick=()=>{const c=e.closest('.card');if(!validateGroup(c))return;if(!api.live){toast('Datos guardados (simulado)');return}const v=(FD.ac_phone!==undefined?FD.ac_phone:FD.ob_wsp)||'';e.disabled=true;api.savePhone(v).then(r=>{e.disabled=false;if(r.ok){FD.ob_wsp=v;toast('Teléfono actualizado')}else toast(r.error||'No pudimos guardar el teléfono')})});
  document.querySelectorAll('[data-pw-update]').forEach(e=>e.onclick=()=>{if(!validateGroup(document.querySelector('[data-pwcard]')))return;if(!api.live){['ac_p1','ac_p2'].forEach(k=>{delete FD[k];delete TOUCH[k]});render();toast('Contraseña actualizada. Te enviamos un aviso por email (simulado)');return}
   const btn=e;btn.disabled=true;api.updatePassword(FD.ac_p1||'').then(r=>{btn.disabled=false;if(!r.ok){toast(r.error||'No pudimos cambiar la contraseña.');return}['ac_p1','ac_p2'].forEach(k=>{delete FD[k];delete TOUCH[k]});render();toast('Contraseña actualizada. Te enviamos un aviso por email.')})});
- document.querySelectorAll('[data-logo-file]').forEach(e=>e.onchange=()=>{const f=e.files[0];if(!f)return;if(!/^image\/(png|jpeg)$/.test(f.type)){toast('Ese formato no se puede usar. ¿Probás con PNG o JPG?');return}if(f.size>5*1024*1024){toast('El logo pesa más de 5 MB. Probá comprimirlo.');return}if(api.live){liveUpload(f,'logo');return}let u;try{u=URL.createObjectURL(f)}catch(x){}logo={n:f.name,u};if(u){const im=new Image();im.onload=()=>{if(Math.min(im.naturalWidth,im.naturalHeight)<1000)toast('El logo es chico ('+im.naturalWidth+'×'+im.naturalHeight+'). Lo ideal es al menos 1000×1000 px.')};im.src=u}render()});
- document.querySelectorAll('[data-ph-file]').forEach(e=>e.onchange=()=>{const f=e.files[0];if(!f)return;if(!/^image\/(png|jpeg)$/.test(f.type)){toast('Ese formato no se puede usar. ¿Probás con JPG o PNG?');return}if(f.size>5*1024*1024){toast('La foto pesa más de 5 MB. Probá comprimirla.');return}if(api.live){liveUpload(f,'photo');return}let u;try{u=URL.createObjectURL(f)}catch(x){}photos.push({n:f.name,u});render()});
+ document.querySelectorAll('[data-logo-file]').forEach(e=>e.onchange=()=>{const f=e.files[0];if(!f)return;if(!/^image\/(png|jpeg)$/.test(f.type)){toast('Ese formato no se puede usar. ¿Probás con PNG o JPG?');return}if(f.size>10*1024*1024){toast('El logo pesa más de 10 MB. Probá con otro archivo.');return}if(api.live){liveUpload(f,'logo');return}let u;try{u=URL.createObjectURL(f)}catch(x){}logo={n:f.name,u};if(u){const im=new Image();im.onload=()=>{if(Math.min(im.naturalWidth,im.naturalHeight)<1000)toast('El logo es chico ('+im.naturalWidth+'×'+im.naturalHeight+'). Lo ideal es al menos 1000×1000 px.')};im.src=u}render()});
+ document.querySelectorAll('[data-ph-file]').forEach(e=>e.onchange=()=>{const f=e.files[0];if(!f)return;if(!/^image\/(png|jpeg)$/.test(f.type)){toast('Ese formato no se puede usar. ¿Probás con JPG o PNG?');return}if(f.size>10*1024*1024){toast('La foto pesa más de 10 MB. Probá con otra.');return}if(api.live){liveUpload(f,'photo');return}let u;try{u=URL.createObjectURL(f)}catch(x){}photos.push({n:f.name,u});render()});
  document.querySelectorAll('.filebtn,.addph').forEach(e=>e.addEventListener('keydown',ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();e.querySelector('input').click()}}));
  document.querySelectorAll('[data-ph-l]').forEach(e=>e.onclick=()=>{const i=+e.dataset.phL;[photos[i-1],photos[i]]=[photos[i],photos[i-1]];render()});
  document.querySelectorAll('[data-ph-r]').forEach(e=>e.onclick=()=>{const i=+e.dataset.phR;[photos[i+1],photos[i]]=[photos[i],photos[i+1]];render()});
