@@ -2280,12 +2280,19 @@ function liveNotifs() {
   if (view === 'admin') {
     return REQ.filter((r) => r.s === 'pendiente').map((r) => ({ id: 'rq' + r.id, t: (r.chg ? 'Cambios pendientes: ' : 'Nueva solicitud: ') + r.n, d: 'Enviada el ' + r.f + '.', time: r.f, go: () => { sel = r.id; aview = 'det'; } }));
   }
-  const n = [];
-  if (status === 'correccion') n.push({ id: 'corr', t: 'Cafeteando te pidió correcciones', d: corrMsg, time: '', go: () => { mview = 'adh'; } });
-  if (status === 'aprobado') n.push({ id: 'okk', t: 'Tu local fue aprobado', d: 'Ya tenés tu código de canje.', time: '', go: () => { mview = 'inicio'; } });
-  if (status === 'pendiente') n.push({ id: 'pen', t: 'Tu adhesión está en revisión', d: 'Te avisamos cuando haya novedades.', time: '', go: () => { mview = 'inicio'; } });
-  if (status === 'aprobado' && (chg.desc || chg.fotos)) n.push({ id: 'chg', t: 'Tus cambios están en revisión', d: 'Mientras tanto se muestra la versión publicada.', time: '', go: () => { mview = 'cafe'; } });
+  const fmtT = (iso) => { try { const d = new Date(iso), p2 = (x) => String(x).padStart(2, '0'); return p2(d.getDate()) + '/' + p2(d.getMonth() + 1) + '/' + d.getFullYear() + ' · ' + p2(d.getHours()) + ':' + p2(d.getMinutes()); } catch (e) { return ''; } };
+  const n = (window.__notifs || []).map((x) => ({ id: x.id, t: x.title, d: x.body || '', time: fmtT(x.created_at), go: () => { mview = x.kind === 'needs_fix' ? 'adh' : 'inicio'; } }));
+  if (status === 'aprobado' && (chg.desc || chg.fotos)) n.unshift({ id: 'chg', t: 'Tus cambios están en revisión', d: 'Mientras tanto se muestra la versión publicada.', time: '', go: () => { mview = 'cafe'; } });
   return n;
+}
+async function liveLoadNotifs() {
+  try {
+    const r = await api._rpc('my_notifications');
+    if (r.ok && Array.isArray(r.data)) { window.__notifs = r.data; r.data.forEach((x) => { if (x.read_at) readN.add(x.id); }); }
+  } catch (e) { /* sin historial */ }
+}
+function liveMarkRead(ids) {
+  try { const real = (ids || []).filter((i) => /^[0-9a-f-]{36}$/i.test(i)); if (real.length) api._rpc('mark_notifications_read', { p_ids: real }); } catch (e) { /* best-effort */ }
 }
 
 
@@ -2323,7 +2330,7 @@ liveHydrate = async function (rid) { await liveLoadContract(); return _hydrateNo
 
 var emailPrefs = { pause_reminder: true, news: false };
 const _hydrateEmailPrefs = liveHydrate;
-liveHydrate = async function (rid) { const r = await _hydrateEmailPrefs(rid); try { const p = await api.getEmailPrefs(); emailPrefs = Object.assign({ pause_reminder: true, news: false }, p || {}); } catch (e) { /* defaults */ } return r; };
+liveHydrate = async function (rid) { const r = await _hydrateEmailPrefs(rid); try { const p = await api.getEmailPrefs(); emailPrefs = Object.assign({ pause_reminder: true, news: false }, p || {}); } catch (e) { /* defaults */ } await liveLoadNotifs(); return r; };
 
 
 /* ---------- Pantalla de invitación: local migrado, solo reclamar y crear contraseña ---------- */
@@ -2539,9 +2546,9 @@ function bind(){
  document.querySelectorAll('[data-role]').forEach(e=>e.onchange=()=>{const i=+e.dataset.role,v=e.value;const admins=team.filter(x=>x.r==='Administrador').length;if(team[i].r==='Administrador'&&v!=='Administrador'&&admins<=1){e.value=team[i].r;document.getElementById('tm-e').textContent='Tiene que quedar al menos una persona con rol Administrador.';return}document.getElementById('tm-e').textContent='';team[i].r=v;activity.unshift({d:nowS(),w:ADMIN,a:'Cambió el rol de '+team[i].n+' a '+v});render();toast('Rol actualizado')});
  document.querySelectorAll('[data-tm-send]').forEach(e=>e.onclick=()=>{const i=+e.dataset.tmSend,inp=document.getElementById('tm'+i),v=inp.value.trim();const er=RULES.req(v)||RULES.email(v);if(er){inp.classList.add('invalid');document.getElementById('tm-e').textContent=er;inp.focus();return}team[i].m=v;team[i].e='Invitación enviada';activity.unshift({d:nowS(),w:ADMIN,a:'Invitó a '+team[i].n});render();toast('Invitación enviada a '+v+' (simulado)')});
  document.querySelectorAll('[data-tm-del]').forEach(e=>e.onclick=()=>{const i=+e.dataset.tmDel;confirmModal({title:'¿Quitar el acceso de '+team[i].n+'?',text:'Ya no va a poder entrar al panel de administración.',ok:'Quitar acceso',danger:true,onOk:()=>{activity.unshift({d:nowS(),w:ADMIN,a:'Quitó el acceso a '+team[i].n});team.splice(i,1);render()}})});
- document.querySelectorAll('[data-bell]').forEach(e=>e.onclick=ev=>{ev.stopPropagation();bellOpen=!bellOpen;render();if(bellOpen){const f=document.querySelector('.notif .nitem,.notif .linkbtn');f&&f.focus()}});
- document.querySelectorAll('[data-readall]').forEach(e=>e.onclick=()=>{notifs().forEach(x=>readN.add(x.id));render();const b=document.querySelector('[data-bell]');b&&b.focus()});
- document.querySelectorAll('[data-nitem]').forEach(e=>e.onclick=()=>{const x=notifs().find(n=>n.id===e.dataset.nitem);readN.add(e.dataset.nitem);bellOpen=false;if(x)x.go();render()});
+ document.querySelectorAll('[data-bell]').forEach(e=>e.onclick=ev=>{ev.stopPropagation();bellOpen=!bellOpen;render();if(bellOpen&&api.live&&typeof liveLoadNotifs==='function')liveLoadNotifs().then(()=>{if(bellOpen)render()});if(bellOpen){const f=document.querySelector('.notif .nitem,.notif .linkbtn');f&&f.focus()}});
+ document.querySelectorAll('[data-readall]').forEach(e=>e.onclick=()=>{notifs().forEach(x=>readN.add(x.id));if(api.live&&typeof liveMarkRead==='function')liveMarkRead(notifs().map(x=>x.id));render();const b=document.querySelector('[data-bell]');b&&b.focus()});
+ document.querySelectorAll('[data-nitem]').forEach(e=>e.onclick=()=>{const x=notifs().find(n=>n.id===e.dataset.nitem);readN.add(e.dataset.nitem);if(api.live&&typeof liveMarkRead==='function')liveMarkRead([e.dataset.nitem]);bellOpen=false;if(x)x.go();render()});
  document.querySelectorAll('.toggle').forEach(t=>{t.setAttribute('role','switch');t.setAttribute('aria-checked',t.classList.contains('on'));if(!t.getAttribute('aria-label')){const w=t.closest('.week2');const nm=w?w.querySelector('b'):null;const sp=t.parentElement.querySelector('span');t.setAttribute('aria-label',nm?'Abierto el '+nm.textContent:(t.hasAttribute('data-map')?'Activo para canjear':(sp?sp.textContent.replace('(obligatorio)','').trim():'Opción')))}});
  document.querySelectorAll('button[title]:not([aria-label])').forEach(b=>b.setAttribute('aria-label',b.getAttribute('title')));
  document.querySelectorAll('a[data-m],a[data-a],a[data-logout],a[data-legal],a[data-sched]').forEach(a=>{if(!a.getAttribute('href'))a.setAttribute('href','#')});
