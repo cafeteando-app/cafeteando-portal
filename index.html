@@ -1863,7 +1863,7 @@ function adminResumen(){const days=[['Lun',180],['Mar',205],['Mié',198],['Jue',
  <div class="card"><h2>Canjes por barrio</h2><br>${barrios.map(b=>`<div style="display:flex;gap:10px;align-items:center;margin-bottom:8px"><span style="width:100px">${b[0]}</span><div class="bar" style="flex:1"><i style="width:${b[1]*2.6}%"></i></div><b style="width:36px;text-align:right">${b[1]}%</b></div>`).join('')}</div></div>
  <div class="card"><h2>Locales con más canjes este mes</h2><table><tr><th>#</th><th>Local</th><th>Canjes</th></tr>${top.map((t,i)=>`<tr><td>${i+1}</td><td><b>${t[0]}</b></td><td>${t[1]}</td></tr>`).join('')}</table></div>`}
 function nextV(){const n=parseFloat(latestC().v);return (Math.round((n+0.1)*10)/10).toFixed(1)}
-function adminContrato(){const lc=latestC();const pend=38-lc.acc;
+function adminContrato(){if(api.live)return adminContratoLive();const lc=latestC();const pend=38-lc.acc;
  return `<div class="top"><div><h1>Contrato de adhesión</h1><p class="muted">Publicá una nueva versión y se les muestra a todos los comercios para que la acepten.</p></div></div>
  <div class="card"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center"><div><h2>Versión vigente: ${lc.v}</h2><p class="muted">Publicada el ${lc.date}</p></div><button class="btn sec sm" data-dl>Descargar PDF</button></div>
  <div style="margin-top:14px"><div style="display:flex;justify-content:space-between"><span class="muted">Aceptaron la versión ${lc.v}</span><b>${lc.acc} de 38 comercios</b></div><div class="bar"><i style="width:${Math.round(lc.acc/38*100)}%"></i></div>
@@ -1876,7 +1876,7 @@ function adminContrato(){const lc=latestC();const pend=38-lc.acc;
  <div class="grid g2"><div class="field"><label>Plazo para aceptar</label><select id="cp"><option value="15">15 días</option><option value="30" selected>30 días</option><option value="60">60 días</option></select><div class="hint">Durante el plazo los locales siguen activos.</div></div><div class="field"><label>Avisos</label><label style="font-weight:400;display:flex;gap:8px;margin-top:8px"><input type="checkbox" style="width:auto" id="cm" checked> Avisar por email a todos los comercios</label></div></div>
  <div style="display:flex;justify-content:flex-end"><button class="btn" data-pubc>Publicar versión</button></div></div>
  <div class="card"><h2>Historial de versiones</h2><table><tr><th>Versión</th><th>Fecha</th><th>Estado</th><th>Aceptaron</th><th>Cambios</th></tr>${contracts.slice().reverse().map(c=>`<tr><td><b>${c.v}</b></td><td>${c.date}</td><td><span class="badge ${c.state==='Vigente'?'b-aprobado':'b-borrador'}">${c.state}</span></td><td>${c.acc}/38</td><td>${c.summary}</td></tr>`).join('')}</table></div></div>`}
-function publicarContrato(){const v=document.querySelector('#cv').value.trim(),sm=document.querySelector('#cs').value.trim(),tx=document.querySelector('#ct').value.trim(),d=dIso(document.querySelector('#cd').value),pl=+document.querySelector('#cp').value;
+function publicarContrato(){if(api.live){livePublishContract();return}const v=document.querySelector('#cv').value.trim(),sm=document.querySelector('#cs').value.trim(),tx=document.querySelector('#ct').value.trim(),d=dIso(document.querySelector('#cd').value),pl=+document.querySelector('#cp').value;
  if(!v||!sm||!tx||!d){toast('Completá versión, fecha (dd/mm/aaaa), resumen y texto');return}
  if(contracts.some(c=>c.v===v)){toast('Ya existe la versión '+v);return}
  confirmModal({title:'¿Publicar la versión '+v+'?',text:'Se les va a mostrar a los 38 comercios activos para que la acepten en los próximos '+pl+' días. Su local sigue activo durante ese plazo. Esta acción no se puede deshacer.',ok:'Publicar versión',onOk:()=>{const f=x=>x.split('-').reverse().join('/');const dl=new Date(d+'T00:00:00');dl.setDate(dl.getDate()+pl);const dls=String(dl.getDate()).padStart(2,'0')+'/'+String(dl.getMonth()+1).padStart(2,'0')+'/'+dl.getFullYear();
@@ -2219,7 +2219,8 @@ const rpcErr = (e) => {
     COOLDOWN: 'Para evitar cambios repetidos, probá de nuevo en unos minutos.', STOCK_MIN: 'El cupo mínimo es de 5 cafés por día.', FORBIDDEN: 'No tenés permiso para esta acción.',
     INVITE_INVALID: 'La invitación no es válida o ya fue usada.', INVITE_EMAIL_MISMATCH: 'Esta invitación es para otro email. Ingresá con el mail al que te la enviamos.',
     ALREADY_CLAIMED: 'Ese local ya fue reclamado.', INVALID_EMAIL: 'El email no es válido.', CANNOT_REMOVE_SELF: 'No podés quitarte a vos mismo.', NOT_PENDING: 'Esa solicitud ya no está pendiente.',
-    CLOSURE_RANGE: 'La fecha "Hasta" no puede ser anterior a "Desde".', CLOSURE_PAST: 'Ese período ya pasó. Elegí fechas de hoy en adelante.', CLOSURE_TOO_LONG: 'Un cierre no puede durar más de un año.', CLOSURE_LIMIT: 'Llegaste al máximo de 20 cierres. Quitá alguno que ya no uses.', CLOSURE_OVERLAP: 'Ese período se superpone con otro cierre ya cargado.' };
+    CLOSURE_RANGE: 'La fecha "Hasta" no puede ser anterior a "Desde".', CLOSURE_PAST: 'Ese período ya pasó. Elegí fechas de hoy en adelante.', CLOSURE_TOO_LONG: 'Un cierre no puede durar más de un año.', CLOSURE_LIMIT: 'Llegaste al máximo de 20 cierres. Quitá alguno que ya no uses.', CLOSURE_OVERLAP: 'Ese período se superpone con otro cierre ya cargado.',
+    CONTRACT_VERSION: 'Escribí un número de versión (por ejemplo 2.5).', CONTRACT_SUMMARY: 'Contá en una línea qué cambió.', CONTRACT_BODY: 'El texto del contrato está vacío o es muy corto.', CONTRACT_EXISTS: 'Esa versión ya existe. Usá otro número.' };
   for (const k in T) if (m.includes(k)) return T[k];
   return 'No pudimos completar la acción. Probá de nuevo.';
 };
@@ -2263,7 +2264,11 @@ Object.assign(api, {
   },
 });
 
+async function liveLoadContractAdmin() {
+  try { const r = await api._rpc('admin_contract_overview'); LIVE_ADMIN.contract = r.ok ? r.data : null; } catch (e) { LIVE_ADMIN.contract = null; }
+}
 async function liveLoadAdmin() {
+  await liveLoadContractAdmin();
   const [s, t, a, c, p, hi, cs, cc] = await Promise.all([api.adminSummary(), api.adminTeam(), api.adminActivity(), api.adminCafes(), api.policy(), api.adminHistory(), api.adminCafeStates(), api.adminChangeCurrent()]);
   LIVE_ADMIN.changeCur = {}; ((cc && cc.ok && cc.data) || []).forEach((x) => { LIVE_ADMIN.changeCur[x.request_id] = x.current || {}; });
   LIVE_ADMIN.cafeState = {}; ((cs && cs.ok && cs.data) || []).forEach((x) => { LIVE_ADMIN.cafeState[x.request_id] = !!x.active; });
@@ -2562,6 +2567,37 @@ function liveHistoryHtml(r) {
   if (r.acctAt) items.push([r.acctAt, 'El comercio creó su cuenta en el portal']);
   items.sort((a, b) => new Date(b[0]) - new Date(a[0]));
   return items.map((i) => '<li>' + accFmt(i[0]) + ' · ' + i[1] + '</li>').join('') || '<li class="muted">Todavía no hay movimientos.</li>';
+}
+
+
+/* ---------- Contrato de adhesión (panel admin): versión vigente real, historial y publicación ---------- */
+const clDate = (iso) => { try { const d = new Date(iso), p2 = (n) => String(n).padStart(2, '0'); return p2(d.getDate()) + '/' + p2(d.getMonth() + 1) + '/' + d.getFullYear(); } catch (e) { return ''; } };
+function nextContractV(v) { const m = /^(\d+)\.(\d+)$/.exec(String(v || '')); return m ? m[1] + '.' + (+m[2] + 1) : ''; }
+function adminContratoLive() {
+  const o = LIVE_ADMIN.contract;
+  if (!o || !o.current) return '<div class="top"><div><h1>Contrato de adhesión</h1><p class="muted">No pudimos cargar el contrato. Recargá la página.</p></div></div>';
+  const c = o.current, el = o.eligible || 0, sc = o.signed_current || 0, sa = o.signed_any || 0;
+  const pct = el ? Math.min(100, Math.round(sc / el * 100)) : 0, old = Math.max(0, sa - sc);
+  return `<div class="top"><div><h1>Contrato de adhesión</h1><p class="muted">Este es el texto que ven y aceptan los comercios al firmar. Si publicás una nueva versión, la verán los comercios que firmen de ahora en adelante.</p></div></div>
+ <div class="card"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center"><div><h2>Versión vigente: ${esc(c.version)}</h2><p class="muted">Publicada el ${clDate(c.published_at)}</p></div><button class="btn sec sm" data-dl>Descargar PDF</button></div>
+ <div style="margin-top:14px"><div style="display:flex;justify-content:space-between"><span class="muted">Firmaron la versión ${esc(c.version)}</span><b>${sc} de ${el} comercios aprobados</b></div><div class="bar"><i style="width:${pct}%"></i></div>
+ ${old > 0 ? `<p class="hint" style="margin-top:8px">${old} comercio${old > 1 ? 's firmaron' : ' firmó'} una versión anterior y siguen activos con lo que aceptaron.</p>` : ''}</div></div>
+ <div class="cols2"><div class="card"><h2>Publicar nueva versión</h2><p class="muted" style="margin:4px 0 12px">Editá el texto y publicalo: pasa a ser el que se muestra al firmar. Las versiones anteriores quedan guardadas.</p>
+ <div class="grid g2"><div class="field"><label for="cv">Número de versión *</label><input id="cv" value="${esc(nextContractV(c.version))}"></div><div class="field"><label>Vigente desde</label><input value="Al publicar (${clDate(new Date())})" disabled></div></div>
+ <div class="field"><label for="cs">Resumen de los cambios *</label><textarea id="cs" rows="2" placeholder="Ej: Se quitó la mención a precios."></textarea><div class="hint">Queda registrado en el historial de versiones.</div></div>
+ <div class="field"><label for="ct">Texto del contrato *</label><textarea id="ct" rows="14" style="font-size:13px">${esc(c.body || '')}</textarea></div>
+ <div style="display:flex;justify-content:flex-end"><button class="btn" data-pubc>Publicar versión</button></div></div>
+ <div class="card"><h2>Historial de versiones</h2><table><tr><th>Versión</th><th>Fecha</th><th>Estado</th><th>Firmaron</th><th>Cambios</th></tr>${(o.versions || []).map((v) => `<tr><td><b>${esc(v.version)}</b></td><td>${clDate(v.published_at)}</td><td><span class="badge ${v.is_current ? 'b-aprobado' : 'b-borrador'}">${v.is_current ? 'Vigente' : 'Reemplazada'}</span></td><td>${v.accepted}</td><td>${esc(v.summary || '')}</td></tr>`).join('')}</table></div></div>`;
+}
+function livePublishContract() {
+  const v = ($('#cv').value || '').trim(), sm = ($('#cs').value || '').trim(), tx = ($('#ct').value || '').trim();
+  if (!v || !sm || !tx) { toast('Completá la versión, el resumen de cambios y el texto.'); return; }
+  confirmModal({ title: '¿Publicar la versión ' + v + '?', text: 'Desde ahora este es el texto que verán y aceptarán los comercios al firmar. Los que ya firmaron conservan lo que aceptaron. La versión anterior queda guardada en el historial.', ok: 'Publicar versión',
+    onOk: async () => {
+      const x = await api._rpc('admin_publish_contract', { p_version: v, p_summary: sm, p_body: tx });
+      if (!x.ok) { toast(x.error); return; }
+      await liveLoadContract(); await liveLoadContractAdmin(); render(); toast('Versión ' + v + ' publicada. Ya es la que se muestra al firmar.');
+    } });
 }
 
 </script>
