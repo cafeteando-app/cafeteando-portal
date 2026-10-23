@@ -1464,7 +1464,7 @@ function previewApp(){pvMode='detail';
  const now=new Date(),di=(now.getDay()+6)%7,d=sched[di],r=d&&d.on&&d.r[0];
  let hrs='Cerrado hoy',open=false;
  if(r){const nowm=now.getHours()*60+now.getMinutes(),tm=v=>{const[h,m]=v.split(':');return +h*60+ +m};open=nowm>=tm(r[0])&&nowm<tm(r[1]);hrs=(open?'Abierto':'Cerrado')+' · '+r[0]+' a '+r[1]+' hs'}
- const tags=[...svc].sort((a,b)=>a-b).slice(0,3).map(i=>VAR[i]);
+ const tags=[...svc].sort((a,b)=>a-b).map(i=>VAR[i]);
  const ben=(extra.items.map(x=>x.text).filter(Boolean)[0])||(status==='aprobado'?extra.pub[0]:'');
  const desc=((FD.cf_desc!==undefined?FD.cf_desc:'Tostadores de barrio. Café de especialidad, pastelería casera.')||'').trim()||'Un café de especialidad para disfrutar con calma: buena selección de granos, ambiente cálido y atención cercana. Ideal para trabajar, encontrarte con amigos o parar a tomar algo rico. Sumate a Cafeteando y descubrí tu próximo rincón favorito del barrio.';
  const th=[0,1,2].map(i=>photos[i]?`<span class="av-th" style="${photos[i].u?`background-image:url(${photos[i].u});background-size:cover;background-position:center`:''}"></span>`:'<span class="av-th"></span>').join('');
