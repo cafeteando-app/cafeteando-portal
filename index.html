@@ -1250,6 +1250,7 @@ async function liveHydrate(reqId) {
   status = S[q.status] || 'borrador';
   if (q.submitted_at) { const d = new Date(q.submitted_at); window.__subDate = String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0'); }
   if (q.review_note) corrMsg = q.review_note;
+  window.__corrRev = q.reviewed_payload || null; window.__corrCur = q.payload || {};
   corrTouched = !!(q.status === 'needs_fix' && q.reviewed_payload && JSON.stringify(q.payload) !== JSON.stringify(q.reviewed_payload));
   if (m.contact_name && !p.address) { view = 'onb'; ob = 1; mview = 'inicio'; return 'onb'; }
   if (status === 'aprobado') {
@@ -1472,8 +1473,12 @@ function merchV(){
 
 let readyPrev=false;
 let corrTouched=false;
+const CORR_KEYS={'Datos del local':['name','description','services','other_services','maps_url'],'Ubicación':['address','neighborhood','lat','lng','province'],'Logo y fotos':['logo_url','photos'],'Horarios y cupo':['schedule','daily_stock'],'Beneficios':['benefits']};
+function corrPendSecs(){try{const m=String(corrMsg||'').match(/\(Secciones:\s*([^)]*)\)/);if(!m)return [];const rev=window.__corrRev,cur=window.__corrCur;if(!rev||!cur)return [];
+ return m[1].split(',').map(x=>x.trim()).filter(sec=>{const ks=CORR_KEYS[sec];if(!ks)return false;return !ks.some(k=>JSON.stringify(cur[k]??null)!==JSON.stringify(rev[k]??null))})}catch(e){return []}}
+const corrReady=()=>corrTouched&&corrPendSecs().length===0;
 const corrTarget=()=>{const m=String(corrMsg||'');if(/horarios|cupo|disponibilidad/i.test(m))return 'disp';if(/contrato|condiciones|titular|contacto/i.test(m))return 'adh';return 'cafe'};
-const readyNow=()=>{try{return ((status==='borrador')&&stepItems().every(x=>x[1]))||(status==='correccion'&&corrTouched)}catch(e){return false}};
+const readyNow=()=>{try{return ((status==='borrador')&&stepItems().every(x=>x[1]))||(status==='correccion'&&corrReady())}catch(e){return false}};
 function readyBanner(){if(!readyNow()||!(mview==='cafe'||mview==='disp'))return '';return `<div class="banner ok" role="status"><div>${status==='correccion'?'<b>¡Listo, hiciste los ajustes!</b><br><span class="muted">Reenviá tu adhesión para que Cafeteando la vuelva a revisar.</span>':'<b>¡Completaste todos los pasos!</b><br><span class="muted">Último paso: enviá tu adhesión a revisión para que Cafeteando pueda aprobar tu local.</span>'}</div><button class="btn sm" data-quicksend>Enviar a revisión</button></div>`}
 function statusBanner(){
  if(status==='borrador')return `<div class="banner pend"><div><b>Te falta poco para sumar tu local</b><br><span class="muted">Tu local todavía no está visible en la app. Llevás 3 de 6 secciones.</span></div><button class="btn sm" data-m="adh">Continuar</button></div>`;
@@ -1498,7 +1503,7 @@ function heroInicio(){
  if(status==='borrador'||status==='correccion'){
   t=status==='correccion'?'Cafeteando te pidió correcciones':'Para activar tu local, te falta completar unos datos. Te acompañamos en cada paso.';
   sub=status==='correccion'?'Cuando hagas los ajustes que te comentamos, reenviá tu solicitud y la revisamos enseguida. Mensaje del equipo: «'+esc(corrMsg)+'»':(nx?`Próximo paso: <b>${nx[0]}</b>.`:'Ya completaste todo: revisá y enviá la adhesión.');
-  cta=(status==='correccion'&&api.live)?(corrTouched?`<button class="btn" data-quicksend>Reenviar a revisión</button>`:`<button class="btn" data-m="${corrTarget()}">Ir a corregir</button>`):(status==='borrador'&&!nx)?`<button class="btn" data-quicksend>Enviar a revisión</button>`:`<button class="btn" data-m="${status==='correccion'?'adh':(nx?nx[2]:'adh')}">${status==='correccion'?'Corregir y reenviar':(nx?'Continuar':'Enviar a revisión')}</button>`;
+  cta=(status==='correccion'&&api.live)?(corrReady()?`<button class="btn" data-quicksend>Reenviar a revisión</button>`:`<button class="btn" data-m="${corrTarget()}">Ir a corregir</button>`):(status==='borrador'&&!nx)?`<button class="btn" data-quicksend>Enviar a revisión</button>`:`<button class="btn" data-m="${status==='correccion'?'adh':(nx?nx[2]:'adh')}">${status==='correccion'?'Corregir y reenviar':(nx?'Continuar':'Enviar a revisión')}</button>`;
   if(status==='correccion'&&api.live)extra='';else extra=`<div class="hero-prog"><span>${n} de ${items.length} pasos completados</span>${bar}</div>`}
  else if(status==='pendiente'){t='Tu adhesión está en revisión';sub=`Enviada el ${subDate()}. Te avisamos por email en 2 a 3 días hábiles. No tenés que hacer nada por ahora.`}
  else if(status==='aprobado'){t=onMap?'Tu sucursal está activa y recibe canjes':'Tu sucursal está pausada';sub=onMap?'Los socios ya pueden canjear su café acá.':'No figura en la app hasta que la reactives.'}
@@ -2587,7 +2592,7 @@ function bind(){
    if(status==='aprobado'){chg.desc=true;chg.fotos=true;if(addrSel&&addrSel.a!==L().addr)chg.addr=true}else if(addrSel){L().addr=addrSel.a;L().barrio=curBarrio()}
   }
   if(mview==='disp')doneDisp=true;
-  if(api.live){const ok=await liveSaveDraft();if(!ok){if(mview==='cafe')doneCafe=false;if(mview==='disp')doneDisp=false;return}if(status==='correccion')corrTouched=true;toast(status==='correccion'?'Guardado. Volvé a Inicio para reenviar a revisión.':'Guardado.');dirtyKey=null;render();return}
+  if(api.live){const ok=await liveSaveDraft();if(!ok){if(mview==='cafe')doneCafe=false;if(mview==='disp')doneDisp=false;return}if(status==='correccion'){corrTouched=true;try{window.__corrCur=Object.assign({},window.__corrCur||{},liveBuildPayload())}catch(e){}}toast(status==='correccion'?'Guardado. Volvé a Inicio para reenviar a revisión.':'Guardado.');dirtyKey=null;render();return}
   toast(mview==='cafe'&&status==='aprobado'?'Cambios enviados a revisión (simulado)':'Guardado (simulado)');
   dirtyKey=null;render()});
  document.querySelectorAll('[data-av-up]').forEach(b=>b.onclick=()=>{const f=document.getElementById('avfile');f&&f.click()});
