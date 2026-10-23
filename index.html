@@ -716,6 +716,9 @@ html{overflow-x:hidden}body{overflow-x:clip}
 .av.big{width:72px;height:72px;border-radius:50%;background:var(--terracota);color:#fff;display:grid;place-items:center;font-weight:800;font-size:28px;font-family:'Red Hat Display';flex:none}
 .acc-avt .hint{margin:2px 0 8px}.acc-avb{display:flex;gap:8px;flex-wrap:wrap}
 
+.who .wi .wi-l{font-style:normal;font-weight:700;opacity:.8}
+.who .wi b{font-size:14px}
+
 </style>
 </head>
 <body>
@@ -1462,7 +1465,7 @@ const NIC={"inicio": "<path d=\"M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 
 const MNAV=[['inicio','Inicio'],['cafe','Mi cafetería'],['disp','Disponibilidad'],['adh','Mi adhesión'],['canje','Cómo canjear'],['cuenta','Mi cuenta']];
 function merchV(){
  if(api.live&&status==='aprobado'&&!signedOk)return signV();
- const nav=`<div class="mtop"><b>Cafeteando</b><small>Comercios</small></div><div class="nav mnav" role="navigation" aria-label="Menú principal">${bellBtn()}${themeBtn()}<div class="logo">Cafeteando</div><div class="sub">Comercios</div>${MNAV.map(([k,l])=>`<a href="#" class="${mview===k?'on':''}" data-m="${k}" ${mview===k?'aria-current="page"':''}><svg class="ni" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${NIC[k]}</svg><span class="lf">${l}</span><span class="ls">${NSH[k]}</span></a>`).join('')}<div class="who"><div class="who-head"><div class="av">${avatarInner()}</div><div class="wi"><small class="wi-l">Sucursal</small><b title="${esc(L().addr)}">${esc(L().addr)}</b><span>${esc(L().barrio)}</span></div></div><span class="mail" title="${esc(api.live?bizMail():'julianlopezagustin1@gmail.com')}">${esc(api.live?bizMail():'julianlopezagustin1@gmail.com')}</span><a class="out" data-logout><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>Cerrar sesión</a></div></div>`;
+ const nav=`<div class="mtop"><b>Cafeteando</b><small>Comercios</small></div><div class="nav mnav" role="navigation" aria-label="Menú principal">${bellBtn()}${themeBtn()}<div class="logo">Cafeteando</div><div class="sub">Comercios</div>${MNAV.map(([k,l])=>`<a href="#" class="${mview===k?'on':''}" data-m="${k}" ${mview===k?'aria-current="page"':''}><svg class="ni" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${NIC[k]}</svg><span class="lf">${l}</span><span class="ls">${NSH[k]}</span></a>`).join('')}<div class="who"><div class="who-head"><div class="av">${avatarInner()}</div><div class="wi"><b title="${esc(bizName())}">${esc(bizName())}</b><small class="wi-l">Sucursal</small><span title="${esc(L().addr)}, ${esc(L().barrio)}">${esc(L().addr)}</span></div></div><span class="mail" title="${esc(api.live?bizMail():'julianlopezagustin1@gmail.com')}">${esc(api.live?bizMail():'julianlopezagustin1@gmail.com')}</span><a class="out" data-logout><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>Cerrar sesión</a></div></div>`;
  const body={inicio:mInicio,cafe:mCafe,disp:mDisp,adh:mAdh,canje:mCanje,cuenta:mCuenta}[mview]();
  return `<a class="skip" href="#main">Saltar al contenido</a><div class="shell">${nav}<div class="main" id="main" role="main" tabindex="-1">${netBanner()}${api.live?partialBanner():''}${readyBanner()}<div class="localbox"><div class="lb-title">Tus sucursales</div><div class="tabsbar">${locals.map((l,i)=>{const st=i===cur?status:l.snap.status;const om=i===cur?onMap:l.snap.onMap;const dc=st==='aprobado'?(om?'ok':'off'):st;return `<button class="ltab ${i===cur?'on':''}" data-tab="${i}"><i class="dot d-${dc}"></i><span><b>${l.addr}</b><small>${l.barrio}</small></span></button>`}).join('')}<button class="ltab add" data-newloc>+ Agregar sucursal</button></div><div class="statusrow"><span>Estado de esta sucursal</span>${bd(status)}<button class="info" data-info="${cur}" title="¿Qué significa este estado?" aria-expanded="${openInfo===cur}">i</button><span class="lb-code">Código de canje: <b>${status==='aprobado'?L().code:'se genera al aprobarse'}</b></span></div>${infoBox()}</div>${body}</div></div>${bellPanel()}${helpBtn()}`}
 
@@ -2310,11 +2313,11 @@ function liveContractPdf() {
   w.document.close(); setTimeout(() => w.print(), 400);
 }
 const _hydrateNoContract = liveHydrate;
-liveHydrate = async function () { await liveLoadContract(); return _hydrateNoContract(); };
+liveHydrate = async function (rid) { await liveLoadContract(); return _hydrateNoContract(rid); };
 
 var emailPrefs = { pause_reminder: true, news: false };
 const _hydrateEmailPrefs = liveHydrate;
-liveHydrate = async function () { const r = await _hydrateEmailPrefs(); try { const p = await api.getEmailPrefs(); emailPrefs = Object.assign({ pause_reminder: true, news: false }, p || {}); } catch (e) { /* defaults */ } return r; };
+liveHydrate = async function (rid) { const r = await _hydrateEmailPrefs(rid); try { const p = await api.getEmailPrefs(); emailPrefs = Object.assign({ pause_reminder: true, news: false }, p || {}); } catch (e) { /* defaults */ } return r; };
 
 
 /* ---------- Pantalla de invitación: local migrado, solo reclamar y crear contraseña ---------- */
