@@ -740,6 +740,11 @@ table{font-size:13px}
 .kpis>.card .muted,.kpis>.card .hint,.kpis>.card .kpi{text-align:center;text-align-last:center;width:100%}
 .kpis>.card .kpi{line-height:1.1;margin:6px 0 10px}
 .kpis>.card .bar{width:100%}
+/* KPIs del panel admin */
+.kg>.card{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;text-align:center;padding-top:22px;min-height:128px}
+.kg>.card .muted,.kg>.card .hint,.kg>.card .kpi{text-align:center;text-align-last:center;width:100%}
+.kg>.card .kpi{line-height:1.1;margin:6px 0 8px}
+.kg>.card:has(.muted:empty){visibility:hidden}
 
 </style>
 </head>
@@ -1750,7 +1755,7 @@ function mCanje(){
 function mCuenta(){return `<div class="top"><h1>Mi cuenta</h1></div><div class="cols lastfull"><div class="card"><div class="acc-av"><div class="av big">${avatarInner()}</div><div class="acc-avt"><h2 style="margin:0 0 2px">Foto del portal de comercios</h2><p class="hint">JPG, PNG o WebP.</p><div class="acc-avb"><button class="btn sec sm" data-av-up>${window.__avatar?'Cambiar foto':'Subir foto'}</button>${window.__avatar?'<button class="btn sec sm" data-av-del>Quitar</button>':''}<input type="file" id="avfile" accept="image/png,image/jpeg,image/webp" hidden></div></div></div><div class="grid g2"><div class="field"><label>Email</label><input value="${esc(bizMail())}" disabled><p class="hint" style="margin-top:6px">Este email es solo para el portal de comercios. Si querés usar la app como cliente, registrate con otro email.</p></div>${fld({id:'ac_phone',label:'Teléfono',rules:'req,phone',type:'tel',def:api.live?(FD.ob_wsp||''):'11 5555-1234',ac:'tel'})}</div><button class="btn sm" data-phone-save>Guardar</button></div><div class="card"><h2>Avisos por email</h2><p class="muted" style="margin:10px 0 12px">Te escribimos a ${esc(bizMail())}.</p>${[['Cambios en el estado de tu adhesión (aprobada, correcciones, rechazo)','',true],['Cambios publicados o rechazados en tu cafetería','',true],['Recordatorio antes de que termine una pausa programada','pause_reminder',false],['Novedades de Cafeteando','news',false]].map(([l,k,lock])=>`<div style="display:flex;gap:12px;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--line)"><span>${l}</span>${lock?'<span class="badge b-aprobado" style="white-space:nowrap">Siempre activo</span>':`<button type="button" class="toggle ${emailPrefs[k]?'on':''}" data-tg="${k}" aria-label="${l}"></button>`}</div>`).join('')}</div><div class="card"><h2>Documentos legales</h2><p style="margin-top:8px"><a href="#" data-legal="terminos">Términos y condiciones</a> · <a href="#" data-legal="privacidad">Política de privacidad</a> · <a href="#" data-m="adh">Condiciones del servicio (v${accV})</a></p></div><div class="card" data-pwcard><h2>Cambiar contraseña</h2><br><div class="grid g2"><div>${fld({id:'ac_p1',label:'Nueva contraseña',rules:'req,pass',eye:true,ac:'new-password',hint:'Mínimo 8 caracteres, con una letra y un número.'})}</div><div>${fld({id:'ac_p2',label:'Repetir contraseña',rules:'req,match',match:'ac_p1',eye:true,ac:'new-password'})}<p class="pmatch" id="pc-match" aria-live="polite"></p></div></div><button class="btn sec sm" data-pw-update>Actualizar contraseña</button></div><div class="card" style="border:1.5px solid var(--bad)"><h2 style="color:var(--bad-text)">Baja de cuenta y datos</h2><p class="muted" style="margin:4px 0 12px">Podés pedir la baja de tu cuenta y de tus datos personales. Tu local deja de figurar en la app y no recibe más canjes. Cafeteando procesa el pedido y te confirma por email.</p><button class="btn bad sm" data-baja>Solicitar baja</button></div></div><button class="btn sec" data-logout>Cerrar sesión</button>`}
 
 /* ---------- ADMIN ---------- */
-function kgrid(t,items){return `<h3 style="margin:22px 0 10px">${t}</h3><div class="grid g4">${items.map(([l,v,h])=>`<div class="card" style="margin:0"><div class="muted">${l}</div><div class="kpi">${v}</div><div class="hint">${h||'&nbsp;'}</div></div>`).join('')}</div>`}
+function kgrid(t,items){return `<h3 style="margin:22px 0 10px">${t}</h3><div class="grid g4 kg">${items.map(([l,v,h])=>`<div class="card" style="margin:0"><div class="muted">${l}</div><div class="kpi">${v}</div><div class="hint">${h||'&nbsp;'}</div></div>`).join('')}</div>`}
 
 </script>
 <script>
@@ -1766,7 +1771,7 @@ function adminResumen(){const days=[['Lun',180],['Mar',205],['Mié',198],['Jue',
  <li><span class="badge b-borrador">4 locales</span> sin canjes en los últimos 30 días</li>
  <li><span class="badge b-suspendido">2 pausas</span> activas, una vuelve el 20/10</li>
  <li><span class="badge b-borrador">1 adhesión</span> en borrador hace más de 7 días</li></ul></div>
- ${kgrid('Red de comercios',[['Locales activos','38','+3 este mes'],['Solicitudes pendientes','2','La más antigua: 3 días'],['Aprobación (tiempo medio)','2,4 días','Meta: menos de 3'],['Tasa de rechazo','8%','3 de 38 solicitudes']])}
+ ${kgrid('Red de comercios',[['Locales activos','38','+3 este mes'],['Solicitudes pendientes','2','La más antigua: 3 días'],['Tiempo de aprobación','2,4 días','Meta: menos de 3'],['Tasa de rechazo','8%','3 de 38 solicitudes']])}
  ${kgrid('Canjes',[['Canjes hoy','214','vs. 198 el mismo día de la semana pasada'],['Canjes del mes','3.870','+12% vs. mes anterior'],['Promedio por local y día','5,6','Cupo medio: 14'],['Cupo utilizado','62%','Locales al tope: 3']])}
  ${kgrid('Socios y suscripciones',[['Socios activos','1.240','+96 este mes'],['Bajas del mes','11','Retención 99%'],['Canjes por socio','3,1','de 4 posibles al mes'],['Ingresos del mes','$18,6 M','Suscripciones vigentes']])}
  <div class="grid g2" style="margin-top:22px;align-items:start"><div class="card"><h2>Canjes de los últimos 7 días</h2><div class="chart">${days.map(d=>`<div class="col"><span class="v">${d[1]}</span><i style="height:${Math.round(d[1]/mx*100)}%"></i><small>${d[0]}</small></div>`).join('')}</div></div>
