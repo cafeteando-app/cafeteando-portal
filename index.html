@@ -811,6 +811,11 @@ table{font-size:13px}
 }
 .auth2:has(.choice) .a2-h1{margin-bottom:clamp(8px,2vh,22px)}
 
+/* Admin compartido: selector de quién trabaja */
+.who .actor{display:flex;flex-direction:column;gap:4px;margin-bottom:8px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#ffffffb3}
+.who .actor select{font:inherit;font-size:13px;letter-spacing:0;text-transform:none;padding:7px 8px;border-radius:8px;border:1.5px solid #ffffff33;background:#2a1a12;color:#fff}
+.who .actor.need select{border-color:var(--terracota-claro,#e3a784);box-shadow:0 0 0 3px #e3a78433}
+
 </style>
 </head>
 <body>
@@ -923,6 +928,8 @@ const api = (() => {
       await loadLib();
       client = window.supabase.createClient(PCFG.supabaseUrl, PCFG.supabaseAnonKey, {
         auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+        // Cuenta de admin compartida: se manda quién está trabajando (juli / lu) para registrar quién decidió.
+        global: { fetch: (u, o) => { try { const a = localStorage.getItem('cf_actor'); if (a === 'juli' || a === 'lu') { o = o || {}; const h = new Headers(o.headers || {}); h.set('x-actor', a); o.headers = h; } } catch (e) { /* sin storage */ } return fetch(u, o); } },
       });
       client.auth.onAuthStateChange((ev, sess) => {
         lastSession = sess || null;
@@ -1942,8 +1949,10 @@ function publicarContrato(){if(api.live){livePublishContract();return}const v=do
  if(contracts.some(c=>c.v===v)){toast('Ya existe la versión '+v);return}
  confirmModal({title:'¿Publicar la versión '+v+'?',text:'Se les va a mostrar a los 38 comercios activos para que la acepten en los próximos '+pl+' días. Su local sigue activo durante ese plazo. Esta acción no se puede deshacer.',ok:'Publicar versión',onOk:()=>{const f=x=>x.split('-').reverse().join('/');const dl=new Date(d+'T00:00:00');dl.setDate(dl.getDate()+pl);const dls=String(dl.getDate()).padStart(2,'0')+'/'+String(dl.getMonth()+1).padStart(2,'0')+'/'+dl.getFullYear();
   activity.unshift({d:nowS(),w:ADMIN,a:'Publicó la versión '+v+' del contrato'});contracts.forEach(c=>c.state='Reemplazada');contracts.push({v,date:f(d),state:'Vigente',acc:0,summary:sm,deadline:dls});contractText=tx;render();toast('Versión '+v+' publicada. '+(document.querySelector('#cm')?'':'')+'Se avisó por email a los comercios (simulado)')}})}
+function actorSelHtml(){if(!api.live||bizMail().toLowerCase()!=='contactocafeteando@gmail.com')return '';let a='';try{a=localStorage.getItem('cf_actor')||''}catch(e){}
+return `<label class="actor${a?'':' need'}"><span>Trabajando como</span><select id="actorSel" aria-label="Quién está trabajando"><option value="" ${a?'':'selected'}>Elegí quién sos…</option><option value="juli" ${a==='juli'?'selected':''}>Juli</option><option value="lu" ${a==='lu'?'selected':''}>Lu</option></select></label>`}
 function adminV(){
- const nav=`<div class="nav" role="navigation" aria-label="Menú principal">${bellBtn()}${themeBtn()}<div class="logo">Cafeteando</div><div class="sub">Administración</div>${[['resumen','Resumen'],['lista','Solicitudes'],['activos','Locales adheridos'],['contrato','Contrato'],['equipo','Equipo'],...(api.live?[]:[['cfg','Configuración']])].map(([k,l])=>`<a href="#" class="${aview===k||(k==='lista'&&aview==='det')?'on':''}" data-a="${k}" ${aview===k||(k==='lista'&&aview==='det')?'aria-current="page"':''}>${l}</a>`).join('')}<div class="fill"></div><div class="who"><span class="mail" title="${esc(api.live?bizMail():'admin@somoscafeteando.com.ar')}">${esc(api.live?bizMail():'admin@somoscafeteando.com.ar')}</span><a class="out" data-logout href="#"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>Cerrar sesión</a></div><a href="#" class="mlogout" data-logout>Salir</a></div>`;
+ const nav=`<div class="nav" role="navigation" aria-label="Menú principal">${bellBtn()}${themeBtn()}<div class="logo">Cafeteando</div><div class="sub">Administración</div>${[['resumen','Resumen'],['lista','Solicitudes'],['activos','Locales adheridos'],['contrato','Contrato'],['equipo','Equipo'],...(api.live?[]:[['cfg','Configuración']])].map(([k,l])=>`<a href="#" class="${aview===k||(k==='lista'&&aview==='det')?'on':''}" data-a="${k}" ${aview===k||(k==='lista'&&aview==='det')?'aria-current="page"':''}>${l}</a>`).join('')}<div class="fill"></div><div class="who">${actorSelHtml()}<span class="mail" title="${esc(api.live?bizMail():'admin@somoscafeteando.com.ar')}">${esc(api.live?bizMail():'admin@somoscafeteando.com.ar')}</span><a class="out" data-logout href="#"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>Cerrar sesión</a></div><a href="#" class="mlogout" data-logout>Salir</a></div>`;
  let b='';
  if(aview==='det'){const r=REQ.find(x=>x.id===sel);b=adminDet(r)}
  else if(aview==='resumen')b=adminResumen();
@@ -2723,6 +2732,7 @@ function tourAuto(){
 // Fuera del modo mock se quita la barra de demo (solo existe en la maqueta).
 if(window.PORTAL_CONFIG&&window.PORTAL_CONFIG.mode!=='mock'){const _d=document.querySelector('.demo');_d&&_d.remove()}
 function bind(){
+ const _as=document.getElementById('actorSel');if(_as)_as.onchange=()=>{try{_as.value?localStorage.setItem('cf_actor',_as.value):localStorage.removeItem('cf_actor')}catch(e){}_as.closest('.actor').classList.toggle('need',!_as.value);toast&&toast(_as.value?('Listo: las decisiones quedan a nombre de '+(_as.value==='juli'?'Juli':'Lu')):'Elegí quién sos')};
  const _mn=document.getElementById('main');
  if(_mn&&(mview==='cafe'||mview==='disp')){
   _mn.addEventListener('input',e=>{if(!e.target.closest('.savebar')&&!(e.target.id==='cl_f'||e.target.id==='cl_t'))markDirty();updatePreview()});
