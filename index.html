@@ -2291,6 +2291,7 @@ const rpcErr = (e) => {
     ALREADY_CLAIMED: 'Ese local ya fue reclamado.', INVALID_EMAIL: 'El email no es válido.', CANNOT_REMOVE_SELF: 'No podés quitarte a vos mismo.', NOT_PENDING: 'Esa solicitud ya no está pendiente.',
     CLOSURE_RANGE: 'La fecha "Hasta" no puede ser anterior a "Desde".', CLOSURE_PAST: 'Ese período ya pasó. Elegí fechas de hoy en adelante.', CLOSURE_TOO_LONG: 'Un cierre no puede durar más de un año.', CLOSURE_LIMIT: 'Llegaste al máximo de 20 cierres. Quitá alguno que ya no uses.', CLOSURE_OVERLAP: 'Ese período se superpone con otro cierre ya cargado.',
     CONTRACT_VERSION: 'Escribí un número de versión (por ejemplo 2.5).', CONTRACT_SUMMARY: 'Contá en una línea qué cambió.', CONTRACT_BODY: 'El texto del contrato está vacío o es muy corto.', CONTRACT_EXISTS: 'Esa versión ya existe. Usá otro número.' };
+  const rc = m.match(/ROLE_CONFLICT: ([^\n]+)/); if (rc) return rc[1].replace(/^(.)/, (c) => c.toUpperCase()) + '.';
   for (const k in T) if (m.includes(k)) return T[k];
   return 'No pudimos completar la acción. Probá de nuevo.';
 };
