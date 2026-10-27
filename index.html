@@ -865,6 +865,7 @@ window.PORTAL_CONFIG = {
 <script>
 const subDate=()=>(typeof api!=='undefined'&&api.live&&window.__subDate)?window.__subDate:'14/10';
 /* Estado global y datos de ejemplo (modo mock) */
+let MIN_CUPO = 4; // mínimo de cupo diario; el admin puede fijar una excepción por comercio (my_min_stock)
 const $=(s,r=document)=>r.querySelector(s);
 const DAYS=['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
 const VAR=['Café de filtro','Granos de especialidad','Origen único','Blends propios','Venta de granos','Opciones veganas','Sin TACC','Pet friendly'];
@@ -1447,7 +1448,7 @@ function liveApplyPayload(p) {
   extra.pub = extra.items.map((x) => x.text);
   contractOk = true;
   doneCafe = !!(p.name && p.logo_url && photos.length >= 3 && (svc.size || p.other_services));
-  doneDisp = !!(Array.isArray(p.schedule) && p.schedule.some((d) => d.on && d.r.length && d.r.every(rOk)) && p.daily_stock >= 4);
+  doneDisp = !!(Array.isArray(p.schedule) && p.schedule.some((d) => d.on && d.r.length && d.r.every(rOk)) && p.daily_stock >= MIN_CUPO);
 }
 
 function liveBuildPayload() {
@@ -1515,7 +1516,7 @@ async function liveSend(btn) {
     const r = await api.submitRequest(liveReqId);
     if (!r.ok) {
       if (r.incomplete) {
-        const N = { name: 'el nombre', address: 'la dirección', province: 'la provincia', neighborhood: 'el barrio', logo_url: 'el logo', photos: 'las fotos (mínimo 3)', services: 'los servicios', daily_stock: 'el cupo (mínimo 4)', schedule: 'los horarios', contract: 'la aceptación de las condiciones del servicio' };
+        const N = { name: 'el nombre', address: 'la dirección', province: 'la provincia', neighborhood: 'el barrio', logo_url: 'el logo', photos: 'las fotos (mínimo 3)', services: 'los servicios', daily_stock: 'el cupo (mínimo ' + MIN_CUPO + ')', schedule: 'los horarios', contract: 'la aceptación de las condiciones del servicio' };
         toast('Falta completar: ' + r.incomplete.map((k) => N[k] || k).join(', ') + '.');
       } else toast(r.error);
       return;
@@ -1688,7 +1689,7 @@ const STINFO={
  rechazado:['Rechazado','Cafeteando no pudo aprobar esta adhesión. Escribinos y te contamos el motivo.',null]};
 function infoBox(){if(openInfo!==cur)return '';let inf=(STINFO[status]||STINFO.borrador).slice();if(status==='correccion')inf[1]='Cafeteando te dejó este mensaje: «'+esc(corrMsg)+'»'+(corrSecs.length?' Secciones a corregir: '+corrSecs.join(', ')+'.':'')+' Próximo paso: corregí lo pedido y reenviá la adhesión.';if(status==='rechazado'&&rejMsg)inf[1]='Cafeteando no pudo aprobar esta adhesión. Motivo: «'+esc(rejMsg)+'». Si querés más información, escribinos.';if(status==='suspendido'&&rejMsg)inf[1]='Tu local está suspendido. Motivo: «'+esc(rejMsg)+'». Escribinos y lo resolvemos juntos.';if(status==='correccion'&&corrSecs.length){const M={'Datos del local':['cafe','Mi cafetería'],'Ubicación':['cafe','Mi cafetería'],'Logo y fotos':['cafe','Mi cafetería'],'Beneficios':['cafe','Mi cafetería'],'Titular y contacto':['cuenta','Mi cuenta'],'Horarios y cupo':['disp','Disponibilidad'],'Contrato':['adh','Mi adhesión'],'Condiciones del servicio':['adh','Mi adhesión']};const t=M[corrSecs[0]];if(t){inf[2]=t[0];inf[3]='Ir a '+t[1]}}
 return `<div class="infobox"><b>${inf[0]}</b><p>${inf[1]}</p>${inf[2]?`<button class="btn sm" data-m="${inf[2]}">${inf[3]}</button>`:''}</div>`}
-function stepItems(){return [['Datos básicos del local',true,'cafe'],['Logo, fotos (mínimo 3) y servicios',doneCafe,'cafe'],['Horarios, días y cupo diario (mínimo 4)',doneDisp,'disp'],...(api.live?[]:[['Aceptar el contrato de adhesión',contractOk,'adh']])]}
+function stepItems(){return [['Datos básicos del local',true,'cafe'],['Logo, fotos (mínimo 3) y servicios',doneCafe,'cafe'],['Horarios, días y cupo diario (mínimo '+MIN_CUPO+')',doneDisp,'disp'],...(api.live?[]:[['Aceptar el contrato de adhesión',contractOk,'adh']])]}
 function heroInicio(){
  const items=stepItems(),n=items.filter(x=>x[1]).length,nx=items.find(x=>!x[1]);const sn=esc(L().addr)+', '+esc(L().barrio);
  const bar=`<div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="${items.length}" aria-valuenow="${n}" aria-label="Pasos completados"><i style="width:${Math.round(n*100/items.length)}%"></i></div>`;
@@ -1825,7 +1826,7 @@ function mountModal(m){const prev=document.activeElement;m.setAttribute('data-mo
  setTimeout(()=>{const f=m.querySelector('input:not([type=hidden]),textarea,select,button');(f||m).focus&&(f||m).focus()},0)}
 function confirmModal(o){const m=document.createElement('div');m.style.cssText='position:fixed;inset:0;background:#2b1d1699;z-index:90;display:grid;place-items:center;padding:16px';m.innerHTML=`<div class="card" style="${o.icon?'max-width:440px;text-align:center':'max-width:420px'};width:100%;margin:0" role="dialog" aria-modal="true">${o.icon?`<div class="cm-ico" aria-hidden="true">${o.icon}</div>`:''}<h2>${o.title}</h2><p class="muted" style="margin:8px 0 14px">${o.text}</p>${o.html||''}${o.word?`<div class="field"><label>Escribí <b>${o.word}</b> para confirmar</label><input id="cw" autocomplete="off"></div>`:''}<div style="display:flex;gap:8px;justify-content:${o.icon?'center':'flex-end'};flex-wrap:wrap"><button class="btn sec" id="cc">${o.cancel||'Cancelar'}</button><button class="btn ${o.danger?'bad':''}" id="ck" ${o.word?'disabled style="opacity:.4;cursor:not-allowed"':''}>${o.ok}</button></div></div>`;document.body.append(m);mountModal(m);const ck=m.querySelector('#ck');if(o.word){m.querySelector('#cw').oninput=e=>{const v=e.target.value.trim().toUpperCase()===o.word;ck.disabled=!v;ck.style.opacity=v?1:.4;ck.style.cursor=v?'pointer':'not-allowed'}}m.querySelector('#cc').onclick=()=>m.remove();m.onclick=e=>{if(e.target===m)m.remove()};ck.onclick=()=>{m.remove();o.onOk()}}
 let cupo=15, newBranch=false;
-const cupoOk=()=>Number.isInteger(cupo)&&cupo>=4;
+const cupoOk=()=>Number.isInteger(cupo)&&cupo>=MIN_CUPO;
 let sched=DAYS.map((d,i)=>({on:i<6,r:[i<5?['08:00','19:00']:['09:00','14:00']]}));
 const mins=t=>{const[h,m]=t.split(':').map(Number);return h*60+m};
 /* Horarios en pasos de 30 min (más simple que el selector de reloj). El cierre solo ofrece horas que cumplan el mínimo de 4 hs. */
@@ -1856,7 +1857,7 @@ function mDisp(){return `<div class="top"><div><h1>Disponibilidad</h1><p class="
  ${sched.map((d,i)=>`<div class="week2"><b>${DAYS[i]}</b><button class="toggle ${d.on?'on':''}" data-ton="${i}"></button>
  <div class="rngs">${d.on?d.r.map((r,k)=>`<div class="rng">${tsel(r[0],`data-rin="${i},${k},0" aria-label="Hora de apertura, ${DAYS[i]}"`,T30.filter(t=>mins(t)<=1410-240))}<span>a</span>${tsel(r[1],`data-rin="${i},${k},1" aria-label="Hora de cierre, ${DAYS[i]}"`,T30.filter(t=>!r[0]||mins(t)-mins(r[0])>=240))}${d.r.length>1?`<button class="x" data-rdel="${i},${k}" title="Quitar franja">×</button>`:''}${rOk(r)||(!r[0]&&!r[1])?'':'<small class="err">Mínimo 4 hs seguidas</small>'}</div>`).join(''):'<span class="hint">Cerrado</span>'}</div>
  <span></span></div>`).join('')}</div><details class="card fold" ${closuresList().length||window.__clOpen?'open':''}><summary><h2>Días cerrados especiales</h2></summary>${closuresHtml()}<div class="grid g3" style="margin-top:12px"><div><label for="cl_f">Desde</label><input id="cl_f" type="text" inputmode="numeric" maxlength="10" placeholder="dd/mm/aaaa" autocomplete="off" data-date></div><div><label for="cl_t">Hasta</label><input id="cl_t" type="text" inputmode="numeric" maxlength="10" placeholder="dd/mm/aaaa" autocomplete="off" data-date></div><div style="align-self:end"><button class="btn sec" data-cl-add>Agregar cierre</button></div></div><div class="ferr" id="cl_e" role="alert"></div><p class="hint" style="margin-top:8px">Feriados y vacaciones. Se aplican de inmediato: la app muestra el local como "cerrado" y no permite canjes esos días. Para un solo día, poné la misma fecha en "Desde" y "Hasta".</p></details></div><div class="stack">
- <div class="card"><h2>Cupo diario de cafés ${tip('Cupo: cantidad máxima de cafés que podés entregar por día en canjes.')}</h2><br><div class="field" style="max-width:260px"><label>Cafés por día</label><input type="number" value="${Number.isInteger(cupo)?cupo:''}" placeholder="Ej: 10" min="4" data-cupo style="${cupoOk()||!Number.isInteger(cupo)?'':'border-color:var(--bad-text)'}"><div class="hint" style="${cupoOk()?'':'color:var(--bad-text);font-weight:600'}">Mínimo obligatorio: 4 cafés por día. Recomendamos 10.</div></div>
+ <div class="card"><h2>Cupo diario de cafés ${tip('Cupo: cantidad máxima de cafés que podés entregar por día en canjes.')}</h2><br><div class="field" style="max-width:260px"><label>Cafés por día</label><input type="number" value="${Number.isInteger(cupo)?cupo:''}" placeholder="Ej: 10" min="${MIN_CUPO}" data-cupo style="${cupoOk()||!Number.isInteger(cupo)?'':'border-color:var(--bad-text)'}"><div class="hint" style="${cupoOk()?'':'color:var(--bad-text);font-weight:600'}">Mínimo obligatorio: ${MIN_CUPO} cafés por día. Recomendamos 10.</div></div>
  <p class="hint" style="margin-bottom:12px">Cada canje equivale a un café de especialidad. Las variedades las elegís vos al momento del canje: acá solo indicás la cantidad.</p><div class="note">Los canjes ya realizados hoy se respetan. El nuevo cupo se aplica de inmediato: si ya se alcanzó, no se habilitan más canjes hasta mañana.</div></div>
  ${extraCard()}
  </div></div>${saveBar('Guardar cambios')}`}
@@ -1979,12 +1980,13 @@ function publicarContrato(){if(api.live){livePublishContract();return}const v=do
 function actorSelHtml(){if(!api.live||bizMail().toLowerCase()!=='contactocafeteando@gmail.com')return '';let a='';try{a=localStorage.getItem('cf_actor')||''}catch(e){}
 return `<label class="actor${a?'':' need'}"><span>Trabajando como</span><select id="actorSel" aria-label="Quién está trabajando"><option value="" ${a?'':'selected'}>Elegí quién sos…</option><option value="juli" ${a==='juli'?'selected':''}>Juli</option><option value="lu" ${a==='lu'?'selected':''}>Lu</option></select></label>`}
 function adminV(){
- const nav=`<div class="nav" role="navigation" aria-label="Menú principal">${bellBtn()}${themeBtn()}<div class="logo">Cafeteando</div><div class="sub">Administración</div>${[['resumen','Resumen'],['lista','Solicitudes'],['activos','Locales adheridos'],['contrato','Contrato'],['equipo','Equipo'],...(api.live?[]:[['cfg','Configuración']])].map(([k,l])=>`<a href="#" class="${aview===k||(k==='lista'&&aview==='det')?'on':''}" data-a="${k}" ${aview===k||(k==='lista'&&aview==='det')?'aria-current="page"':''}>${l}</a>`).join('')}<div class="fill"></div><div class="who">${actorSelHtml()}<span class="mail" title="${esc(api.live?bizMail():'admin@somoscafeteando.com.ar')}">${esc(api.live?bizMail():'admin@somoscafeteando.com.ar')}</span><a class="out" data-logout href="#"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>Cerrar sesión</a></div><a href="#" class="mlogout" data-logout>Salir</a></div>`;
+ const nav=`<div class="nav" role="navigation" aria-label="Menú principal">${bellBtn()}${themeBtn()}<div class="logo">Cafeteando</div><div class="sub">Administración</div>${[['resumen','Resumen'],['lista','Solicitudes'],['activos','Locales adheridos'],['contrato','Contrato'],['equipo','Equipo'],...(api.live?[['excep','Excepciones']]:[]),...(api.live?[]:[['cfg','Configuración']])].map(([k,l])=>`<a href="#" class="${aview===k||(k==='lista'&&aview==='det')?'on':''}" data-a="${k}" ${aview===k||(k==='lista'&&aview==='det')?'aria-current="page"':''}>${l}</a>`).join('')}<div class="fill"></div><div class="who">${actorSelHtml()}<span class="mail" title="${esc(api.live?bizMail():'admin@somoscafeteando.com.ar')}">${esc(api.live?bizMail():'admin@somoscafeteando.com.ar')}</span><a class="out" data-logout href="#"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>Cerrar sesión</a></div><a href="#" class="mlogout" data-logout>Salir</a></div>`;
  let b='';
  if(aview==='det'){const r=REQ.find(x=>x.id===sel);b=adminDet(r)}
  else if(aview==='resumen')b=adminResumen();
  else if(aview==='contrato')b=adminContrato();
  else if(aview==='equipo')b=adminEquipo();
+ else if(aview==='excep'&&api.live)b=liveExcep();
  else if(aview==='invit')b=liveInvit();
  else if(aview==='activos'&&api.live)b=liveInvit();
  else if(aview==='activos')b=`<div class="top"><h1>Locales adheridos</h1></div><div class="card"><table><tr><th>Local</th><th>Barrio</th><th>Cupo</th><th>En la app</th><th></th></tr>${REQ.filter(r=>r.s==='aprobado'&&!(api.live&&r.chg)).map(r=>`<tr><td><b>${r.n}</b>${brTag(r)}${r.brNum>1&&r.dir?'<div class="hint">'+esc(r.dir)+'</div>':''}</td><td>${r.b}</td><td>${r.cupo}/día</td><td>${api.live&&!((LIVE_ADMIN.cafeState||{})[r.id])?'<span class="badge b-pendiente">Todavía no visible</span>':'<span class="badge b-aprobado">Visible</span>'}</td><td><button class="btn sm sec" data-sel="${r.id}">Ver</button></td></tr>`).join('')}</table></div>`;
@@ -2019,9 +2021,9 @@ function lightbox(r,i){const imgs=adminImgs(r);const m=document.createElement('d
  draw();document.body.append(m);mountModal(m)}
 function editModal(r){const m=document.createElement('div');m.style.cssText='position:fixed;inset:0;background:#2b1d1699;z-index:90;display:grid;place-items:center;padding:16px';
  const f=(id,l,v,rules,extra)=>{return `<div class="field"><label for="${id}">${l}${rules.includes('req')?' <span class="req" aria-hidden="true">*</span><span class="sr"> (obligatorio)</span>':''}</label>${extra==='ta'?`<textarea id="${id}" rows="3" maxlength="200" data-rules="${rules}">${esc(v)}</textarea>`:`<input id="${id}" data-rules="${rules}" value="${esc(v)}" ${extra==='num'?'type="number" min="4"':''}>`}<div class="ferr" id="err-${id}" role="alert"></div></div>`};
- m.innerHTML=`<div class="card" style="max-width:520px;width:100%;margin:0;max-height:90vh;overflow:auto"><h2>Editar datos de ${r.n}</h2><p class="muted" style="margin:6px 0 14px">Los cambios se publican en la app al instante y quedan registrados con tu nombre.</p>${f('ed_n','Nombre del local',r.n,'req')}${f('ed_tit','Persona de contacto',r.tit,'req')}${f('ed_tel','Teléfono o WhatsApp',r.tel,'req,phone')}${f('ed_dir','Dirección',r.dir,'req')}${f('ed_cupo','Cupo diario (mínimo 4)',r.cupo,'req','num')}${f('ed_desc','Descripción (opcional, máx. 200)',r.desc||'','max200','ta')}<div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn sec" id="ec">Cancelar</button><button class="btn" id="ek">Guardar cambios</button></div></div>`;
+ m.innerHTML=`<div class="card" style="max-width:520px;width:100%;margin:0;max-height:90vh;overflow:auto"><h2>Editar datos de ${r.n}</h2><p class="muted" style="margin:6px 0 14px">Los cambios se publican en la app al instante y quedan registrados con tu nombre.</p>${f('ed_n','Nombre del local',r.n,'req')}${f('ed_tit','Persona de contacto',r.tit,'req')}${f('ed_tel','Teléfono o WhatsApp',r.tel,'req,phone')}${f('ed_dir','Dirección',r.dir,'req')}${f('ed_cupo','Cupo diario (mínimo '+minFor(r)+')',r.cupo,'req','num')}${f('ed_desc','Descripción (opcional, máx. 200)',r.desc||'','max200','ta')}<div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn sec" id="ec">Cancelar</button><button class="btn" id="ek">Guardar cambios</button></div></div>`;
  document.body.append(m);mountModal(m);m.querySelector('#ec').onclick=()=>m.remove();
- m.querySelector('#ek').onclick=()=>{let first=null;m.querySelectorAll('[data-rules]').forEach(el=>{let e=check(el);if(!e&&el.id==='ed_cupo'&&!(parseInt(el.value,10)>=4))e='El cupo mínimo es de 4 cafés por día.';const b=m.querySelector('#err-'+el.id);b.textContent=e;el.classList.toggle('invalid',!!e);if(e&&!first)first=el});if(first){first.focus();return}
+ m.querySelector('#ek').onclick=()=>{let first=null;m.querySelectorAll('[data-rules]').forEach(el=>{let e=check(el);if(!e&&el.id==='ed_cupo'&&!(parseInt(el.value,10)>=minFor(r)))e='El cupo mínimo es de '+minFor(r)+' cafés por día.';const b=m.querySelector('#err-'+el.id);b.textContent=e;el.classList.toggle('invalid',!!e);if(e&&!first)first=el});if(first){first.focus();return}
   const v=id=>m.querySelector('#'+id).value.trim();const nw={n:v('ed_n'),tit:v('ed_tit'),tel:v('ed_tel'),dir:v('ed_dir'),cupo:parseInt(v('ed_cupo'),10),desc:v('ed_desc')};
   const names={n:'nombre',tit:'contacto',tel:'teléfono',dir:'dirección',cupo:'cupo',desc:'descripción'};const ch=Object.keys(nw).filter(k=>String(nw[k])!==String(r[k]||''));
   if(!ch.length){m.remove();toast('No hay cambios para guardar');return}
@@ -2298,10 +2300,11 @@ function bindLocalidad(){if(!api.live)return;const inp=document.getElementById('
 <script>
 /* Funciones reales (modo supabase) para: edición de locales aprobados, interruptor, invitaciones,
    equipo, actividad, resumen y política de revisión. En modo mock no hace nada. */
-const LIVE_ADMIN = { history: [], summary: null, team: [], activity: [], cafes: [], policy: [] };
+const LIVE_ADMIN = { history: [], summary: null, team: [], activity: [], cafes: [], policy: [], stockEx: [] };
+const minFor = (r) => { const m = String((r && r.mail) || '').toLowerCase(); const x = ((typeof LIVE_ADMIN !== 'undefined' && LIVE_ADMIN.stockEx) || []).find((e) => String(e.email).toLowerCase() === m); return x ? x.min_stock : 4; };
 const ACT_TXT = {
   request_pending: 'Envió una solicitud', request_approved: 'Aprobó', request_rejected: 'Rechazó', request_needs_fix: 'Pidió correcciones',
-  change_direct: 'Cambió horarios/cupo (directo)', merchant_on: 'Activó su local', merchant_off: 'Desactivó su local', admin_on: 'Activó en la app',
+  change_direct: 'Cambió horarios/cupo (directo)', stock_exception_set: 'Otorgó una excepción de cupo mínimo', stock_exception_removed: 'Quitó una excepción de cupo mínimo', merchant_on: 'Activó su local', merchant_off: 'Desactivó su local', admin_on: 'Activó en la app',
   admin_off: 'Desactivó de la app', invite_created: 'Creó una invitación', invite_claimed: 'Reclamó su local', admin_added: 'Agregó un admin',
   admin_removed: 'Quitó un admin', merchant_signed: 'Firmó las condiciones', activated_on_sign: 'Local activado al firmar', admin_approved: 'Aprobó', policy_changed: 'Cambió la política de revisión',
 };
@@ -2313,9 +2316,9 @@ const adminName = (e) => ADMIN_NAMES[(e || '').toLowerCase()] || e || '—';
 const rpcErr = (e) => {
   const m = (e && e.message) || '';
   const T = { NOT_APPROVED: 'Ese local todavía no está aprobado.', NOT_ENABLED_BY_ADMIN: 'Cafeteando todavía no habilitó tu local para figurar en la app.',
-    COOLDOWN: 'Para evitar cambios repetidos, probá de nuevo en unos minutos.', STOCK_MIN: 'El cupo mínimo es de 4 cafés por día.', FORBIDDEN: 'No tenés permiso para esta acción.',
+    COOLDOWN: 'Para evitar cambios repetidos, probá de nuevo en unos minutos.', STOCK_MIN: 'El cupo mínimo es de ' + MIN_CUPO + ' cafés por día.', FORBIDDEN: 'No tenés permiso para esta acción.',
     INVITE_INVALID: 'La invitación no es válida o ya fue usada.', INVITE_EMAIL_MISMATCH: 'Esta invitación es para otro email. Ingresá con el mail al que te la enviamos.',
-    ALREADY_CLAIMED: 'Ese local ya fue reclamado.', INVALID_EMAIL: 'El email no es válido.', CANNOT_REMOVE_SELF: 'No podés quitarte a vos mismo.', NOT_PENDING: 'Esa solicitud ya no está pendiente.',
+    ALREADY_CLAIMED: 'Ese local ya fue reclamado.', INVALID_EMAIL: 'El email no es válido.', MIN_RANGE: 'El mínimo de la excepción tiene que ser entre 1 y 3 (el mínimo general es 4).', CANNOT_REMOVE_SELF: 'No podés quitarte a vos mismo.', NOT_PENDING: 'Esa solicitud ya no está pendiente.',
     CLOSURE_RANGE: 'La fecha "Hasta" no puede ser anterior a "Desde".', CLOSURE_PAST: 'Ese período ya pasó. Elegí fechas de hoy en adelante.', CLOSURE_TOO_LONG: 'Un cierre no puede durar más de un año.', CLOSURE_LIMIT: 'Llegaste al máximo de 20 cierres. Quitá alguno que ya no uses.', CLOSURE_OVERLAP: 'Ese período se superpone con otro cierre ya cargado.',
     CONTRACT_VERSION: 'Escribí un número de versión (por ejemplo 2.5).', CONTRACT_SUMMARY: 'Contá en una línea qué cambió.', CONTRACT_BODY: 'El texto del contrato está vacío o es muy corto.', CONTRACT_EXISTS: 'Esa versión ya existe. Usá otro número.' };
   const rc = m.match(/ROLE_CONFLICT: ([^\n]+)/); if (rc) return rc[1].replace(/^(.)/, (c) => c.toUpperCase()) + '.';
@@ -2354,6 +2357,9 @@ Object.assign(api, {
   adminCafeStates: () => api._rpc('admin_request_cafe_states', {}),
   adminHistory: () => api._rpc('admin_request_history', {}),
   adminActivity: () => api._rpc('admin_activity', { p_limit: 30 }),
+  adminListStockEx: () => api._rpc('admin_list_stock_exceptions', {}),
+  adminSetStockEx: (email, min, note) => api._rpc('admin_set_stock_exception', { p_email: email, p_min: min, p_note: note }),
+  adminRemoveStockEx: (email) => api._rpc('admin_remove_stock_exception', { p_email: email }),
   addAdmin: (email, role) => api._rpc('admin_add_admin', { p_email: email, p_role: role }),
   removeAdmin: (email) => api._rpc('admin_remove_admin', { p_email: email }),
   setPolicy: (field, mode) => api._rpc('admin_set_field_policy', { p_field: field, p_mode: mode }),
@@ -2367,9 +2373,10 @@ async function liveLoadContractAdmin() {
 }
 async function liveLoadAdmin() {
   await liveLoadContractAdmin();
-  const [s, t, a, c, p, hi, cs, cc] = await Promise.all([api.adminSummary(), api.adminTeam(), api.adminActivity(), api.adminCafes(), api.policy(), api.adminHistory(), api.adminCafeStates(), api.adminChangeCurrent()]);
+  const [s, t, a, c, p, hi, cs, cc, sx] = await Promise.all([api.adminSummary(), api.adminTeam(), api.adminActivity(), api.adminCafes(), api.policy(), api.adminHistory(), api.adminCafeStates(), api.adminChangeCurrent(), api.adminListStockEx()]);
   LIVE_ADMIN.changeCur = {}; ((cc && cc.ok && cc.data) || []).forEach((x) => { LIVE_ADMIN.changeCur[x.request_id] = x.current || {}; });
   LIVE_ADMIN.cafeState = {}; ((cs && cs.ok && cs.data) || []).forEach((x) => { LIVE_ADMIN.cafeState[x.request_id] = !!x.active; });
+  LIVE_ADMIN.stockEx = sx && sx.ok && Array.isArray(sx.data) ? sx.data : [];
   LIVE_ADMIN.history = hi && hi.ok ? hi.data : [];
   LIVE_ADMIN.summary = s.ok ? s.data : null; LIVE_ADMIN.team = t.ok ? t.data : []; LIVE_ADMIN.activity = a.ok ? a.data : [];
   LIVE_ADMIN.cafes = c.ok ? c.data : []; LIVE_ADMIN.policy = p;
@@ -2391,6 +2398,18 @@ adminResumen = function () {
     ['Cambios pendientes', s.pending_changes ?? '—', 'De locales ya aprobados'], ['Comercios registrados', s.merchants ?? '—', 'Con cuenta en el portal']])}
   ${kgrid('Estado de solicitudes', [['A corregir', s.needs_fix ?? '—'], ['Aprobadas', s.approved ?? '—'], ['Rechazadas', s.rejected ?? '—'], ['', '']])}`;
 };
+
+function liveExcep() {
+  const L = LIVE_ADMIN.stockEx || [];
+  return `<div class="top"><div><h1>Excepciones</h1><p class="muted">El cupo diario mínimo es de <b>4 cafés</b> para todas las cafeterías. Acá podés permitir, de forma temporal, un mínimo menor para un comercio puntual. El resto no ve ningún cambio.</p></div></div>
+  <div class="card"><h2>Excepciones activas</h2>${L.length ? `<table><tr><th>Email del comercio</th><th>Mínimo</th><th>Motivo</th><th>Desde</th><th>Café</th><th></th></tr>${L.map((x) => `<tr><td><b>${esc(x.email)}</b></td><td>${esc(x.min_stock)}</td><td>${x.note ? esc(x.note) : '<span class="muted">—</span>'}</td><td>${fmtDT(x.granted_at)}<div class="hint">${esc(x.granted_by || '')}</div></td><td>${x.registered && x.cafe ? esc(x.cafe) : '<span class="muted">Aún no se registró</span>'}</td><td><button class="btn ghost" data-rmex="${esc(x.email)}">Quitar</button></td></tr>`).join('')}</table>` : '<p class="muted" style="margin-top:8px">No hay excepciones activas.</p>'}
+  <p class="hint" style="margin-top:10px">La excepción aplica a todas las sucursales de esa cuenta. Al quitarla, vuelve a regir el mínimo de 4 (lo ya publicado no se modifica).</p></div>
+  <div class="card"><h2>Agregar excepción</h2><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:end">
+  <div class="field" style="margin:0;min-width:240px"><label for="exm">Email de la cuenta del comercio</label><input id="exm" type="email" placeholder="email@ejemplo.com"></div>
+  <div class="field" style="margin:0"><label for="exn">Mínimo permitido</label><select id="exn"><option value="3" selected>3 cafés</option><option value="2">2 cafés</option><option value="1">1 café</option></select></div>
+  <div class="field" style="margin:0;min-width:220px"><label for="exo">Motivo (opcional)</label><input id="exo" type="text" maxlength="120" placeholder="Ej: acuerdo temporal"></div>
+  <button class="btn" data-addex>Agregar excepción</button></div></div>`;
+}
 
 adminEquipo = function () {
   if (!api.live) return _mockEquipo();
@@ -2448,6 +2467,13 @@ adminDet = function (r) {
 function liveBind() {
   const $a = (s, f) => document.querySelectorAll(s).forEach(f);
   const reload = async (msg) => { await liveLoadRequests(); await liveLoadAdmin(); render(); if (msg) toast(msg); };
+  $a('[data-addex]', (b) => (b.onclick = async () => {
+    const e = ($('#exm').value || '').trim(), n = parseInt($('#exn').value, 10), o = ($('#exo').value || '').trim();
+    if (!e) return toast('Ingresá el email de la cuenta.');
+    const x = await api.adminSetStockEx(e, n, o || null); if (!x.ok) return toast(x.error); await reload('Excepción guardada.');
+  }));
+  $a('[data-rmex]', (b) => (b.onclick = () => confirmModal({ title: '¿Quitar la excepción?', text: 'Ese comercio vuelve al mínimo general de 4 cafés por día. Lo ya publicado no se modifica.', ok: 'Quitar', danger: true,
+    onOk: async () => { const x = await api.adminRemoveStockEx(b.dataset.rmex); if (!x.ok) return toast(x.error); await reload('Excepción quitada.'); } })));
   $a('[data-addadm]', (b) => (b.onclick = async () => {
     const e = ($('#nadm').value || '').trim(), r = $('#nadmr').value;
     const x = await api.addAdmin(e, r); if (!x.ok) return toast(x.error); await reload('Persona agregada.');
@@ -2563,7 +2589,7 @@ const _hydrateNoContract = liveHydrate;
 liveHydrate = async function (rid) { await liveLoadContract(); return _hydrateNoContract(rid); };
 
 const _hydrateReaccept = liveHydrate;
-liveHydrate = async function (rid) { const r = await _hydrateReaccept(rid); try { const p = await api._client().rpc('my_contract_pending'); reaccept = !!(p.data && p.data.pending); } catch (e) { reaccept = false; } return r; };
+liveHydrate = async function (rid) { const r = await _hydrateReaccept(rid); try { const p = await api._client().rpc('my_contract_pending'); reaccept = !!(p.data && p.data.pending); } catch (e) { reaccept = false; } try { const m = await api._client().rpc('my_min_stock'); MIN_CUPO = Number(m.data) >= 1 ? Number(m.data) : 4; } catch (e) { MIN_CUPO = 4; } return r; };
 
 var emailPrefs = { pause_reminder: true, news: false };
 const _hydrateEmailPrefs = liveHydrate;
@@ -2861,7 +2887,7 @@ function bind(){
  document.querySelectorAll('[data-save]').forEach(e=>e.onclick=async()=>{
   if(mview==='disp'&&!schedOk()){toast('Revisemos las franjas: necesitamos mínimo 4 horas seguidas');return}
   if(mview==='disp'&&api.live&&!sched.some(d=>d.on)){toast('Abrí al menos un día para atender canjes');return}
-  if(mview==='disp'&&!cupoOk()){toast('El cupo mínimo es de 4 cafés por día');return}
+  if(mview==='disp'&&!cupoOk()){toast('El cupo mínimo es de '+MIN_CUPO+' cafés por día');return}
   if(mview==='cafe'){
    const root=document.querySelector('.cafegrid');let ok=validateGroup(root);
    const pe=document.getElementById('err-photos'),le=document.getElementById('err-logo'),se=document.getElementById('err-svc');const svcBad=svc.size===0&&!(FD.cf_otros||'').trim();se.textContent=svcBad?'Falta elegir al menos una opción de servicios.':'';if(svcBad)ok=false;
