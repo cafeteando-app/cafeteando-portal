@@ -2311,7 +2311,7 @@ const ACT_TXT = {
 const FIELD_ES = { name: 'Nombre', address: 'Dirección', neighborhood: 'Barrio', maps_url: 'Link de Maps', description: 'Descripción', logo_url: 'Logo', photos: 'Fotos',
   services: 'Servicios', other_services: 'Otros servicios', schedule: 'Horarios', daily_stock: 'Cupo diario', province: 'Provincia', benefits: 'Beneficios adicionales', lat: 'Ubicación (latitud)', lng: 'Ubicación (longitud)' };
 const ADMIN_NAMES = { 'julianlopezagustin1@gmail.com': 'Julián', 'luciana.bauchi@gmail.com': 'Luciana' };
-const adminName = (e) => ADMIN_NAMES[(e || '').toLowerCase()] || e || '—';
+const adminName = (e, d) => (d && d.actor_name) || ADMIN_NAMES[(e || '').toLowerCase()] || ((e || '').toLowerCase() === 'contactocafeteando@gmail.com' ? 'Cafeteando (sin identificar)' : e) || '—';
 
 const rpcErr = (e) => {
   const m = (e && e.message) || '';
@@ -2422,7 +2422,7 @@ adminEquipo = function () {
   <p class="hint" style="margin-top:8px">La persona tiene que crear su cuenta en el portal con ese mismo email y verificarlo.</p></div>
   <div class="card"><h2>Qué cambios necesitan revisión</h2><p class="muted" style="margin:4px 0 12px">Cuando un local ya aprobado cambia estos datos: "Directo" se publica al instante; "Revisión" espera tu aprobación.</p>
   <table><tr><th>Dato</th><th>Cómo se publica</th></tr>${P.map((f) => `<tr><td>${esc(f.label)}</td><td><select data-pol="${esc(f.field)}" aria-label="${esc(f.label)}"><option value="review" ${f.mode === 'review' ? 'selected' : ''}>Revisión</option><option value="direct" ${f.mode === 'direct' ? 'selected' : ''}>Directo</option></select></td></tr>`).join('')}</table></div>
-  <div class="card"><h2>Registro de actividad</h2><table><tr><th>Fecha</th><th>Quién</th><th>Café</th><th>Qué hizo</th></tr>${A.length ? A.map((a) => `<tr><td>${fmtDT(a.at)}</td><td><b>${esc(adminName(a.actor_email))}</b></td><td>${a.cafe ? esc(a.cafe) : '<span class="muted">—</span>'}</td><td>${esc(ACT_TXT[a.action] || a.action)}${a.detail && a.detail.email ? ': ' + esc(a.detail.email) : ''}</td></tr>`).join('') : '<tr><td colspan="4" class="muted">Todavía no hay actividad.</td></tr>'}</table></div>`;
+  <div class="card"><h2>Registro de actividad</h2><table><tr><th>Fecha</th><th>Quién</th><th>Café</th><th>Qué hizo</th></tr>${A.length ? A.map((a) => `<tr><td>${fmtDT(a.at)}</td><td><b>${esc(adminName(a.actor_email, a.detail))}</b></td><td>${a.cafe ? esc(a.cafe) : '<span class="muted">—</span>'}</td><td>${esc(ACT_TXT[a.action] || a.action)}${a.detail && a.detail.email ? ': ' + esc(a.detail.email) : ''}</td></tr>`).join('') : '<tr><td colspan="4" class="muted">Todavía no hay actividad.</td></tr>'}</table></div>`;
 };
 
 function liveInvit() {
@@ -2454,13 +2454,21 @@ adminDet = function (r) {
     if (Array.isArray(v)) return esc(v.join(', '));
     return esc(String(v));
   };
-  const rows = Object.keys(r.changes || {}).map((k) => {
+  if (r.s === 'pendiente' && (!window.__detAt || window.__detId !== r.id || Date.now() - window.__detAt > 6000)) {
+    window.__detAt = Date.now(); window.__detId = r.id; const sig = JSON.stringify(r.changes);
+    liveLoadRequests().then(() => liveLoadAdmin()).then(() => { const n = REQ.find((x) => x.id === r.id); if (view === 'admin' && aview === 'det' && sel === r.id && n && JSON.stringify(n.changes) !== sig) render(); });
+  }
+  const emp = (v) => v == null || v === '' || (Array.isArray(v) && !v.length);
+  const sameVal = (a, b) => (emp(a) && emp(b)) || JSON.stringify(a) === JSON.stringify(b);
+  const allKeys = Object.keys(r.changes || {});
+  const realKeys = allKeys.filter((k) => !sameVal(r.changes[k], cur[k]));
+  const rows = (realKeys.length ? realKeys : allKeys).map((k) => {
     const nw = r.changes[k], old = cur[k];
-    const same = JSON.stringify(nw) === JSON.stringify(old);
+    const same = sameVal(nw, old);
     return `<tr style="vertical-align:top"><td><b>${esc(FIELD_ES[k] || k)}</b>${same ? '<div class="hint">Sin diferencias con lo publicado</div>' : ''}</td><td>${show(k, old, null)}</td><td style="background:var(--warn-bg,#fff7e0)">${show(k, nw, Array.isArray(old) ? old : null)}</td></tr>`;
   }).join('');
   return `<div class="top"><div><h1>Cambios de ${esc(r.n)}</h1><p class="muted">Enviados el ${esc(r.f)}. Mientras no los aprobés, la app muestra la versión publicada.</p></div></div>
-  <div class="card"><h2>Qué cambió</h2><p class="muted" style="margin:4px 0 10px">Comparamos lo que hoy ve la app con lo que propone el comercio. Tocá una imagen para verla en grande.</p><table><tr><th>Dato</th><th>Hoy en la app</th><th>Lo que propone</th></tr>${rows || '<tr><td colspan="3" class="muted">Sin datos.</td></tr>'}</table></div>
+  <div class="card"><h2>Qué cambió</h2><p class="muted" style="margin:4px 0 10px">Comparamos lo que hoy ve la app con lo que propone el comercio. Tocá una imagen para verla en grande.</p>${allKeys.length && !realKeys.length ? '<div class="note" style="margin:0 0 10px">Los datos propuestos son iguales a lo que ya está publicado: no hay diferencias reales para revisar.</div>' : ''}<table><tr><th>Dato</th><th>Hoy en la app</th><th>Lo que propone</th></tr>${rows || '<tr><td colspan="3" class="muted">Sin datos.</td></tr>'}</table></div>
   ${r.s === 'pendiente' ? '<div class="card" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn ok" data-chgok>Aprobar y publicar cambios</button><button class="btn warn" data-dec="corr">Pedir correcciones</button><button class="btn bad" data-dec="rej">Rechazar</button></div>' : '<div class="card"><p class="muted">Estos cambios ya fueron revisados.</p></div>'}`;
 };
 
@@ -2674,7 +2682,7 @@ function liveHistoryHtml(r) {
   const H = (LIVE_ADMIN.history || []).filter((h) => h.request_id === r.id);
   const items = []; let fixed = false;
   H.forEach((h) => {
-    const who = esc(adminName(h.actor_email)), d = h.detail || {}, chg = d.kind === 'change';
+    const who = esc(adminName(h.actor_email, h.detail)), d = h.detail || {}, chg = d.kind === 'change';
     let t = null;
     switch (h.action) {
       case 'request_pending': t = chg ? 'El comercio envió cambios para revisar' : (fixed ? 'El comercio reenvió la solicitud con las correcciones' : 'El comercio envió la solicitud de adhesión'); break;
