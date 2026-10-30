@@ -2043,11 +2043,11 @@ function editModal(r){const m=document.createElement('div');m.style.cssText='pos
   if(!ch.length){m.remove();toast('No hay cambios para guardar');return}
   ch.forEach(k=>{if(r.pub&&k in r.pub)delete r.pub[k]});Object.assign(r,nw);r.log=r.log||[];r.log.unshift({d:nowS(),t:ADMIN+' editó: '+ch.map(k=>names[k]).join(', ')});activity.unshift({d:nowS(),w:ADMIN,a:'Editó '+ch.map(k=>names[k]).join(', ')+' de '+r.n});m.remove();render();toast('Datos guardados y publicados (simulado)')}}
 function reqFiltered(){const q=fq.trim().toLowerCase();return REQ.filter(r=>(ff==='all'||r.s===ff)&&(!q||(r.n+' '+r.mail+' '+r.b+' '+(r.tit||'')).toLowerCase().includes(q)))}
-function adminLista(){const L2=reqFiltered();const chips=[['all','Todas'],['pendiente','En revisión'],['correccion','A corregir'],['aprobado','Aprobadas'],['rechazado','Rechazadas'],['suspendido','Suspendidas']];
+function adminLista(){const L2=reqFiltered();const chips=[['all','Todas'],['pendiente','En revisión'],['correccion','A corregir'],['aprobado','Aprobadas'],['rechazado','Rechazadas'],['suspendido','Suspendidas']];if(api.live)chips.push(['borrador','Borradores'+((LIVE_ADMIN.drafts||[]).length?' ('+LIVE_ADMIN.drafts.length+')':'')]);
  return `<div class="top"><div><h1>Solicitudes de comercios</h1><p class="muted">Revisá, aprobá o pedí correcciones.</p></div><button class="btn sec sm" data-csv>Exportar CSV</button></div>
  <div class="grid g4" style="margin-bottom:16px">${[['Pendientes',REQ.filter(x=>x.s==='pendiente').length],['A corregir',REQ.filter(x=>x.s==='correccion').length],['Activos',REQ.filter(x=>x.s==='aprobado').length],['Suspendidos',REQ.filter(x=>x.s==='suspendido').length]].map(([l,v])=>`<div class="card" style="margin:0"><div class="muted">${l}</div><div class="kpi">${v}</div></div>`).join('')}</div>
  <div class="card"><div class="chips" role="group" aria-label="Filtrar por estado" style="margin-bottom:12px">${chips.map(([k,l])=>`<button class="chip ${ff===k?'on':''}" data-ff="${k}" aria-pressed="${ff===k}">${l}</button>`).join('')}<label class="sr" for="fq">Buscar local, email o barrio</label><input id="fq" type="search" placeholder="Buscar local, email o barrio…" value="${esc(fq)}" style="max-width:260px;margin-left:auto"></div>
- ${L2.length?`<table><tr><th>Local</th><th>Barrio</th><th>Enviada</th><th>Cupo</th><th>Estado</th></tr>${L2.map(r=>`<tr class="click" data-sel="${r.id}"><td><b>${r.n}</b>${brTag(r)}<div class="hint">${r.mail}${r.brNum>1&&r.dir?' · '+esc(r.dir):''}</div></td><td>${r.b}</td><td>${r.f}</td><td>${r.cupo}</td><td>${bd(r.s)}</td></tr>`).join('')}</table><p class="hint" style="margin-top:10px">${L2.length} de ${REQ.length} solicitudes</p>`:`<div class="empty"><b>No hay solicitudes con ese filtro</b><p class="muted">Probá con otra búsqueda o con otro estado.</p><button class="btn sec sm" data-clear>Limpiar filtros</button></div>`}</div>`}
+ ${api.live&&ff==='borrador'?liveDraftsTable():L2.length?`<table><tr><th>Local</th><th>Barrio</th><th>Enviada</th><th>Cupo</th><th>Estado</th></tr>${L2.map(r=>`<tr class="click" data-sel="${r.id}"><td><b>${r.n}</b>${brTag(r)}<div class="hint">${r.mail}${r.brNum>1&&r.dir?' · '+esc(r.dir):''}</div></td><td>${r.b}</td><td>${r.f}</td><td>${r.cupo}</td><td>${bd(r.s)}</td></tr>`).join('')}</table><p class="hint" style="margin-top:10px">${L2.length} de ${REQ.length} solicitudes</p>`:`<div class="empty"><b>No hay solicitudes con ese filtro</b><p class="muted">Probá con otra búsqueda o con otro estado.</p><button class="btn sec sm" data-clear>Limpiar filtros</button></div>`}</div>`}
 
 
 /* ---------- binding ---------- */
@@ -2372,6 +2372,7 @@ Object.assign(api, {
   adminHistory: () => api._rpc('admin_request_history', {}),
   adminActivity: () => api._rpc('admin_activity', { p_limit: 30 }),
   adminListStockEx: () => api._rpc('admin_list_stock_exceptions', {}),
+  adminListDrafts: () => api._rpc('admin_list_drafts', {}),
   adminSetStockEx: (email, min, note) => api._rpc('admin_set_stock_exception', { p_email: email, p_min: min, p_note: note }),
   adminRemoveStockEx: (email) => api._rpc('admin_remove_stock_exception', { p_email: email }),
   addAdmin: (email, role) => api._rpc('admin_add_admin', { p_email: email, p_role: role }),
@@ -2395,6 +2396,32 @@ async function liveLoadAdmin() {
   LIVE_ADMIN.summary = s.ok ? s.data : null; LIVE_ADMIN.team = t.ok ? t.data : []; LIVE_ADMIN.activity = a.ok ? a.data : [];
   LIVE_ADMIN.cafes = c.ok ? c.data : []; LIVE_ADMIN.policy = p;
 }
+
+/* Borradores: comercios que empezaron la carga y no la enviaron (solo lectura) */
+const _llaBase = liveLoadAdmin;
+liveLoadAdmin = async function () {
+  await _llaBase();
+  try { const d = await api.adminListDrafts(); LIVE_ADMIN.drafts = d && d.ok && Array.isArray(d.data) ? d.data : []; } catch (e) { LIVE_ADMIN.drafts = []; }
+};
+function liveDraftsTable() {
+  const q = fq.trim().toLowerCase();
+  const L = (LIVE_ADMIN.drafts || []).filter((x) => !q || ((x.name || '') + ' ' + (x.contact_email || '') + ' ' + (x.contact_name || '') + ' ' + (x.neighborhood || '')).toLowerCase().includes(q));
+  const LB = { basics: 'Datos y ubicación', media: 'Logo y fotos', services: 'Servicios', schedule: 'Horarios y cupo' };
+  const days = (d) => Math.max(0, Math.floor((Date.now() - new Date(d).getTime()) / 86400000));
+  if (!L.length) return '<div class="empty"><b>No hay borradores</b><p class="muted">Todos los comercios que empezaron la carga ya la enviaron.</p></div>';
+  return `<table><tr><th>Local</th><th>Contacto</th><th>Avance</th><th>Última edición</th><th>Recordatorio</th></tr>${L.map((x) => {
+    const st = x.steps || {}, done = Object.keys(LB).filter((k) => st[k]), miss = Object.keys(LB).filter((k) => !st[k]).map((k) => LB[k]);
+    const n = days(x.updated_at);
+    return `<tr><td><b>${esc(x.name)}</b>${x.neighborhood ? '<div class="hint">' + esc(x.neighborhood) + '</div>' : ''}</td><td>${esc(x.contact_name || '—')}<div class="hint">${esc(x.contact_email || '')}${x.phone ? ' · ' + esc(x.phone) : ''}</div></td><td><b>${done.length} de 4</b><div class="hint">${miss.length ? 'Falta: ' + esc(miss.join(', ')) : 'Completo, falta enviarlo'}</div></td><td>${fmtDT(x.updated_at)}<div class="hint">${n === 0 ? 'hoy' : 'hace ' + n + (n === 1 ? ' día' : ' días')}</div></td><td>${x.reminder_sent_at ? 'Enviado el ' + fmtDT(x.reminder_sent_at) : '<span class="muted">' + (n >= 5 ? 'Pendiente' : 'A los 5 días') + '</span>'}</td></tr>`;
+  }).join('')}</table><p class="hint" style="margin-top:10px">${L.length} borrador${L.length === 1 ? '' : 'es'}. Es solo lectura: el comercio sigue desde su panel. A los 5 días sin cambios recibe un único recordatorio por mail.</p>`;
+}
+const _resBase = adminResumen;
+adminResumen = function () {
+  const h = _resBase();
+  if (!api.live) return h;
+  const D = LIVE_ADMIN.drafts || [], old = D.filter((x) => Date.now() - new Date(x.updated_at).getTime() >= 5 * 86400000).length;
+  return h + `<div class="card"><h2>Borradores</h2><p style="margin-top:8px"><b>${D.length}</b> comercio${D.length === 1 ? '' : 's'} con la carga a medias${old ? ' · <b>' + old + '</b> hace 5 días o más' : ''}. <button class="linkbtn" data-godraft>Ver borradores</button></p></div>`;
+};
 
 const fmtDT = (d) => { const x = new Date(d), p = (n) => String(n).padStart(2, '0'); return p(x.getDate()) + '/' + p(x.getMonth() + 1) + ' ' + p(x.getHours()) + ':' + p(x.getMinutes()); };
 const siteLink = (token) => { const b = (window.PORTAL_CONFIG && window.PORTAL_CONFIG.siteUrl) || (location.origin + location.pathname); return b + '?invite=' + token; };
@@ -2852,6 +2879,7 @@ function bind(){
  document.querySelectorAll('[data-pubchg]').forEach(e=>e.onclick=()=>{const r=REQ.find(x=>x.id===sel);r.pend=false;r.pub={};r.log=r.log||[];r.log.unshift({d:nowS(),t:ADMIN+' publicó los cambios del comercio'});activity.unshift({d:nowS(),w:ADMIN,a:'Publicó cambios de '+r.n});render();toast('Cambios publicados. Se avisó por email al comercio (simulado)')});
  document.querySelectorAll('[data-rejchg]').forEach(e=>e.onclick=()=>{const r=REQ.find(x=>x.id===sel);r.desc=(r.pub||{}).desc||r.desc;r.pend=false;r.log=r.log||[];r.log.unshift({d:nowS(),t:ADMIN+' rechazó los cambios pendientes'});activity.unshift({d:nowS(),w:ADMIN,a:'Rechazó cambios de '+r.n});render();toast('Cambios rechazados. Se avisó por email al comercio (simulado)')});
  document.querySelectorAll('[data-ff]').forEach(e=>e.onclick=()=>{ff=e.dataset.ff;render()});
+ document.querySelectorAll('[data-godraft]').forEach(e=>e.onclick=()=>{ff='borrador';fq='';aview='lista';render()});
  document.querySelectorAll('#fq').forEach(e=>e.oninput=()=>{fq=e.value;const pos=e.selectionStart;render();const n=document.getElementById('fq');if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(x){}}});
  document.querySelectorAll('[data-clear]').forEach(e=>e.onclick=()=>{fq='';ff='all';render()});
  document.querySelectorAll('[data-csv]').forEach(e=>e.onclick=()=>{const rows=reqFiltered();const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';const csv=['Local;Email;Barrio;Contacto;Telefono;Enviada;Cupo;Estado'].concat(rows.map(r=>[r.n,r.mail,r.b,r.tit,r.tel,r.f,r.cupo,ST[r.s]].map(q).join(';'))).join('\n');
