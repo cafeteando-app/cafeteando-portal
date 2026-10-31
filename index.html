@@ -2373,6 +2373,7 @@ Object.assign(api, {
   adminActivity: () => api._rpc('admin_activity', { p_limit: 30 }),
   adminListStockEx: () => api._rpc('admin_list_stock_exceptions', {}),
   adminListDrafts: () => api._rpc('admin_list_drafts', {}),
+  adminSendDraftReminder: (id) => api._rpc('admin_send_draft_reminder', { p_request: id }),
   adminSetStockEx: (email, min, note) => api._rpc('admin_set_stock_exception', { p_email: email, p_min: min, p_note: note }),
   adminRemoveStockEx: (email) => api._rpc('admin_remove_stock_exception', { p_email: email }),
   addAdmin: (email, role) => api._rpc('admin_add_admin', { p_email: email, p_role: role }),
@@ -2412,7 +2413,7 @@ function liveDraftsTable() {
   return `<table><tr><th>Local</th><th>Contacto</th><th>Avance</th><th>Última edición</th><th>Recordatorio</th></tr>${L.map((x) => {
     const st = x.steps || {}, done = Object.keys(LB).filter((k) => st[k]), miss = Object.keys(LB).filter((k) => !st[k]).map((k) => LB[k]);
     const n = days(x.updated_at);
-    return `<tr><td><b>${esc(x.name)}</b>${x.neighborhood ? '<div class="hint">' + esc(x.neighborhood) + '</div>' : ''}</td><td>${esc(x.contact_name || '—')}<div class="hint">${esc(x.contact_email || '')}${x.phone ? ' · ' + esc(x.phone) : ''}</div></td><td><b>${done.length} de 4</b><div class="hint">${miss.length ? 'Falta: ' + esc(miss.join(', ')) : 'Completo, falta enviarlo'}</div></td><td>${fmtDT(x.updated_at)}<div class="hint">${n === 0 ? 'hoy' : 'hace ' + n + (n === 1 ? ' día' : ' días')}</div></td><td>${x.reminder_sent_at ? 'Enviado el ' + fmtDT(x.reminder_sent_at) : '<span class="muted">' + (n >= 5 ? 'Pendiente' : 'A los 5 días') + '</span>'}</td></tr>`;
+    return `<tr><td><b>${esc(x.name)}</b>${x.neighborhood ? '<div class="hint">' + esc(x.neighborhood) + '</div>' : ''}</td><td>${esc(x.contact_name || '—')}<div class="hint">${esc(x.contact_email || '')}${x.phone ? ' · ' + esc(x.phone) : ''}</div></td><td><b>${done.length} de 4</b><div class="hint">${miss.length ? 'Falta: ' + esc(miss.join(', ')) : 'Completo, falta enviarlo'}</div></td><td>${fmtDT(x.updated_at)}<div class="hint">${n === 0 ? 'hoy' : 'hace ' + n + (n === 1 ? ' día' : ' días')}</div></td><td>${x.reminder_sent_at ? 'Enviado el ' + fmtDT(x.reminder_sent_at) : '<span class="muted">' + (n >= 5 ? 'Se envía hoy automáticamente' : 'Automático a los 5 días') + '</span><div style="margin-top:6px"><button class="btn sec sm" data-draftrem="' + esc(x.id) + '" data-dname="' + esc(x.name) + '"' + (x.confirmed ? '' : ' disabled title="El comercio no confirmó su mail"') + '>Enviar recordatorio ahora</button></div>'}</td></tr>`;
   }).join('')}</table><p class="hint" style="margin-top:10px">${L.length} borrador${L.length === 1 ? '' : 'es'}. Es solo lectura: el comercio sigue desde su panel. A los 5 días sin cambios recibe un único recordatorio por mail.</p>`;
 }
 const _resBase = adminResumen;
@@ -2523,6 +2524,8 @@ function liveBind() {
   }));
   $a('[data-rmex]', (b) => (b.onclick = () => confirmModal({ title: '¿Quitar la excepción?', text: 'Ese comercio vuelve al mínimo general de 4 cafés por día. Lo ya publicado no se modifica.', ok: 'Quitar', danger: true,
     onOk: async () => { const x = await api.adminRemoveStockEx(b.dataset.rmex); if (!x.ok) return toast(x.error); await reload('Excepción quitada.'); } })));
+  $a('[data-draftrem]', (b) => (b.onclick = () => confirmModal({ title: '¿Enviar recordatorio?', text: 'Le llega un mail a ' + (b.dataset.dname || 'este comercio') + ' para que complete la carga y la envíe a revisión. Se manda una sola vez por borrador.', ok: 'Enviar',
+    onOk: async () => { const x = await api.adminSendDraftReminder(b.dataset.draftrem); if (!x.ok) return toast(/ALREADY_SENT/.test(x.error || '') ? 'Ya se le mandó un recordatorio.' : /NOT_CONFIRMED/.test(x.error || '') ? 'El comercio no confirmó su mail.' : x.error); await reload('Recordatorio enviado.'); } })));
   $a('[data-addadm]', (b) => (b.onclick = async () => {
     const e = ($('#nadm').value || '').trim(), r = $('#nadmr').value;
     const x = await api.addAdmin(e, r); if (!x.ok) return toast(x.error); await reload('Persona agregada.');
