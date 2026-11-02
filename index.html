@@ -857,6 +857,15 @@ table{font-size:13px}
 @media(max-width:900px){.auth2 .perks:not(.inline){grid-template-columns:repeat(2,1fr);row-gap:16px}.auth2 .perks:not(.inline) .perk,.auth2 .perks:not(.inline) .perks-sub + .perk{border-left:0!important;padding:0 8px 0 0!important}}
 @media(max-width:560px){.auth2 .perks:not(.inline){grid-template-columns:1fr}.auth2 .perks:not(.inline) .perk{flex-direction:column;text-align:left;align-items:flex-start;gap:4px;padding:0!important}.auth2:has(.choice) .perks .perk p{display:block}}
 
+/* Portada en celular: los 4 beneficios centrados en 2x2 */
+@media(max-width:560px){
+.auth2 .perks:not(.inline),.auth2:has(.choice) .perks:not(.inline){grid-template-columns:1fr 1fr!important;gap:20px 18px!important;max-width:330px!important;margin-left:auto!important;margin-right:auto!important}
+.auth2 .perks:not(.inline) .perk,.auth2 .perks:not(.inline) .perks-sub + .perk,.auth2:has(.choice) .perks:not(.inline) .perk{flex-direction:column!important;align-items:center!important;text-align:center!important;gap:4px!important;padding:0 2px!important;border-left:0!important}
+.auth2 .perks:not(.inline) .perk .perk-ic,.auth2:has(.choice) .perks:not(.inline) .perk-ic{margin:0 0 2px!important}
+.auth2 .perks:not(.inline) .perk b{font-size:13.5px!important}
+.auth2 .perks:not(.inline) .perk p,.auth2:has(.choice) .perks:not(.inline) .perk p{display:block!important;font-size:11.5px!important;text-align:center!important}
+}
+
 </style>
 </head>
 <body>
