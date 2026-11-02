@@ -889,6 +889,11 @@ html:has(.auth2),body:has(.auth2){background:#2A1A12}
 /* Portada celular: título, "gratis" y los 4 beneficios más juntos */
 @media(max-width:560px){.auth2 .perks:not(.inline) .perks-t{margin-bottom:-20px}.auth2 .perks:not(.inline) .perks-sub{margin:0 0 -16px}}
 
+/* Resumen: KPIs clickeables */
+.kcard{cursor:pointer;transition:transform .15s,box-shadow .15s,border-color .15s}
+.kcard:hover,.kcard:focus-visible{transform:translateY(-2px);box-shadow:0 8px 22px rgba(60,30,15,.14);border-color:var(--terracota,#a96649)}
+.kcard .kgo{color:var(--terracota,#a96649);font-weight:600;white-space:nowrap}
+
 </style>
 </head>
 <body>
@@ -2032,7 +2037,7 @@ function adminV(){
  else if(aview==='resumen')b=adminResumen();
  else if(aview==='contrato')b=adminContrato();
  else if(aview==='equipo')b=adminEquipo();
- else if(aview==='excep'&&api.live)b=liveExcep();
+ else if(aview==='excep'&&api.live)b=liveExcep();else if(aview==='comercios'&&api.live)b=liveComercios();
  else if(aview==='invit')b=liveInvit();
  else if(aview==='activos'&&api.live)b=liveInvit();
  else if(aview==='activos')b=`<div class="top"><h1>Locales adheridos</h1></div><div class="card"><table><tr><th>Local</th><th>Barrio</th><th>Cupo</th><th>En la app</th><th></th></tr>${REQ.filter(r=>r.s==='aprobado'&&!(api.live&&r.chg)).map(r=>`<tr><td><b>${r.n}</b>${brTag(r)}${r.brNum>1&&r.dir?'<div class="hint">'+esc(r.dir)+'</div>':''}</td><td>${r.b}</td><td>${r.cupo}/día</td><td>${api.live&&!((LIVE_ADMIN.cafeState||{})[r.id])?'<span class="badge b-pendiente">Todavía no visible</span>':'<span class="badge b-aprobado">Visible</span>'}</td><td><button class="btn sm sec" data-sel="${r.id}">Ver</button></td></tr>`).join('')}</table></div>`;
@@ -2074,8 +2079,8 @@ function editModal(r){const m=document.createElement('div');m.style.cssText='pos
   const names={n:'nombre',tit:'contacto',tel:'teléfono',dir:'dirección',cupo:'cupo',desc:'descripción'};const ch=Object.keys(nw).filter(k=>String(nw[k])!==String(r[k]||''));
   if(!ch.length){m.remove();toast('No hay cambios para guardar');return}
   ch.forEach(k=>{if(r.pub&&k in r.pub)delete r.pub[k]});Object.assign(r,nw);r.log=r.log||[];r.log.unshift({d:nowS(),t:ADMIN+' editó: '+ch.map(k=>names[k]).join(', ')});activity.unshift({d:nowS(),w:ADMIN,a:'Editó '+ch.map(k=>names[k]).join(', ')+' de '+r.n});m.remove();render();toast('Datos guardados y publicados (simulado)')}}
-function reqFiltered(){const q=fq.trim().toLowerCase();return REQ.filter(r=>(ff==='all'||r.s===ff)&&(!q||(r.n+' '+r.mail+' '+r.b+' '+(r.tit||'')).toLowerCase().includes(q)))}
-function adminLista(){const L2=reqFiltered();const chips=[['all','Todas'],['pendiente','En revisión'],['correccion','A corregir'],['aprobado','Aprobadas'],['rechazado','Rechazadas'],['suspendido','Suspendidas']];if(api.live)chips.push(['borrador','Borradores'+((LIVE_ADMIN.drafts||[]).length?' ('+LIVE_ADMIN.drafts.length+')':'')]);
+function reqFiltered(){const q=fq.trim().toLowerCase();return REQ.filter(r=>(ff==='all'||(ff==='nuevas'?(r.s==='pendiente'&&!r.chg):ff==='cambios'?(r.s==='pendiente'&&r.chg):r.s===ff))&&(!q||(r.n+' '+r.mail+' '+r.b+' '+(r.tit||'')).toLowerCase().includes(q)))}
+function adminLista(){const L2=reqFiltered();const chips=[['all','Todas'],['pendiente','En revisión'],['correccion','A corregir'],['aprobado','Aprobadas'],['rechazado','Rechazadas'],['suspendido','Suspendidas']];if(ff==='nuevas')chips.splice(1,0,['nuevas','Nuevas']);if(ff==='cambios')chips.splice(1,0,['cambios','Cambios pendientes']);if(api.live)chips.push(['borrador','Borradores'+((LIVE_ADMIN.drafts||[]).length?' ('+LIVE_ADMIN.drafts.length+')':'')]);
  return `<div class="top"><div><h1>Solicitudes de comercios</h1><p class="muted">Revisá, aprobá o pedí correcciones.</p></div><button class="btn sec sm" data-csv>Exportar CSV</button></div>
  <div class="grid g4" style="margin-bottom:16px">${[['Pendientes',REQ.filter(x=>x.s==='pendiente').length],['A corregir',REQ.filter(x=>x.s==='correccion').length],['Activos',REQ.filter(x=>x.s==='aprobado').length],['Suspendidos',REQ.filter(x=>x.s==='suspendido').length]].map(([l,v])=>`<div class="card" style="margin:0"><div class="muted">${l}</div><div class="kpi">${v}</div></div>`).join('')}</div>
  <div class="card"><div class="chips" role="group" aria-label="Filtrar por estado" style="margin-bottom:12px">${chips.map(([k,l])=>`<button class="chip ${ff===k?'on':''}" data-ff="${k}" aria-pressed="${ff===k}">${l}</button>`).join('')}<label class="sr" for="fq">Buscar local, email o barrio</label><input id="fq" type="search" placeholder="Buscar local, email o barrio…" value="${esc(fq)}" style="max-width:260px;margin-left:auto"></div>
@@ -2456,6 +2461,33 @@ adminResumen = function () {
   return h + `<div class="card"><h2>Borradores</h2><p style="margin-top:8px"><b>${D.length}</b> comercio${D.length === 1 ? '' : 's'} con la carga a medias${old ? ' · <b>' + old + '</b> hace 5 días o más' : ''}. <button class="linkbtn" data-godraft>Ver borradores</button></p></div>`;
 };
 
+
+/* KPIs clickeables del Resumen */
+function kgridGo(t, items) {
+  return `<h3 style="margin:22px 0 10px">${t}</h3><div class="grid g4 kg">${items.map(([l, v, h, go]) => go
+    ? `<div class="card kcard" role="button" tabindex="0" data-kgo="${go}" aria-label="${esc(l)}: ${esc(String(v))}. Ver detalle" style="margin:0"><div class="muted">${l}</div><div class="kpi">${v}</div><div class="hint">${h || ''}<span class="kgo"> Ver detalle →</span></div></div>`
+    : `<div class="card" style="margin:0"><div class="muted">${l}</div><div class="kpi">${v}</div><div class="hint">${h || '&nbsp;'}</div></div>`).join('')}</div>`;
+}
+const _llaBase2 = liveLoadAdmin;
+liveLoadAdmin = async function () {
+  await _llaBase2();
+  try { const r = await api._client().from('merchants').select('contact_name,contact_email,phone,role,created_at').order('created_at', { ascending: false }); LIVE_ADMIN.merchants = r.error ? [] : (r.data || []); } catch (e) { LIVE_ADMIN.merchants = []; }
+};
+function liveComercios() {
+  const M = LIVE_ADMIN.merchants || [], D = LIVE_ADMIN.drafts || [];
+  const STL = { pendiente: 'en revisión', correccion: 'a corregir', aprobado: 'aprobado', rechazado: 'rechazado', suspendido: 'suspendido' };
+  const q = fq.trim().toLowerCase();
+  const rows = M.map((m) => {
+    const em = (m.contact_email || '').toLowerCase();
+    const locs = REQ.filter((r) => !r.chg && (r.mail || '').toLowerCase() === em).map((r) => esc(r.n) + ' <span class="muted">(' + (STL[r.s] || r.s) + ')</span>')
+      .concat(D.filter((d) => (d.contact_email || '').toLowerCase() === em).map((d) => esc(d.name) + ' <span class="muted">(borrador)</span>'));
+    return { m, locs };
+  }).filter((x) => !q || ((x.m.contact_name || '') + ' ' + (x.m.contact_email || '') + ' ' + x.locs.join(' ')).toLowerCase().includes(q));
+  return `<div class="top"><div><h1>Comercios registrados</h1><p class="muted">Cuentas con acceso al portal de comercios.</p></div></div>
+  <div class="card"><label class="sr" for="fq">Buscar</label><input id="fq" type="search" placeholder="Buscar nombre, email o local…" value="${esc(fq)}" style="max-width:300px;margin-bottom:12px">
+  ${rows.length ? `<table><tr><th>Contacto</th><th>Email</th><th>Teléfono</th><th>Locales</th><th>Alta</th></tr>${rows.map((x) => `<tr><td><b>${esc(x.m.contact_name || '—')}</b></td><td>${esc(x.m.contact_email || '')}</td><td>${esc(x.m.phone || '—')}</td><td>${x.locs.length ? x.locs.join('<br>') : '<span class="muted">Sin locales cargados</span>'}</td><td>${fmtDT(x.m.created_at)}</td></tr>`).join('')}</table><p class="hint" style="margin-top:10px">${rows.length} de ${M.length} comercios</p>` : '<div class="empty"><b>No hay comercios con ese filtro</b></div>'}</div>`;
+}
+
 const fmtDT = (d) => { const x = new Date(d), p = (n) => String(n).padStart(2, '0'); return p(x.getDate()) + '/' + p(x.getMonth() + 1) + ' ' + p(x.getHours()) + ':' + p(x.getMinutes()); };
 const siteLink = (token) => { const b = (window.PORTAL_CONFIG && window.PORTAL_CONFIG.siteUrl) || (location.origin + location.pathname); return b + '?invite=' + token; };
 
@@ -2468,9 +2500,9 @@ adminResumen = function () {
   return `<div class="top"><div><h1>Resumen</h1><p class="muted">Vista general de la red.</p></div></div>
   <div class="card" style="border-left:4px solid var(--warn)"><h2>Requiere atención</h2><ul class="log" style="margin-top:8px">${
     pend.length ? pend.map((r) => `<li><span class="badge b-pendiente">${r.chg ? 'Cambio' : 'Nueva'}</span> ${esc(r.n)} espera revisión desde el ${esc(r.f)}</li>`).join('') : '<li>No hay nada pendiente.</li>'}</ul></div>
-  ${kgrid('Red de comercios', [['Locales en la app', s.active_cafes ?? '—', 'de ' + (s.total_cafes ?? '—') + ' cargados'], ['Solicitudes nuevas', s.pending ?? '—', 'Esperando revisión'],
-    ['Cambios pendientes', s.pending_changes ?? '—', 'De locales ya aprobados'], ['Comercios registrados', s.merchants ?? '—', 'Con cuenta en el portal']])}
-  ${kgrid('Estado de solicitudes', [['A corregir', s.needs_fix ?? '—'], ['Aprobadas', s.approved ?? '—'], ['Rechazadas', s.rejected ?? '—'], ['', '']])}`;
+  ${kgridGo('Red de comercios', [['Locales en la app', s.active_cafes ?? '—', 'de ' + (s.total_cafes ?? '—') + ' cargados', 'v:activos'], ['Solicitudes nuevas', s.pending ?? '—', 'Esperando revisión', 'f:nuevas'],
+    ['Cambios pendientes', s.pending_changes ?? '—', 'De locales ya aprobados', 'f:cambios'], ['Comercios registrados', s.merchants ?? '—', 'Con cuenta en el portal', 'v:comercios']])}
+  ${kgridGo('Estado de solicitudes', [['A corregir', s.needs_fix ?? '—', '', 'f:correccion'], ['Aprobadas', s.approved ?? '—', '', 'f:aprobado'], ['Rechazadas', s.rejected ?? '—', '', 'f:rechazado'], ['', '']])}`;
 };
 
 function liveExcep() {
@@ -2556,6 +2588,7 @@ function liveBind() {
   }));
   $a('[data-rmex]', (b) => (b.onclick = () => confirmModal({ title: '¿Quitar la excepción?', text: 'Ese comercio vuelve al mínimo general de 4 cafés por día. Lo ya publicado no se modifica.', ok: 'Quitar', danger: true,
     onOk: async () => { const x = await api.adminRemoveStockEx(b.dataset.rmex); if (!x.ok) return toast(x.error); await reload('Excepción quitada.'); } })));
+  $a('[data-kgo]', (b) => { const go = () => { const [t, v] = b.dataset.kgo.split(':'); if (t === 'f') { ff = v; fq = ''; aview = 'lista'; } else { aview = v; fq = ''; } render(); window.scrollTo(0, 0); }; b.onclick = go; b.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }; });
   $a('[data-draftrem]', (b) => (b.onclick = () => confirmModal({ title: '¿Enviar recordatorio?', text: 'Le llega un mail a ' + (b.dataset.dname || 'este comercio') + ' para que complete la carga y la envíe a revisión. Se manda una sola vez por borrador.', ok: 'Enviar',
     onOk: async () => { const x = await api.adminSendDraftReminder(b.dataset.draftrem); if (!x.ok) return toast(/ALREADY_SENT/.test(x.error || '') ? 'Ya se le mandó un recordatorio.' : /NOT_CONFIRMED/.test(x.error || '') ? 'El comercio no confirmó su mail.' : x.error); await reload('Recordatorio enviado.'); } })));
   $a('[data-addadm]', (b) => (b.onclick = async () => {
