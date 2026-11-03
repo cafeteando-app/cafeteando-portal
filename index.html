@@ -2531,8 +2531,10 @@ adminEquipo = function () {
   <div class="card"><h2>Registro de actividad</h2><table><tr><th>Fecha</th><th>Quién</th><th>Café</th><th>Qué hizo</th></tr>${A.length ? A.map((a) => `<tr><td>${fmtDT(a.at)}</td><td><b>${esc(adminName(a.actor_email, a.detail))}</b></td><td>${a.cafe ? esc(a.cafe) : '<span class="muted">—</span>'}</td><td>${esc(ACT_TXT[a.action] || a.action)}${a.detail && a.detail.email ? ': ' + esc(a.detail.email) : ''}</td></tr>`).join('') : '<tr><td colspan="4" class="muted">Todavía no hay actividad.</td></tr>'}</table></div>`;
 };
 
+let lvis = false;
 function liveInvit() {
-  const C = (LIVE_ADMIN.cafes || []).slice();
+  const ALL = (LIVE_ADMIN.cafes || []).slice(), nVis = ALL.filter((c) => c.active).length;
+  const C = lvis ? ALL.filter((c) => c.active) : ALL;
   const rank = (c) => (c.claimed ? 0 : c.invite ? 1 : 2);
   C.sort((x, y) => rank(x) - rank(y) || String(x.name).localeCompare(String(y.name)));
   const reqOf = (c) => REQ.find((r) => r.cafeId === c.id && r.s === 'aprobado' && !r.chg) || REQ.find((r) => r.cafeId === c.id && !r.chg);
@@ -2544,6 +2546,7 @@ function liveInvit() {
     return `<tr><td><b>${esc(c.name)}</b></td><td>${esc(c.neighborhood || '—')}</td><td>${rq ? (rq.brTot > 1 ? `<span class="badge b-pendiente">Sucursal ${rq.brNum} de ${rq.brTot}</span>` : '<span class="muted">Única</span>') : '<span class="muted">—</span>'}</td><td>${c.active ? '<span class="badge b-aprobado">Visible</span>' : '<span class="badge b-pendiente">No visible</span>'}</td><td>${st}</td><td style="white-space:nowrap;text-align:right">${ver} ${inv}</td></tr>`;
   };
   return `<div class="top"><div><h1>Locales adheridos</h1><p class="muted">Todos los locales de la red. Los que ya estaban cargados en la app se invitan desde acá con el email del dueño: crea su clave en el portal y reclama su local.</p></div></div>
+  <div class="chips" style="margin-bottom:12px"><button class="chip${lvis ? ' on' : ''}" data-lvis="1">Visibles en la app (${nVis})</button> <button class="chip${lvis ? '' : ' on'}" data-lvis="0">Todos (${ALL.length})</button></div>
   <div class="card"><table><tr><th>Local</th><th>Barrio</th><th>Sucursal</th><th>En la app</th><th>Estado</th><th></th></tr>${C.map(row).join('') || '<tr><td colspan="6" class="muted">No hay locales.</td></tr>'}</table></div>`;
 }
 
@@ -2588,7 +2591,8 @@ function liveBind() {
   }));
   $a('[data-rmex]', (b) => (b.onclick = () => confirmModal({ title: '¿Quitar la excepción?', text: 'Ese comercio vuelve al mínimo general de 4 cafés por día. Lo ya publicado no se modifica.', ok: 'Quitar', danger: true,
     onOk: async () => { const x = await api.adminRemoveStockEx(b.dataset.rmex); if (!x.ok) return toast(x.error); await reload('Excepción quitada.'); } })));
-  $a('[data-kgo]', (b) => { const go = () => { const [t, v] = b.dataset.kgo.split(':'); if (t === 'f') { ff = v; fq = ''; aview = 'lista'; } else { aview = v; fq = ''; } render(); window.scrollTo(0, 0); }; b.onclick = go; b.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }; });
+  $a('[data-kgo]', (b) => { const go = () => { const [t, v] = b.dataset.kgo.split(':'); lvis = b.dataset.kgo === 'v:activos'; if (t === 'f') { ff = v; fq = ''; aview = 'lista'; } else { aview = v; fq = ''; } render(); window.scrollTo(0, 0); }; b.onclick = go; b.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }; });
+  $a('[data-lvis]', (b) => (b.onclick = () => { lvis = b.dataset.lvis === '1'; render(); }));
   $a('[data-draftrem]', (b) => (b.onclick = () => confirmModal({ title: '¿Enviar recordatorio?', text: 'Le llega un mail a ' + (b.dataset.dname || 'este comercio') + ' para que complete la carga y la envíe a revisión. Se manda una sola vez por borrador.', ok: 'Enviar',
     onOk: async () => { const x = await api.adminSendDraftReminder(b.dataset.draftrem); if (!x.ok) return toast(/ALREADY_SENT/.test(x.error || '') ? 'Ya se le mandó un recordatorio.' : /NOT_CONFIRMED/.test(x.error || '') ? 'El comercio no confirmó su mail.' : x.error); await reload('Recordatorio enviado.'); } })));
   $a('[data-addadm]', (b) => (b.onclick = async () => {
@@ -2991,7 +2995,7 @@ function bind(){
  document.querySelectorAll('[data-tab]').forEach(e=>e.onclick=()=>{const i=+e.dataset.tab;if(i===cur)return;if(api.live){const go=async()=>{const rid=locals[i]&&locals[i].rid;if(!rid)return;openInfo=null;toast('Cargando sucursal…');await liveHydrate(rid);mview='inicio';render()};if(dirtyKey===dkey())confirmModal({title:'Tenés cambios sin guardar',text:'Si cambiás de sucursal, los cambios que no guardaste se pierden.',ok:'Cambiar igual',danger:true,onOk:go});else go();return}saveCur();loadLoc(i);openInfo=null;mview='inicio';render()});
  document.querySelectorAll('[data-obc]').forEach(e=>e.onclick=async()=>{newBranch=false;if(api.live){await liveHydrate(liveReqId);render();return}view='m-app';render()});
  document.querySelectorAll('[data-m]').forEach(e=>e.onclick=()=>{mview=e.dataset.m;render()});
- document.querySelectorAll('[data-a]').forEach(e=>e.onclick=()=>{aview=e.dataset.a;render()});
+ document.querySelectorAll('[data-a]').forEach(e=>e.onclick=()=>{aview=e.dataset.a;if(typeof lvis!=='undefined')lvis=false;render()});
  if(api.live&&typeof liveBind==='function')liveBind();
  document.querySelectorAll('[data-sel]').forEach(e=>e.onclick=()=>{sel=isNaN(+e.dataset.sel)?e.dataset.sel:+e.dataset.sel;aview='det';render()});
  document.querySelectorAll('[data-svc]').forEach(e=>{e.tabIndex=0;e.setAttribute('role','button');const i=+e.dataset.svc;e.setAttribute('aria-pressed',svc.has(i));const t=()=>{svc.has(i)?svc.delete(i):svc.add(i);e.classList.toggle('on',svc.has(i));e.setAttribute('aria-pressed',svc.has(i));const er=document.getElementById('err-svc');if(er&&svc.size)er.textContent=''};e.onclick=t;e.onkeydown=ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();t()}}});
