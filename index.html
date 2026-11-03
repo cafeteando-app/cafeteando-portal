@@ -2502,7 +2502,7 @@ adminResumen = function () {
     pend.length ? pend.map((r) => `<li><span class="badge b-pendiente">${r.chg ? 'Cambio' : 'Nueva'}</span> ${esc(r.n)} espera revisión desde el ${esc(r.f)}</li>`).join('') : '<li>No hay nada pendiente.</li>'}</ul></div>
   ${kgridGo('Red de comercios', [['Locales en la app', s.active_cafes ?? '—', 'de ' + (s.total_cafes ?? '—') + ' cargados', 'v:activos'], ['Solicitudes nuevas', s.pending ?? '—', 'Esperando revisión', 'f:nuevas'],
     ['Cambios pendientes', s.pending_changes ?? '—', 'De locales ya aprobados', 'f:cambios'], ['Comercios registrados', s.merchants ?? '—', 'Con cuenta en el portal', 'v:comercios']])}
-  ${kgridGo('Estado de solicitudes', [['A corregir', s.needs_fix ?? '—', '', 'f:correccion'], ['Aprobadas', s.approved ?? '—', '', 'f:aprobado'], ['Rechazadas', s.rejected ?? '—', '', 'f:rechazado'], ['', '']])}`;
+  ${kgridGo('Estado de solicitudes', [['A corregir', s.needs_fix ?? '—', '', 'f:correccion'], ['Aprobadas', s.approved ?? '—', '', 'f:aprobado'], ['Rechazadas', s.rejected ?? '—', '', 'f:rechazado'], ['Borradores', (LIVE_ADMIN.drafts || []).length, 'Carga empezada, sin enviar', 'f:borrador']])}`;
 };
 
 function liveExcep() {
