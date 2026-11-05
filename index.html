@@ -894,6 +894,9 @@ html:has(.auth2),body:has(.auth2){background:#2A1A12}
 .kcard:hover,.kcard:focus-visible{transform:translateY(-2px);box-shadow:0 8px 22px rgba(60,30,15,.14);border-color:var(--terracota,#a96649)}
 .kcard .kgo{color:var(--terracota,#a96649);font-weight:600;white-space:nowrap}
 
+/* preview: Instagram del local */
+.av-ig{margin-top:8px;border:1.5px solid #A96649;color:#A96649;text-align:center;border-radius:99px;padding:8px;font-weight:600;font-size:12.5px;word-break:break-all}
+
 </style>
 </head>
 <body>
@@ -1787,7 +1790,7 @@ function previewApp(){pvMode='detail';
  ${tags.length?`<div class="av-tags">${tags.map(t=>`<span>${esc(t)}</span>`).join('')}</div>`:''}
  ${ben?`<div class="av-ben"><b>${esc(ben)}</b><small>Exclusivo para miembros Cafeteando</small></div>`:''}
  <p class="av-desc">${esc(desc)}</p>
- <div class="av-ths">${th}</div><div class="av-btn">Ir a Canjear</div></div>`}
+ <div class="av-ths">${th}</div><div class="av-btn">Ir a Canjear</div>${(()=>{const ig=api.live&&typeof igNorm==='function'?igNorm(FD.cf_insta):'';return ig?`<div class="av-ig">◎ @${esc(ig)}</div>`:''})()}</div>`}
 function updatePreview(){const e=document.getElementById('appPrev');if(e)e.innerHTML=previewApp()}
 let dirtyKey=null,dirtySnap=null;
 const dkey=()=>mview+':'+cur;
