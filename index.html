@@ -1423,7 +1423,8 @@ function liveFmtSched(s) {
 
 /* ---------- Comercio: estado real, guardado, subida de fotos y envío ---------- */
 let liveReqId = null, liveMerchantId = null, liveNewReqId = null;
-const LIVE_FIELDS = ['cf_name','cf_desc','cf_otros','ob_name','ob_rs','ob_cuit','ob_social','ob_how','ob_titular','ob_rol','ob_rol_otro','ob_wsp','ob_mail','ob_maps'];
+const igNorm = (t) => { const u = String(t || '').trim().replace(/^(https?:\/\/)?(www\.)?instagram\.com\//i, '').replace(/^@/, '').replace(/[\/?#].*$/, ''); return /^[A-Za-z0-9._]{1,30}$/.test(u) ? u : ''; };
+const LIVE_FIELDS = ['cf_name','cf_desc','cf_otros','ob_name','ob_rs','ob_cuit','ob_social','ob_how','cf_insta','ob_titular','ob_rol','ob_rol_otro','ob_wsp','ob_mail','ob_maps'];
 
 // Los locales migrados del formulario traen links de Google Drive (HTML, no imagen): se convierten a URL de imagen directa, igual que en la app.
 function driveImg(u) { const m = String(u || '').match(/(?:[?&]id=|\/d\/)([-\w]{10,})/); return m ? 'https://lh3.googleusercontent.com/d/' + m[1] : u; }
@@ -1475,7 +1476,7 @@ async function liveHydrate(reqId) {
     const pc = await api.myPendingChange(q.id);
     if (pc.ok && pc.data && Object.keys(pc.data).length) {
       liveApplyPayload(Object.assign({}, p, pc.data));
-      chg.desc = Object.keys(pc.data).some((k) => ['name', 'description', 'address', 'neighborhood', 'maps_url', 'services', 'other_services', 'benefits', 'lat', 'lng'].includes(k));
+      chg.desc = Object.keys(pc.data).some((k) => ['name', 'description', 'address', 'neighborhood', 'maps_url', 'instagram', 'services', 'other_services', 'benefits', 'lat', 'lng'].includes(k));
       chg.fotos = Object.keys(pc.data).some((k) => ['photos', 'logo_url'].includes(k));
     }
   }
@@ -1487,7 +1488,7 @@ async function liveHydrate(reqId) {
 function liveApplyPayload(p) {
   FD.ob_name = p.name || ''; FD.ob_maps = p.maps_url || '';
   if (p.lat != null && p.lng != null) { pin.lat = +p.lat; pin.lng = +p.lng; pin.moved = false; } else { pin = { x: 52, y: 46 }; }
-  FD.cf_name = p.name || ''; FD.cf_desc = p.description || ''; FD.cf_otros = p.other_services || '';
+  FD.cf_name = p.name || ''; FD.cf_desc = p.description || ''; FD.cf_otros = p.other_services || ''; FD.cf_insta = igNorm(p.instagram) ? '@' + igNorm(p.instagram) : '';
   if (p.address) { p.address = capAddr(p.address); addrSel = { a: p.address, b: p.neighborhood || '' }; FD.ad_b = p.neighborhood || ''; FD.ad_prov = p.province || ''; }
   else { addrSel = null; delete FD.ad_b; delete FD.ad_prov; }
   svc = new Set((p.services || []).map((s) => VAR.indexOf(s)).filter((i) => i >= 0));
@@ -1511,6 +1512,7 @@ function liveBuildPayload() {
   if (status === 'aprobado' || doneDisp) { payload.schedule = sched; payload.daily_stock = cupo; }
   if (FD.cf_name !== undefined && FD.cf_name.trim()) payload.name = capAuto('cf_name', FD.cf_name.trim());
   if ((FD.ob_maps || '').trim()) payload.maps_url = FD.ob_maps.trim();
+  if (FD.cf_insta !== undefined) payload.instagram = igNorm(FD.cf_insta);
   if (addrSel) { payload.address = addrSel.a; payload.neighborhood = curBarrio(); if (FD.ad_prov) payload.province = FD.ad_prov; }
   if (pin.lat && (status !== 'aprobado' || pin.moved)) { payload.lat = +pin.lat.toFixed(7); payload.lng = +pin.lng.toFixed(7); }
   if (logo && logo.url) payload.logo_url = logo.url;
@@ -1718,7 +1720,7 @@ function merchV(){
 
 let readyPrev=false;
 let corrTouched=false;
-const CORR_KEYS={'Datos del local':['name','description','services','other_services','maps_url'],'Ubicación':['address','neighborhood','lat','lng','province'],'Logo y fotos':['logo_url','photos'],'Horarios y cupo':['schedule','daily_stock'],'Beneficios':['benefits']};
+const CORR_KEYS={'Datos del local':['name','description','services','other_services','maps_url','instagram'],'Ubicación':['address','neighborhood','lat','lng','province'],'Logo y fotos':['logo_url','photos'],'Horarios y cupo':['schedule','daily_stock'],'Beneficios':['benefits']};
 function corrPendSecs(){try{const m=String(corrMsg||'').match(/\(Secciones:\s*([^)]*)\)/);if(!m)return [];const rev=window.__corrRev,cur=window.__corrCur;if(!rev||!cur)return [];
  return m[1].split(',').map(x=>x.trim()).filter(sec=>{const ks=CORR_KEYS[sec];if(!ks)return false;return !ks.some(k=>JSON.stringify(cur[k]??null)!==JSON.stringify(rev[k]??null))})}catch(e){return []}}
 const corrReady=()=>corrTouched&&corrPendSecs().length===0;
@@ -1845,7 +1847,7 @@ function chgBadge(on){return status==='aprobado'&&on?'<span class="badge b-corre
 function mCafe(){return `<div class="top"><div><h1>Mi cafetería</h1><p class="muted">Así se ve tu local en la app.</p></div></div>
  ${status==='aprobado'?'<div class="note">Los cambios en datos, fotos y descripción pasan por revisión de Cafeteando antes de publicarse. Mientras tanto se sigue mostrando la versión actual.</div>':''}
  <div class="grid cafegrid"><div class="cols">
- <div class="card"><h2>Datos básicos</h2><p class="hint" style="margin:4px 0 14px">Los campos con <span class="req">*</span> son obligatorios.</p>${fld({id:'cf_name',label:'Nombre',rules:'req',def:api.live?'':'Café Bonpland'})}${addrField()}${chg.addr?`<div class="note">Cambio de dirección en revisión. Los usuarios ven por ahora: ${esc(L().addr)}, ${esc(L().barrio)}.</div>`:''}${fld({id:'cf_desc',label:'Descripción: ¿qué hace especial a tu cafetería? (opcional) '+chgBadge(chg.desc),rules:'max200',tag:'textarea',max:200,def:chg.desc?'Tostadores de barrio desde 2018. Café de especialidad, pastelería casera.':'Tostadores de barrio. Café de especialidad, pastelería casera.',hint:'Máximo 200 caracteres. Es lo que ven los socios en el perfil de tu cafetería. Podés dejarla vacía.'+(chg.desc?' Los usuarios ven por ahora: «Tostadores de barrio. Café de especialidad, pastelería casera.»':'')})}${fld({id:'ob_maps',label:'Link de Google Maps de tu local (opcional)',rules:'url',ph:'https://maps.app.goo.gl/...'})}</div>
+ <div class="card"><h2>Datos básicos</h2><p class="hint" style="margin:4px 0 14px">Los campos con <span class="req">*</span> son obligatorios.</p>${fld({id:'cf_name',label:'Nombre',rules:'req',def:api.live?'':'Café Bonpland'})}${addrField()}${chg.addr?`<div class="note">Cambio de dirección en revisión. Los usuarios ven por ahora: ${esc(L().addr)}, ${esc(L().barrio)}.</div>`:''}${fld({id:'cf_desc',label:'Descripción: ¿qué hace especial a tu cafetería? (opcional) '+chgBadge(chg.desc),rules:'max200',tag:'textarea',max:200,def:chg.desc?'Tostadores de barrio desde 2018. Café de especialidad, pastelería casera.':'Tostadores de barrio. Café de especialidad, pastelería casera.',hint:'Máximo 200 caracteres. Es lo que ven los socios en el perfil de tu cafetería. Podés dejarla vacía.'+(chg.desc?' Los usuarios ven por ahora: «Tostadores de barrio. Café de especialidad, pastelería casera.»':'')})}${fld({id:'ob_maps',label:'Link de Google Maps de tu local (opcional)',rules:'url',ph:'https://maps.app.goo.gl/...'})}${fld({id:'cf_insta',label:'Instagram de tu cafetería (opcional)',rules:'ig',ph:'@tucafeteria',hint:'Si lo cargás, los socios lo ven en el perfil de tu cafetería dentro de la app. Podés cambiarlo cuando quieras.'})}</div>
  ${photosCard()}
  <div class="card" id="svcCard"><h2>Servicios y opciones <span class="req" aria-hidden="true">*</span><span class="sr"> (obligatorio)</span></h2><p class="muted" style="margin:4px 0 12px">Podés elegir todas las que correspondan, para mostrar mejor qué ofrece tu espacio. Con una alcanza.</p><div class="chips">${VAR.map((v,i)=>`<span class="chip ${svc.has(i)?'on':''}" data-svc="${i}">${v}</span>`).join('')}</div><div class="ferr" id="err-svc" role="alert"></div>
  <div style="margin-top:14px">${fld({id:'cf_otros',label:'Otros servicios (opcional)',ph:'Wi-Fi, terraza, desayunos...'})}</div></div></div>
@@ -2222,6 +2224,7 @@ const RULES={
  cuit:v=>!v.trim()||v.replace(/\D/g,'').length===11?'':'El CUIT debe tener 11 dígitos (ej: 20-12345678-9).',
  phone:v=>!v.trim()||/^\d{8,13}$/.test(v.replace(/[\s\-+()]/g,''))?'':'Necesitamos un teléfono con código de área, solo números (ej: 11 1234-5678).',
  url:v=>!v.trim()||/^https?:\/\/\S+\.\S+/.test(v.trim())?'':'Pegá el link completo, que empieza con https:// (ej: https://maps.app.goo.gl/...)',
+ ig:v=>!v.trim()||/^(https?:\/\/)?(www\.)?instagram\.com\/@?[A-Za-z0-9._]{1,30}\/?(\?.*)?$/i.test(v.trim())||/^@?[A-Za-z0-9._]{1,30}$/.test(v.trim())?'':'Escribí tu usuario (@tucafeteria) o el link de tu perfil de Instagram.',
  insta:v=>!v.trim()||/^@?[A-Za-z0-9._]{1,30}$/.test(v.trim())?'':'Usuario de Instagram inválido (ej: @tucafeteria).',
  pass:v=>v.length>=8&&/[A-Za-z]/.test(v)&&/\d/.test(v)?'':'Mínimo 8 caracteres, con al menos una letra y un número.',
  max240:v=>v.length<=240?'':'Máximo 240 caracteres.',
@@ -2359,7 +2362,7 @@ const ACT_TXT = {
   admin_off: 'Desactivó de la app', invite_created: 'Creó una invitación', invite_claimed: 'Reclamó su local', admin_added: 'Agregó un admin',
   admin_removed: 'Quitó un admin', merchant_signed: 'Firmó las condiciones', activated_on_sign: 'Local activado al firmar', admin_approved: 'Aprobó', policy_changed: 'Cambió la política de revisión',
 };
-const FIELD_ES = { name: 'Nombre', address: 'Dirección', neighborhood: 'Barrio', maps_url: 'Link de Maps', description: 'Descripción', logo_url: 'Logo', photos: 'Fotos',
+const FIELD_ES = { name: 'Nombre', address: 'Dirección', neighborhood: 'Barrio', maps_url: 'Link de Maps', instagram: 'Instagram', description: 'Descripción', logo_url: 'Logo', photos: 'Fotos',
   services: 'Servicios', other_services: 'Otros servicios', schedule: 'Horarios', daily_stock: 'Cupo diario', province: 'Provincia', benefits: 'Beneficios adicionales', lat: 'Ubicación (latitud)', lng: 'Ubicación (longitud)' };
 const ADMIN_NAMES = { 'julianlopezagustin1@gmail.com': 'Julián', 'luciana.bauchi@gmail.com': 'Luciana' };
 const adminName = (e, d) => (d && d.actor_name) || ADMIN_NAMES[(e || '').toLowerCase()] || ((e || '').toLowerCase() === 'contactocafeteando@gmail.com' ? 'Cafeteando (sin identificar)' : e) || '—';
@@ -2629,7 +2632,7 @@ async function liveSaveApproved() {
   const r = await api.submitChange(liveBuildPayload());
   if (!r.ok) { toast(r.error); return false; }
   const d = r.data || {};
-  chg.desc = (d.pending || []).some((k) => ['name', 'description', 'address', 'neighborhood', 'maps_url', 'services', 'other_services', 'benefits', 'lat', 'lng'].includes(k)) || chg.desc;
+  chg.desc = (d.pending || []).some((k) => ['name', 'description', 'address', 'neighborhood', 'maps_url', 'instagram', 'services', 'other_services', 'benefits', 'lat', 'lng'].includes(k)) || chg.desc;
   chg.fotos = (d.pending || []).some((k) => ['photos', 'logo_url'].includes(k)) || chg.fotos;
   toast((d.pending || []).length ? 'Los cambios quedaron en revisión. Mientras tanto se muestra la versión publicada.' + ((d.applied || []).length ? ' Horarios/cupo ya se aplicaron.' : '') : ((d.applied || []).length ? 'Horarios y cupo actualizados.' : 'No había cambios para guardar.'));
   return true;
