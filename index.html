@@ -2507,7 +2507,8 @@ adminResumen = function () {
   <div class="card" style="border-left:4px solid var(--warn)"><h2>Requiere atención</h2><ul class="log" style="margin-top:8px">${
     pend.length ? pend.map((r) => `<li><span class="badge b-pendiente">${r.chg ? 'Cambio' : 'Nueva'}</span> ${esc(r.n)} espera revisión desde el ${esc(r.f)}</li>`).join('') : '<li>No hay nada pendiente.</li>'}</ul></div>
   ${kgridGo('Red de comercios', [['Locales en la app', s.active_cafes ?? '—', 'de ' + (s.total_cafes ?? '—') + ' cargados', 'v:activos'], ['Solicitudes nuevas', s.pending ?? '—', 'Esperando revisión', 'f:nuevas'],
-    ['Cambios pendientes', s.pending_changes ?? '—', 'De locales ya aprobados', 'f:cambios'], ['Comercios registrados', s.merchants ?? '—', 'Con cuenta en el portal', 'v:comercios']])}
+    ['Cambios pendientes', s.pending_changes ?? '—', 'De locales ya aprobados', 'f:cambios'], ['Comercios registrados', s.merchants ?? '—', 'Con cuenta en el portal', 'v:comercios'],
+    ['Cupos de café visibles', (LIVE_ADMIN.cafes || []).filter((c) => c.active).reduce((a, c) => a + stk(c), 0), 'Por día, en locales visibles en la app', 'v:activos']])}
   ${kgridGo('Estado de solicitudes', [['A corregir', s.needs_fix ?? '—', '', 'f:correccion'], ['Aprobadas', s.approved ?? '—', '', 'f:aprobado'], ['Rechazadas', s.rejected ?? '—', '', 'f:rechazado'], ['Borradores', (LIVE_ADMIN.drafts || []).length, 'Carga empezada, sin enviar', 'f:borrador']])}`;
 };
 
@@ -2537,9 +2538,11 @@ adminEquipo = function () {
   <div class="card"><h2>Registro de actividad</h2><table><tr><th>Fecha</th><th>Quién</th><th>Café</th><th>Qué hizo</th></tr>${A.length ? A.map((a) => `<tr><td>${fmtDT(a.at)}</td><td><b>${esc(adminName(a.actor_email, a.detail))}</b></td><td>${a.cafe ? esc(a.cafe) : '<span class="muted">—</span>'}</td><td>${esc(ACT_TXT[a.action] || a.action)}${a.detail && a.detail.email ? ': ' + esc(a.detail.email) : ''}</td></tr>`).join('') : '<tr><td colspan="4" class="muted">Todavía no hay actividad.</td></tr>'}</table></div>`;
 };
 
+const stk = (c) => (Number.isFinite(+c.stock) ? +c.stock : 0);
 let lvis = false;
 function liveInvit() {
   const ALL = (LIVE_ADMIN.cafes || []).slice(), nVis = ALL.filter((c) => c.active).length;
+  const stVis = ALL.filter((c) => c.active).reduce((a, c) => a + stk(c), 0), stHid = ALL.filter((c) => !c.active).reduce((a, c) => a + stk(c), 0);
   const C = lvis ? ALL.filter((c) => c.active) : ALL;
   const rank = (c) => (c.claimed ? 0 : c.invite ? 1 : 2);
   C.sort((x, y) => rank(x) - rank(y) || String(x.name).localeCompare(String(y.name)));
@@ -2549,11 +2552,12 @@ function liveInvit() {
     const st = c.claimed ? '<span class="badge b-aprobado">Adherido</span>' : c.invite ? `<span class="badge b-pendiente">Invitación enviada</span><div class="hint">${esc(c.invite.email)}</div>` : '<span class="badge b-borrador">Sin invitar</span>';
     const ver = rq ? `<button class="btn sm sec" data-sel="${rq.id}">Ver</button>` : '';
     const inv = c.claimed ? '' : c.invite ? `<button class="btn sm sec" data-reinv="${c.id}" data-reinvm="${esc(c.invite.email)}">Reenviar mail</button> <button class="btn sm sec" data-copyinv="${c.invite.token}">Copiar link</button> <button class="btn sm bad" data-revinv="${c.id}">Anular</button>` : `<button class="btn sm" data-inv="${c.id}" data-invn="${esc(c.name)}">Invitar</button>`;
-    return `<tr><td><b>${esc(c.name)}</b></td><td>${esc(c.neighborhood || '—')}</td><td>${rq ? (rq.brTot > 1 ? `<span class="badge b-pendiente">Sucursal ${rq.brNum} de ${rq.brTot}</span>` : '<span class="muted">Única</span>') : '<span class="muted">—</span>'}</td><td>${c.active ? '<span class="badge b-aprobado">Visible</span>' : '<span class="badge b-pendiente">No visible</span>'}</td><td>${st}</td><td style="white-space:nowrap;text-align:right">${ver} ${inv}</td></tr>`;
+    return `<tr><td><b>${esc(c.name)}</b></td><td>${esc(c.neighborhood || '—')}</td><td>${rq ? (rq.brTot > 1 ? `<span class="badge b-pendiente">Sucursal ${rq.brNum} de ${rq.brTot}</span>` : '<span class="muted">Única</span>') : '<span class="muted">—</span>'}</td><td>${c.active ? '<span class="badge b-aprobado">Visible</span>' : '<span class="badge b-pendiente">No visible</span>'}</td><td style="text-align:center"><b>${stk(c)}</b></td><td>${st}</td><td style="white-space:nowrap;text-align:right">${ver} ${inv}</td></tr>`;
   };
   return `<div class="top"><div><h1>Locales adheridos</h1><p class="muted">Todos los locales de la red. Los que ya estaban cargados en la app se invitan desde acá con el email del dueño: crea su clave en el portal y reclama su local.</p></div></div>
+  <div class="grid g3" style="margin-bottom:14px"><div class="card" style="margin:0"><div class="muted">Cupos visibles en la app</div><div class="kpi">${stVis}</div><div class="hint">${nVis} local${nVis === 1 ? '' : 'es'} visible${nVis === 1 ? '' : 's'} · por día</div></div><div class="card" style="margin:0"><div class="muted">Cupos de locales no visibles</div><div class="kpi">${stHid}</div><div class="hint">${ALL.length - nVis} local${ALL.length - nVis === 1 ? '' : 'es'} sin mostrar</div></div><div class="card" style="margin:0"><div class="muted">Total de cupos</div><div class="kpi">${stVis + stHid}</div><div class="hint">${ALL.length} locales cargados</div></div></div>
   <div class="chips" style="margin-bottom:12px"><button class="chip${lvis ? ' on' : ''}" data-lvis="1">Visibles en la app (${nVis})</button> <button class="chip${lvis ? '' : ' on'}" data-lvis="0">Todos (${ALL.length})</button></div>
-  <div class="card"><table><tr><th>Local</th><th>Barrio</th><th>Sucursal</th><th>En la app</th><th>Estado</th><th></th></tr>${C.map(row).join('') || '<tr><td colspan="6" class="muted">No hay locales.</td></tr>'}</table></div>`;
+  <div class="card"><table><tr><th>Local</th><th>Barrio</th><th>Sucursal</th><th>En la app</th><th style="text-align:center">Cupos por día</th><th>Estado</th><th></th></tr>${C.map(row).join('') || '<tr><td colspan="7" class="muted">No hay locales.</td></tr>'}</table></div>`;
 }
 
 adminDet = function (r) {
