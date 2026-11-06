@@ -3149,6 +3149,9 @@ document.addEventListener('input',e=>{const el=e.target;if(!el||!el.matches||!el
   async function tickMerchant() {
     if (typeof dirtyKey !== 'undefined' && dirtyKey) return;           // hay cambios sin guardar
     if (!idle()) return;
+    let polChanged = false;
+    try { const p = await api._rpc('my_field_policy'); if (p.ok && Array.isArray(p.data) && typeof MY_POL !== 'undefined') { const a = JSON.stringify(p.data); polChanged = a !== JSON.stringify(MY_POL); if (polChanged) MY_POL = p.data; } } catch (e) { /* sin cambios */ }
+    if (polChanged && idle() && !(typeof dirtyKey !== 'undefined' && dirtyKey)) render();
     const r = await api.loadMine(liveReqId);
     if (!r || !r.ok) return;
     const sig = JSON.stringify([r.request && r.request.status, r.request && r.request.payload, r.request && r.request.review_note, r.merchant]);
