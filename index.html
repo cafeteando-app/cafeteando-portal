@@ -1854,7 +1854,7 @@ function mCafe(){return `<div class="top"><div><h1>Mi cafetería</h1><p class="m
  ${photosCard()}
  <div class="card" id="svcCard"><h2>Servicios y opciones <span class="req" aria-hidden="true">*</span><span class="sr"> (obligatorio)</span></h2><p class="muted" style="margin:4px 0 12px">Podés elegir todas las que correspondan, para mostrar mejor qué ofrece tu espacio. Con una alcanza.</p><div class="chips">${VAR.map((v,i)=>`<span class="chip ${svc.has(i)?'on':''}" data-svc="${i}">${v}</span>`).join('')}</div><div class="ferr" id="err-svc" role="alert"></div>
  <div style="margin-top:14px">${fld({id:'cf_otros',label:'Otros servicios (opcional)',ph:'Wi-Fi, terraza, desayunos...'})}</div></div></div>
- <div class="pv-col"><div class="appprev" id="appPrev">${previewApp()}</div><p class="hint" style="text-align:center;margin-top:8px">Réplica de la app. Se actualiza mientras completás.</p></div></div>${saveBar(status==='aprobado'?'Enviar cambios a revisión':'Guardar cambios')}`}
+ <div class="pv-col"><div class="appprev" id="appPrev">${previewApp()}</div><p class="hint" style="text-align:center;margin-top:8px">Réplica de la app. Se actualiza mientras completás.</p></div></div>${saveBar('Guardar cambios')}`}
 
 </script>
 <script>
@@ -2637,7 +2637,9 @@ async function liveSaveApproved() {
   const d = r.data || {};
   chg.desc = (d.pending || []).some((k) => ['name', 'description', 'address', 'neighborhood', 'maps_url', 'instagram', 'services', 'other_services', 'benefits', 'lat', 'lng'].includes(k)) || chg.desc;
   chg.fotos = (d.pending || []).some((k) => ['photos', 'logo_url'].includes(k)) || chg.fotos;
-  toast((d.pending || []).length ? 'Los cambios quedaron en revisión. Mientras tanto se muestra la versión publicada.' + ((d.applied || []).length ? ' Horarios/cupo ya se aplicaron.' : '') : ((d.applied || []).length ? 'Horarios y cupo actualizados.' : 'No había cambios para guardar.'));
+  const FN = { address: 'dirección', neighborhood: 'barrio', logo_url: 'logo', photos: 'fotos', benefits: 'beneficios' };
+  const pend = [...new Set((d.pending || []).map((k) => FN[k] || k))];
+  toast(pend.length ? 'Cambios guardados. ' + (pend.length > 1 ? 'Estos quedaron' : 'Este quedó') + ' en revisión (' + pend.join(', ') + '); mientras tanto se muestra la versión publicada.' : ((d.applied || []).length ? 'Cambios guardados.' : 'No había cambios para guardar.'));
   return true;
 }
 
