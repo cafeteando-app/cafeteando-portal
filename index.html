@@ -3111,5 +3111,68 @@ function dIso(v){const m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(v||'').trim()
 document.addEventListener('input',e=>{const el=e.target;if(!el||!el.matches||!el.matches('[data-date]'))return;let d=el.value.replace(/\D/g,'').slice(0,8);let o=d.slice(0,2);if(d.length>2)o+='/'+d.slice(2,4);if(d.length>4)o+='/'+d.slice(4);el.value=o});
 
 </script>
+<script>
+/* Actualización automática: datos del admin y del comercio + versión nueva del portal, sin tener que refrescar */
+(function () {
+  if (typeof api === 'undefined' || !api.live) return;
+  const idle = () => {
+    const a = document.activeElement;
+    if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return false;
+    if (document.querySelector('[data-modal]')) return false;
+    return !document.hidden;
+  };
+  const isAdmin = () => view === 'admin';
+  const isMerchant = () => /^m-(ok|pend|corr|nuevo|two)$/.test(view);
+  let busy = false, sigA = '', sigM = '', lastRun = 0;
+
+  async function tickAdmin() {
+    await liveLoadRequests(); await liveLoadAdmin();
+    const sig = JSON.stringify([REQ, LIVE_ADMIN.summary, LIVE_ADMIN.drafts, LIVE_ADMIN.cafes, LIVE_ADMIN.merchants]);
+    if (sigA && sig !== sigA && idle() && isAdmin()) render();
+    sigA = sig;
+  }
+  async function tickMerchant() {
+    if (typeof dirtyKey !== 'undefined' && dirtyKey) return;           // hay cambios sin guardar
+    if (!idle()) return;
+    const r = await api.loadMine(liveReqId);
+    if (!r || !r.ok) return;
+    const sig = JSON.stringify([r.request && r.request.status, r.request && r.request.payload, r.request && r.request.review_note, r.merchant]);
+    if (sigM && sig !== sigM && idle() && !(typeof dirtyKey !== 'undefined' && dirtyKey)) {
+      const keep = mview, keepCur = cur;
+      await liveHydrate(liveReqId);
+      mview = keep; cur = Math.min(keepCur, Math.max(0, locals.length - 1));
+      render();
+    }
+    sigM = sig;
+  }
+  async function tick(force) {
+    const now = Date.now();
+    if (busy || document.hidden || (!force && now - lastRun < 8000)) return;
+    busy = true; lastRun = now;
+    try { if (isAdmin()) await tickAdmin(); else if (isMerchant()) await tickMerchant(); } catch (e) { /* silencioso */ }
+    busy = false;
+  }
+  setInterval(() => tick(false), 30000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(true); });
+  window.addEventListener('focus', () => tick(true));
+
+  /* Versión nueva del portal: compara el archivo publicado con el que está cargado */
+  let ver = null;
+  const stamp = async () => { try { const r = await fetch(location.pathname + '?v=' + Date.now(), { method: 'HEAD', cache: 'no-store' }); return (r.headers.get('etag') || '') + '|' + (r.headers.get('last-modified') || '') + '|' + (r.headers.get('content-length') || ''); } catch (e) { return null; } };
+  async function checkVersion() {
+    if (document.hidden) return;
+    const s = await stamp(); if (!s) return;
+    if (ver === null) { ver = s; return; }
+    if (s === ver) return;
+    const safe = (isAdmin() || /^m-(ok|pend|corr)$/.test(view)) && idle() && !(typeof dirtyKey !== 'undefined' && dirtyKey);
+    if (safe) location.reload();
+    else if (!window.__verWarned) { window.__verWarned = true; toast('Hay una versión nueva del portal. Se va a actualizar cuando termines de editar; o recargá la página.'); }
+  }
+  stamp().then((s) => { ver = s; });
+  setInterval(checkVersion, 180000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) checkVersion(); });
+})();
+
+</script>
 </body>
 </html>
