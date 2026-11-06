@@ -911,6 +911,8 @@ html:has(.auth2),body:has(.auth2){background:#2A1A12}
 /* más aire entre el título y las recomendaciones */
 .card h2 + .guide{margin-top:16px;margin-bottom:6px}
 
+.legend-pol{margin:14px 4px 4px;text-align:center}
+
 </style>
 </head>
 <body>
@@ -1868,7 +1870,7 @@ function mCafe(){return `<div class="top"><div><h1>Mi cafetería</h1><p class="m
  ${photosCard()}
  <div class="card" id="svcCard"><h2>Servicios y opciones <span class="req" aria-hidden="true">*</span><span class="sr"> (obligatorio)</span></h2><p class="muted" style="margin:4px 0 12px">Podés elegir todas las que correspondan, para mostrar mejor qué ofrece tu espacio. Con una alcanza.</p><div class="chips">${VAR.map((v,i)=>`<span class="chip ${svc.has(i)?'on':''}" data-svc="${i}">${v}</span>`).join('')}</div><div class="ferr" id="err-svc" role="alert"></div>
  <div style="margin-top:14px">${fld({id:'cf_otros',label:'Otros servicios (opcional)',ph:'Wi-Fi, terraza, desayunos...'})}</div></div></div>
- <div class="pv-col"><div class="appprev" id="appPrev">${previewApp()}</div><p class="hint" style="text-align:center;margin-top:8px">Réplica de la app. Se actualiza mientras completás.</p></div></div>${saveBar('Guardar cambios')}`}
+ <div class="pv-col"><div class="appprev" id="appPrev">${previewApp()}</div><p class="hint" style="text-align:center;margin-top:8px">Réplica de la app. Se actualiza mientras completás.</p></div></div>${typeof policyLegend==='function'?policyLegend():''}${saveBar('Guardar cambios')}`}
 
 </script>
 <script>
@@ -1909,8 +1911,8 @@ function extraCard(){const ap=status==='aprobado';const st=extra.review?'<span c
  const it=extra.items;
  return `<div class="card"><h2>Beneficios adicionales (opcional) ${st}</h2><p class="muted" style="margin:4px 0 14px">Si querés, sumá algo extra para los socios además del café, por ejemplo un descuento en pastelería. Podés cargar más de uno. <b>Lo que escribas en cada beneficio es exactamente lo que va a figurar en la app</b>, junto a tu local: incluí ahí cualquier condición (días, límites, etc.).</p>
  ${it.length?it.map((x,i)=>`<div class="benef"><div class="benef-h"><b>Beneficio ${i+1}</b><button class="x" data-extra-del="${i}" title="Quitar beneficio" aria-label="Quitar beneficio ${i+1}">×</button></div><div class="field"><label>Beneficio <span class="req" aria-hidden="true">*</span><span class="sr"> (obligatorio)</span></label><input aria-required="true" data-extra-text="${i}" maxlength="120" placeholder="Ej: 10% de descuento en pastelería, de lunes a viernes" value="${esc(x.text)}"></div></div>`).join(''):'<p class="hint" style="margin-bottom:12px">Todavía no cargaste ningún beneficio adicional.</p>'}
- <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="btn sec sm" data-extra-add ${it.length>=5?'disabled style="opacity:.4;cursor:not-allowed"':''}>+ Agregar beneficio</button>${it.length>=5?'<span class="hint">Máximo 5 beneficios.</span>':''}${it.length||extra.pub.length?`<button class="btn sm" data-extra-save>${ap?'Enviar beneficios a revisión':'Guardar beneficios'}</button>`:''}</div>
- ${it.length?`<div class="note" style="margin:14px 0 0">Los beneficios adicionales los bonifica el local: Cafeteando no interviene ni cobra nada. Pasan por revisión de Cafeteando antes de publicarse.</div>`:''}
+ <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="btn sec sm" data-extra-add ${it.length>=5?'disabled style="opacity:.4;cursor:not-allowed"':''}>+ Agregar beneficio</button>${it.length>=5?'<span class="hint">Máximo 5 beneficios.</span>':''}</div>
+ ${it.length?`<div class="note" style="margin:14px 0 0">Los beneficios adicionales los bonifica el local: Cafeteando no interviene ni cobra nada. Se guardan con el botón «Guardar cambios» de abajo y pasan por revisión de Cafeteando antes de publicarse.</div>`:''}
  ${extra.review&&extra.pub.length?`<p class="hint" style="margin-top:10px">Mientras tanto, los usuarios ven: ${extra.pub.map(t=>'«'+esc(t)+'»').join(' · ')}</p>`:''}</div>`}
 
 /* ---------- Días cerrados especiales ---------- */
@@ -1930,7 +1932,7 @@ function mDisp(){return `<div class="top"><div><h1>Disponibilidad</h1><p class="
  <div class="card"><h2>Cupo diario de cafés ${tip('Cupo: cantidad máxima de cafés que podés entregar por día en canjes.')}</h2><br><div class="field" style="max-width:260px"><label>Cafés por día</label><input type="number" value="${Number.isInteger(cupo)?cupo:''}" placeholder="Ej: 10" min="${MIN_CUPO}" data-cupo style="${cupoOk()||!Number.isInteger(cupo)?'':'border-color:var(--bad-text)'}"><div class="hint" style="${cupoOk()?'':'color:var(--bad-text);font-weight:600'}">Mínimo obligatorio: ${MIN_CUPO} cafés por día. Recomendamos 10.</div></div>
  <p class="hint" style="margin-bottom:12px">Cada canje equivale a un café de especialidad. Las variedades las elegís vos al momento del canje: acá solo indicás la cantidad.</p><div class="note">Los canjes ya realizados hoy se respetan. El nuevo cupo se aplica de inmediato: si ya se alcanzó, no se habilitan más canjes hasta mañana.</div></div>
  ${extraCard()}
- </div></div>${saveBar('Guardar cambios')}`}
+ </div></div>${typeof policyLegend==='function'?policyLegend():''}${saveBar('Guardar cambios')}`}
 
 </script>
 <script>
@@ -2655,6 +2657,7 @@ async function liveSaveApproved() {
   const d = r.data || {};
   chg.desc = (d.pending || []).some((k) => ['name', 'description', 'address', 'neighborhood', 'maps_url', 'instagram', 'services', 'other_services', 'benefits', 'lat', 'lng'].includes(k)) || chg.desc;
   chg.fotos = (d.pending || []).some((k) => ['photos', 'logo_url'].includes(k)) || chg.fotos;
+  if ((d.pending || []).includes('benefits')) extra.review = true; else if (mview === 'disp') { extra.pub = extra.items.map((x) => x.text); extra.review = false; }
   const FN = { address: 'dirección', neighborhood: 'barrio', logo_url: 'logo', photos: 'fotos', benefits: 'beneficios' };
   const pend = [...new Set((d.pending || []).map((k) => FN[k] || k))];
   toast(pend.length ? 'Cambios guardados. ' + (pend.length > 1 ? 'Estos quedaron' : 'Este quedó') + ' en revisión (' + pend.join(', ') + '); mientras tanto se muestra la versión publicada.' : ((d.applied || []).length ? 'Cambios guardados.' : 'No había cambios para guardar.'));
@@ -2879,6 +2882,17 @@ function livePublishContract() {
     } });
 }
 
+/* Qué cambios pasan por revisión (según la política que define el admin) */
+let MY_POL = [];
+const _hydratePol = liveHydrate;
+liveHydrate = async function (rid) { const r = await _hydratePol(rid); try { const p = await api._rpc('my_field_policy'); if (p.ok && Array.isArray(p.data)) MY_POL = p.data; } catch (e) { /* sin leyenda */ } return r; };
+function policyLegend() {
+  if (!api.live || status !== 'aprobado' || !MY_POL.length) return '';
+  const SKIP = ['lat', 'lng'];
+  const rev = MY_POL.filter((x) => x.mode === 'review' && !SKIP.includes(x.field)).map((x) => String(x.label || x.field).toLowerCase());
+  return `<p class="hint legend-pol" role="note">${rev.length ? 'Al guardar, se publican al instante todos los cambios excepto <b>' + esc(rev.join(', ')) + '</b>, que pasan por revisión de Cafeteando (mientras tanto se muestra la versión publicada).' : 'Al guardar, todos los cambios se publican al instante.'}</p>`;
+}
+
 </script>
 <script>
 /* Guía del panel: aparece sola la primera vez y se puede repetir desde "Ayuda" */
@@ -3036,6 +3050,7 @@ function bind(){
   if(mview==='disp'&&!schedOk()){toast('Revisemos las franjas: necesitamos mínimo 4 horas seguidas');return}
   if(mview==='disp'&&api.live&&!sched.some(d=>d.on)){toast('Abrí al menos un día para atender canjes');return}
   if(mview==='disp'&&!cupoOk()){toast('El cupo mínimo es de '+MIN_CUPO+' cafés por día');return}
+  if(mview==='disp'&&extra.items.some(x=>!x.text.trim())){document.querySelectorAll('[data-extra-text]').forEach(el=>{const bad=!el.value.trim();el.classList.toggle('invalid',bad);el.setAttribute('aria-invalid',bad)});toast('Falta el texto de algún beneficio. Podés completarlo o quitarlo');return}
   if(mview==='cafe'){
    const root=document.querySelector('.cafegrid');let ok=validateGroup(root);
    const pe=document.getElementById('err-photos'),le=document.getElementById('err-logo'),se=document.getElementById('err-svc');const svcBad=svc.size===0&&!(FD.cf_otros||'').trim();se.textContent=svcBad?'Falta elegir al menos una opción de servicios.':'';if(svcBad)ok=false;
@@ -3046,7 +3061,7 @@ function bind(){
    if(status==='aprobado'){chg.desc=true;chg.fotos=true;if(addrSel&&addrSel.a!==L().addr)chg.addr=true}else if(addrSel){L().addr=addrSel.a;L().barrio=curBarrio()}
   }
   if(mview==='disp')doneDisp=true;
-  if(api.live){const ok=await liveSaveDraft();if(!ok){if(mview==='cafe')doneCafe=false;if(mview==='disp')doneDisp=false;return}if(status==='correccion'){corrTouched=true;try{window.__corrCur=Object.assign({},window.__corrCur||{},liveBuildPayload())}catch(e){}}toast(status==='correccion'?'Guardado. Volvé a Inicio para reenviar a revisión.':'Guardado.');dirtyKey=null;render();return}
+  if(api.live){const ok=await liveSaveDraft();if(!ok){if(mview==='cafe')doneCafe=false;if(mview==='disp')doneDisp=false;return}if(status==='correccion'){corrTouched=true;try{window.__corrCur=Object.assign({},window.__corrCur||{},liveBuildPayload())}catch(e){}}if(mview==='disp'&&status!=='aprobado')extra.pub=extra.items.map(x=>x.text);const goSend=readyNow()&&(status==='borrador'||status==='correccion');toast(goSend?'Guardado. ¡Ya está todo listo para enviar!':(status==='correccion'?'Guardado. Volvé a Inicio para reenviar a revisión.':'Guardado.'));dirtyKey=null;render();if(goSend)setTimeout(()=>{const b=document.querySelector('[data-quicksend]');b&&b.click()},350);return}
   toast(mview==='cafe'&&status==='aprobado'?'Cambios enviados a revisión (simulado)':'Guardado (simulado)');
   dirtyKey=null;render()});
  document.querySelectorAll('[data-av-up]').forEach(b=>b.onclick=()=>{const f=document.getElementById('avfile');f&&f.click()});
