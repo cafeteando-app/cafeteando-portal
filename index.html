@@ -897,6 +897,14 @@ html:has(.auth2),body:has(.auth2){background:#2A1A12}
 /* preview: Instagram del local */
 .av-ig{margin-top:8px;border:1.5px solid #A96649;color:#A96649;text-align:center;border-radius:99px;padding:8px;font-weight:600;font-size:12.5px;word-break:break-all}
 
+/* Enviar a revisión: destacado cuando ya está todo completo */
+.savebar.ready:not(.dirty){display:flex!important;border-color:var(--terracota);animation:sbIn .28s ease-out both}
+.savebar.ready .sb-msg{color:var(--ink)}
+.savebar.dirty .sendpulse{animation:none;box-shadow:none}
+@keyframes sendPulse{0%{box-shadow:0 0 0 0 rgba(169,102,73,.55)}70%{box-shadow:0 0 0 14px rgba(169,102,73,0)}100%{box-shadow:0 0 0 0 rgba(169,102,73,0)}}
+.sendpulse,.hero-cta [data-quicksend],.banner [data-quicksend]{animation:sendPulse 1.8s ease-out infinite}
+@media(prefers-reduced-motion:reduce){.sendpulse,.hero-cta [data-quicksend],.banner [data-quicksend]{animation:none}}
+
 </style>
 </head>
 <body>
@@ -1794,7 +1802,7 @@ function previewApp(){pvMode='detail';
 function updatePreview(){const e=document.getElementById('appPrev');if(e)e.innerHTML=previewApp()}
 let dirtyKey=null,dirtySnap=null;
 const dkey=()=>mview+':'+cur;
-function saveBar(label){const d=dirtyKey===dkey();const need=api.live&&mview==='disp'&&!doneDisp&&(status==='borrador'||status==='correccion');return `<div class="savebar ${d||need?'dirty':''}" role="region" aria-label="Guardado de cambios"><span class="sb-msg" aria-live="polite">${d?'Tenés cambios sin guardar':(need?'¿Revisás tus horarios y cupo y los confirmás? Así completamos este paso':'Todo guardado')}</span><span class="sb-act"><button class="btn sec" data-discard ${d?'':'hidden'}>Descartar</button><button class="btn" data-save>${need&&!d?'Confirmar y guardar':label}</button></span></div>`}
+function saveBar(label){const d=dirtyKey===dkey();const need=api.live&&mview==='disp'&&!doneDisp&&(status==='borrador'||status==='correccion');const rdy=api.live&&!need&&readyNow()&&(mview==='cafe'||mview==='disp');const sendBtn=rdy?`<button class="btn sendpulse" data-quicksend>${status==='correccion'?'Reenviar a revisión':'Enviar a revisión'}</button>`:'';return `<div class="savebar ${d||need?'dirty':''} ${rdy?'ready':''}" role="region" aria-label="Guardado de cambios"><span class="sb-msg" aria-live="polite">${d?'Tenés cambios sin guardar':(need?'¿Revisás tus horarios y cupo y los confirmás? Así completamos este paso':(rdy?(status==='correccion'?'¡Listo! Hiciste los ajustes: reenviá tu adhesión.':'¡Completaste todo! Solo falta enviar tu adhesión a revisión.'):'Todo guardado'))}</span><span class="sb-act"><button class="btn sec" data-discard ${d?'':'hidden'}>Descartar</button>${rdy&&!d?`<button class="btn sec" data-save>${label}</button>`:`<button class="btn" data-save>${need&&!d?'Confirmar y guardar':label}</button>`}${sendBtn}</span></div>`}
 function markDirty(){if(dirtyKey===dkey())return;dirtyKey=dkey();dirtySnap=JSON.stringify({sched,cupo,svc:[...svc],photos,logo,extra,FD});const b=document.querySelector('.savebar');if(b){b.classList.add('dirty');b.querySelector('.sb-msg').textContent='Tenés cambios sin guardar';const d=b.querySelector('[data-discard]');d&&d.removeAttribute('hidden')}}
 function tip(t){return `<span class="tip" tabindex="0" role="note" data-tip="${t}" aria-label="${t}">?</span>`}
 function mInicio(){
