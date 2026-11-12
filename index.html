@@ -931,14 +931,19 @@ html:has(.auth2),body:has(.auth2){background:#2A1A12}
 /* 5º beneficio (sorteos): ocupa la fila completa */
 .perks .perk.perk-wide{grid-column:1/-1}
 
-/* Beneficios en la pantalla de ingreso (escritorio): 3 arriba y 2 abajo, centrados */
+/* Beneficios en la pantalla de ingreso (escritorio): 3 arriba y 2 abajo, compactos */
 @media(min-width:901px){
-.auth2 .perks:not(.inline),.auth2:has(.choice) .perks:not(.inline){grid-template-columns:repeat(6,1fr)!important;row-gap:22px!important}
+.auth2:has(.choice) .a2-in{max-width:920px!important}
+.auth2 .perks:not(.inline),.auth2:has(.choice) .perks:not(.inline){grid-template-columns:repeat(6,1fr)!important;row-gap:8px!important;max-width:920px!important}
 .auth2 .perks:not(.inline) .perks-t,.auth2 .perks:not(.inline) .perks-sub{grid-column:1/-1}
+.auth2 .perks:not(.inline) .perks-sub{margin:2px 0 10px!important}
 .auth2 .perks:not(.inline) .perk{grid-column:span 2}
-.auth2 .perks:not(.inline) .perk:nth-child(6){grid-column:2/4;border-left:0!important;padding-left:0!important}
-.auth2 .perks:not(.inline) .perk:nth-child(7),.auth2 .perks:not(.inline) .perk.perk-wide{grid-column:4/6}
+.auth2 .perks:not(.inline) .perk:nth-child(6){grid-column:1/4;border-left:0!important;padding-left:0!important}
+.auth2 .perks:not(.inline) .perk:nth-child(7),.auth2 .perks:not(.inline) .perk.perk-wide{grid-column:4/7}
 }
+/* Si la pantalla es baja: no cortar arriba y permitir desplazar el contenido sin barra visible */
+.auth2:has(.choice) .a2-in{justify-content:safe center;overflow-y:auto;scrollbar-width:none}
+.auth2:has(.choice) .a2-in::-webkit-scrollbar{display:none}
 
 </style>
 </head>
