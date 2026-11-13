@@ -995,7 +995,7 @@ const REQX={
  7:{tit:'Rita Soler',rol:'Socia',tel:'11 2222-8080',dir:'Av. Cabildo 2450',desc:'Cafetería de especialidad en Belgrano.',hor:'L a D 9:00–19:00',serv:'Origen único, blends propios',benef:'2x1 en tostadas (martes)',pub:{}}};
 REQ.forEach(r=>Object.assign(r,REQX[r.id]));
 let fq='',ff='all',netErr=false,helpOpen=false;
-const cnt=()=>(typeof api!=='undefined'&&api.live)?{h:+((window.__stats||{}).today)||0,m:+((window.__stats||{}).month)||0}:(cur===0?{h:7,m:94}:{h:0,m:0});
+const cnt=()=>(typeof api!=='undefined'&&api.live)?{h:+((window.__stats||{}).today)||0,m:+((window.__stats||{}).month)||0,t:+((window.__stats||{}).total)||0}:(cur===0?{h:7,m:94,t:312}:{h:0,m:0,t:0});
 const stockN=()=>(typeof api!=='undefined'&&api.live)?(+((window.__stats||{}).stock)||0):15;
 
 </script>
@@ -1861,7 +1861,7 @@ function mInicio(){
  ${act&&closuresList().filter(c=>c.kind!=='pause').length?(()=>{const c=closuresList().filter(c=>c.kind!=='pause')[0],t=clToday(),now=c.from<=t;return `<div class="banner pend"><div><b>${now?'Tu local figura como cerrado en la app':'Tenés un cierre especial programado'}</b><br><span class="muted">${c.from===c.to?'Día '+clFmt(c.from):'Del '+clFmt(c.from)+' al '+clFmt(c.to)}. ${now?'Los socios no pueden canjear hasta que termine.':'Ese día la app muestra el local cerrado y no permite canjes.'}</span></div><button class="btn sm sec" data-m="disp">Ver cierres</button></div>`})():''}
  ${needsUpdate()?`<div class="banner pend"><div><b>Hay una nueva versión de las condiciones del servicio (${latestC().v})</b><br><span class="muted">Leela y aceptala antes del ${latestC().deadline||'plazo indicado'}. Tu local sigue activo mientras tanto.</span></div><button class="btn sm" data-m="adh">Revisar y aceptar</button></div>`:''}
  <div class="grid g3 kpis"><div class="card"><div class="muted">Canjes hoy</div><div class="kpi">${act?cnt().h:'—'}</div>${act?`<div class="bar"><i style="width:${Math.min(100,Math.round(cnt().h/(stockN()||1)*100))}%"></i></div><div class="hint">de un cupo de ${stockN()} · <b>quedan ${Math.max(0,stockN()-cnt().h)}</b></div>`:'<div class="hint">Se activa al aprobarse</div>'}</div>
- <div class="card"><div class="muted">Canjes del mes</div><div class="kpi">${act?cnt().m:'—'}</div></div>
+ <div class="card"><div class="muted">Canjes del mes</div><div class="kpi">${act?cnt().m:'—'}</div>${act?`<div class="hint"><b>${cnt().t}</b> ${cnt().t===1?'canje':'canjes'} en total desde que te sumaste</div>`:''}</div>
  <div class="card"><div class="muted">Código de canje ${tip('Canje: cuando un socio te pide su café gratis. Te muestra este código de 5 dígitos para validarlo.')}</div><div class="kpi">${act?L().code:'—'}</div><div class="hint">${act?'Lo que validan tus clientes':'Se genera automáticamente al aprobarse'}</div></div></div>
  <div class="cols">${mapc}${act?ultimos():''}${status==='borrador'||status==='correccion'?checklist():''}</div>`}
 
@@ -2084,13 +2084,13 @@ function publicarContrato(){if(api.live){livePublishContract();return}const v=do
 function actorSelHtml(){if(!api.live||bizMail().toLowerCase()!=='contactocafeteando@gmail.com')return '';let a='';try{a=localStorage.getItem('cf_actor')||''}catch(e){}
 return `<label class="actor${a?'':' need'}"><span>Trabajando como</span><select id="actorSel" aria-label="Quién está trabajando"><option value="" ${a?'':'selected'}>Elegí quién sos…</option><option value="juli" ${a==='juli'?'selected':''}>Juli</option><option value="lu" ${a==='lu'?'selected':''}>Lu</option></select></label>`}
 function adminV(){
- const nav=`<div class="nav" role="navigation" aria-label="Menú principal">${bellBtn()}${themeBtn()}<div class="logo">Cafeteando</div><div class="sub">Administración</div>${[['resumen','Resumen'],['lista','Solicitudes'],['activos','Locales adheridos'],['contrato','Contrato'],['equipo','Equipo'],...(api.live?[['excep','Excepciones']]:[]),...(api.live?[]:[['cfg','Configuración']])].map(([k,l])=>`<a href="#" class="${aview===k||(k==='lista'&&aview==='det')?'on':''}" data-a="${k}" ${aview===k||(k==='lista'&&aview==='det')?'aria-current="page"':''}>${l}</a>`).join('')}<div class="fill"></div><div class="who">${actorSelHtml()}<span class="mail" title="${esc(api.live?bizMail():'admin@somoscafeteando.com.ar')}">${esc(api.live?bizMail():'admin@somoscafeteando.com.ar')}</span><a class="out" data-logout href="#"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>Cerrar sesión</a></div><a href="#" class="mlogout" data-logout>Salir</a></div>`;
+ const nav=`<div class="nav" role="navigation" aria-label="Menú principal">${bellBtn()}${themeBtn()}<div class="logo">Cafeteando</div><div class="sub">Administración</div>${[['resumen','Resumen'],['lista','Solicitudes'],['activos','Locales adheridos'],['contrato','Contrato'],['equipo','Equipo'],...(api.live?[['excep','Excepciones'],['bajas','Bajas']]:[]),...(api.live?[]:[['cfg','Configuración']])].map(([k,l])=>`<a href="#" class="${aview===k||(k==='lista'&&aview==='det')?'on':''}" data-a="${k}" ${aview===k||(k==='lista'&&aview==='det')?'aria-current="page"':''}>${l}</a>`).join('')}<div class="fill"></div><div class="who">${actorSelHtml()}<span class="mail" title="${esc(api.live?bizMail():'admin@somoscafeteando.com.ar')}">${esc(api.live?bizMail():'admin@somoscafeteando.com.ar')}</span><a class="out" data-logout href="#"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>Cerrar sesión</a></div><a href="#" class="mlogout" data-logout>Salir</a></div>`;
  let b='';
  if(aview==='det'){const r=REQ.find(x=>x.id===sel);b=adminDet(r)}
  else if(aview==='resumen')b=adminResumen();
  else if(aview==='contrato')b=adminContrato();
  else if(aview==='equipo')b=adminEquipo();
- else if(aview==='excep'&&api.live)b=liveExcep();else if(aview==='comercios'&&api.live)b=liveComercios();
+ else if(aview==='excep'&&api.live)b=liveExcep();else if(aview==='bajas'&&api.live)b=liveBajas();else if(aview==='comercios'&&api.live)b=liveComercios();
  else if(aview==='invit')b=liveInvit();
  else if(aview==='activos'&&api.live)b=liveInvit();
  else if(aview==='activos')b=`<div class="top"><h1>Locales adheridos</h1></div><div class="card"><table><tr><th>Local</th><th>Barrio</th><th>Cupo</th><th>En la app</th><th></th></tr>${REQ.filter(r=>r.s==='aprobado'&&!(api.live&&r.chg)).map(r=>`<tr><td><b>${r.n}</b>${brTag(r)}${r.brNum>1&&r.dir?'<div class="hint">'+esc(r.dir)+'</div>':''}</td><td>${r.b}</td><td>${r.cupo}/día</td><td>${api.live&&!((LIVE_ADMIN.cafeState||{})[r.id])?'<span class="badge b-pendiente">Todavía no visible</span>':'<span class="badge b-aprobado">Visible</span>'}</td><td><button class="btn sm sec" data-sel="${r.id}">Ver</button></td></tr>`).join('')}</table></div>`;
@@ -2463,6 +2463,7 @@ Object.assign(api, {
   adminHistory: () => api._rpc('admin_request_history', {}),
   adminActivity: () => api._rpc('admin_activity', { p_limit: 30 }),
   adminListStockEx: () => api._rpc('admin_list_stock_exceptions', {}),
+  adminListDepartures: () => api._rpc('admin_list_departures', {}),
   adminListDrafts: () => api._rpc('admin_list_drafts', {}),
   adminSendDraftReminder: (id) => api._rpc('admin_send_draft_reminder', { p_request: id }),
   adminSetStockEx: (email, min, note) => api._rpc('admin_set_stock_exception', { p_email: email, p_min: min, p_note: note }),
@@ -2923,6 +2924,21 @@ function policyLegend() {
   const SKIP = ['lat', 'lng'];
   const rev = MY_POL.filter((x) => x.mode === 'review' && !SKIP.includes(x.field)).map((x) => String(x.label || x.field).toLowerCase());
   return `<p class="hint legend-pol" role="note">${rev.length ? 'Al guardar, se publican al instante todos los cambios excepto <b>' + esc(rev.join(', ')) + '</b>, que pasan por revisión de Cafeteando (mientras tanto se muestra la versión publicada).' : 'Al guardar, todos los cambios se publican al instante.'}</p>`;
+}
+
+
+/* Bajas: registro mínimo de comercios que eliminaron su cuenta (solo local, barrio y fecha) */
+const _llaBaseBajas = liveLoadAdmin;
+liveLoadAdmin = async function () {
+  await _llaBaseBajas();
+  try { const r = await api.adminListDepartures(); LIVE_ADMIN.departures = r && r.ok && Array.isArray(r.data) ? r.data : []; } catch (e) { LIVE_ADMIN.departures = []; }
+};
+function liveBajas() {
+  const L = LIVE_ADMIN.departures || [];
+  const ST = { visible: ['Visible en la app', 'b-aprobado'], aprobado: ['Aprobado, no visible', 'b-pendiente'], borrador: ['Sin aprobar', 'b-borrador'] };
+  const fd = (d) => { try { return new Date(d).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }); } catch (e) { return '—'; } };
+  return `<div class="top"><div><h1>Bajas</h1><p class="muted">Comercios que eliminaron su cuenta desde el portal. Por privacidad solo guardamos el nombre del local, el barrio, la fecha y en qué etapa estaba: sus datos personales, fotos y cuenta se borran.</p></div></div>
+  <div class="card">${L.length ? `<table><tr><th>Local</th><th>Barrio</th><th>Fecha de baja</th><th>Etapa al darse de baja</th><th>Canjes previos</th></tr>${L.map((x) => { const st = ST[x.stage] || [x.stage || '—', 'b-pendiente']; return `<tr><td><b>${esc(x.name || '—')}</b>${x.branches > 1 ? `<div class="hint">Cuenta con ${esc(String(x.branches))} sucursales</div>` : ''}</td><td>${esc(x.neighborhood || '—')}</td><td>${fd(x.at)}</td><td><span class="badge ${st[1]}">${esc(st[0])}</span></td><td>${x.had_redemptions ? 'Sí' : 'No'}</td></tr>`; }).join('')}</table><p class="hint" style="margin-top:10px">${L.length} registro${L.length === 1 ? '' : 's'}. Si el local tenía canjes, su ficha se conserva oculta para no perder el historial, pero ya no aparece en Locales adheridos.</p>` : '<div class="empty"><b>No hay bajas registradas</b><p class="muted">Cuando un comercio elimine su cuenta, vas a ver acá el local y el barrio.</p></div>'}</div>`;
 }
 
 </script>
