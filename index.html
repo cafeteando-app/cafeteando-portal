@@ -931,13 +931,14 @@ html:has(.auth2),body:has(.auth2){background:#2A1A12}
 /* 5º beneficio (sorteos): ocupa la fila completa */
 .perks .perk.perk-wide{grid-column:1/-1}
 
-/* Beneficios en la pantalla de ingreso (escritorio): 5 tarjetas iguales, 3 arriba y 2 abajo centradas */
+/* Beneficios en la pantalla de ingreso (escritorio): 5 bloques iguales con línea separadora, 3 arriba y 2 abajo centrados */
 @media(min-width:901px){
 .auth2:has(.choice) .a2-in{max-width:920px!important}
 .auth2 .perks:not(.inline),.auth2:has(.choice) .perks:not(.inline){grid-template-columns:repeat(6,1fr)!important;grid-template-rows:auto auto 1fr 1fr!important;grid-auto-rows:auto!important;gap:12px!important;max-width:880px!important}
 .auth2 .perks:not(.inline) .perks-t,.auth2 .perks:not(.inline) .perks-sub{grid-column:1/-1}
 .auth2 .perks:not(.inline) .perks-sub{margin:0 0 6px!important}
-.auth2 .perks:not(.inline) .perk,.auth2 .perks:not(.inline) .perks-sub + .perk,.auth2 .perks:not(.inline) .perk.perk-wide{grid-column:span 2;display:grid!important;grid-template-columns:auto 1fr;column-gap:10px;row-gap:6px;align-content:start;min-height:0!important;background:rgba(255,255,255,.06)!important;border:1px solid rgba(255,255,255,.13)!important;border-radius:16px!important;padding:14px 18px 16px!important}
+.auth2 .perks:not(.inline) .perk,.auth2 .perks:not(.inline) .perks-sub + .perk,.auth2 .perks:not(.inline) .perk.perk-wide{grid-column:span 2;display:grid!important;grid-template-columns:auto 1fr;column-gap:10px;row-gap:6px;align-content:start;min-height:0!important;background:none!important;border:0!important;border-left:1px solid rgba(255,255,255,.16)!important;border-radius:0!important;padding:6px 20px!important}
+.auth2 .perks:not(.inline) .perk:nth-child(3),.auth2 .perks:not(.inline) .perk:nth-child(6){border-left:0!important}
 .auth2 .perks:not(.inline) .perk:nth-child(6){grid-column:2/4!important}
 .auth2 .perks:not(.inline) .perk:nth-child(7){grid-column:4/6!important}
 .auth2 .perks:not(.inline) .perk .perk-ic{grid-row:1;align-self:center;margin:0!important;font-size:22px!important}
