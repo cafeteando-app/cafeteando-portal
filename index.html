@@ -960,7 +960,8 @@ html:has(.auth2),body:has(.auth2){background:#2A1A12}
 .rep-btn em{position:absolute;top:10px;right:10px;font-style:normal;font-size:10.5px;font-weight:600;letter-spacing:.03em;padding:2px 8px;border-radius:99px;background:var(--bg-neutral);color:var(--fg-neutral)}
 .rep-h{margin:0 0 12px}
 .rep-ctl{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin-bottom:10px}
-.rep-chk{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer}
+.rep-chk{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer;white-space:nowrap}
+.rep-chk input{width:auto;margin:0}
 .rep-per{margin:0 0 14px}
 .rep-grid{margin-bottom:16px}
 .rep-grid>.rep-k{border-top:3px solid var(--terracota-claro);margin:0}
@@ -3350,13 +3351,14 @@ function repRed() {
   if (!c) return controls + '<div class="card"><p class="muted">Cargando el reporte…</p></div>';
   const R = c.data, C = R.cur || {}, P = R.prev || {}, S = R.snap || {};
   const perMember = C.members ? (C.redemptions / C.members) : 0;
-  const occ = C.offered ? Math.round((C.red_visible / C.offered) * 1000) / 10 : 0;
+  const occRaw = C.offered ? (C.red_visible / C.offered) * 100 : 0;
+  const occ = occRaw && occRaw < 1 ? occRaw.toLocaleString('es-AR', { maximumFractionDigits: 2 }) : (Math.round(occRaw * 10) / 10).toLocaleString('es-AR');
   return controls + `<p class="hint rep-per">Del <b>${repDate(R.from)}</b> al <b>${repDate(R.to)}</b> · comparado con el ${repDate(R.prev_from)} al ${repDate(R.prev_to)}.${R.exclude_test ? ' No incluye locales de prueba.' : ''}</p>
   <div class="grid g3 rep-grid">
     ${repCard('Canjes', repNum(C.redemptions), repDelta(C.redemptions, P.redemptions))}
     ${repCard('Socios que canjearon', repNum(C.members), repDelta(C.members, P.members))}
     ${repCard('Canjes por socio', perMember ? perMember.toLocaleString('es-AR', { maximumFractionDigits: 1 }) : '0', `Promedio del período (máximo posible: ${R.days} canjes, 1 por día)`)}
-    ${repCard('Ocupación de cupos', occ.toLocaleString('es-AR') + '%', `${repNum(C.red_visible)} canjes sobre ${repNum(C.offered)} cupos ofrecidos`)}
+    ${repCard('Ocupación de cupos', occ + '%', `${repNum(C.red_visible)} canje${C.red_visible === 1 ? '' : 's'} sobre ${repNum(C.offered)} cupos ofrecidos`)}
     ${repCard('Locales con canjes', repNum(C.cafes_with), `De ${repNum(S.visible_cafes)} visibles hoy · ${repDelta(C.cafes_with, P.cafes_with)}`)}
     ${repCard('Ingresos', repMoney(C.revenue), `${repNum(C.payments)} pago${C.payments === 1 ? '' : 's'} aprobado${C.payments === 1 ? '' : 's'} · ${repDelta(C.revenue, P.revenue, true)}`)}
   </div>
