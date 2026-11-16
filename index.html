@@ -949,6 +949,45 @@ html:has(.auth2),body:has(.auth2){background:#2A1A12}
 .auth2:has(.choice) .a2-in{justify-content:safe center;overflow-y:auto;scrollbar-width:none}
 .auth2:has(.choice) .a2-in::-webkit-scrollbar{display:none}
 
+/* ===== Reportes ===== */
+.rep-menu{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:4px 0 22px}
+.rep-btn{position:relative;text-align:left;display:flex;flex-direction:column;gap:4px;padding:14px 16px;border-radius:14px;border:1.5px solid var(--line);background:var(--crema-clara);color:var(--ink);cursor:pointer;font:inherit;transition:border-color .15s,background .15s}
+.rep-btn b{font-size:14px}
+.rep-btn span{font-size:12.5px;line-height:1.45;color:var(--muted)}
+.rep-btn:hover:not(:disabled){border-color:var(--terracota)}
+.rep-btn.on{border-color:var(--terracota);background:var(--blanco,#fff);box-shadow:inset 0 0 0 1px var(--terracota)}
+.rep-btn.soon{cursor:default;opacity:.62}
+.rep-btn em{position:absolute;top:10px;right:10px;font-style:normal;font-size:10.5px;font-weight:600;letter-spacing:.03em;padding:2px 8px;border-radius:99px;background:var(--bg-neutral);color:var(--fg-neutral)}
+.rep-h{margin:0 0 12px}
+.rep-ctl{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin-bottom:10px}
+.rep-chk{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer}
+.rep-per{margin:0 0 14px}
+.rep-grid{margin-bottom:16px}
+.rep-grid>.rep-k{border-top:3px solid var(--terracota-claro);margin:0}
+.rep-k .kpi{font-size:30px}
+.rep-d{display:block;margin-top:4px;color:var(--muted)}
+.rep-d.up{color:var(--ok)}
+.rep-d.down{color:var(--bad)}
+.rep-bars{display:flex;align-items:flex-end;gap:3px;height:190px;margin-top:14px;padding-top:18px}
+.rep-col{flex:1;min-width:0;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;position:relative}
+.rep-col i{display:block;width:100%;max-width:28px;min-height:2px;border-radius:5px 5px 0 0;background:linear-gradient(180deg,var(--terracota),var(--terracota-oscuro))}
+.rep-col .rep-v{font-size:11px;font-weight:600;color:var(--accent);margin-bottom:3px;line-height:1}
+.rep-col small{position:absolute;bottom:-20px;font-size:10.5px;color:var(--muted);white-space:nowrap}
+.rep-bars{margin-bottom:24px}
+.rep-two{margin:16px 0}
+.rep-dow{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.rep-dr{display:grid;grid-template-columns:84px 1fr 30px;align-items:center;gap:10px;font-size:13px}
+.rep-dr b{text-align:right}
+.rep-dt{height:10px;border-radius:99px;background:var(--bg-neutral);overflow:hidden}
+.rep-dt i{display:block;height:100%;border-radius:99px;background:var(--terracota)}
+.rep-snap{list-style:none;margin:10px 0 0;padding:0}
+.rep-snap li{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+.rep-snap li:last-child{border-bottom:0}
+.rep-snap b{font-family:'Red Hat Display',sans-serif;font-size:16px;color:var(--accent)}
+.rep-note{margin-top:4px}
+@media(max-width:900px){.rep-menu{grid-template-columns:1fr 1fr}.rep-grid{grid-template-columns:1fr 1fr!important}}
+@media(max-width:560px){.rep-menu,.rep-grid,.rep-two{grid-template-columns:1fr!important}}
+
 </style>
 </head>
 <body>
@@ -2088,13 +2127,13 @@ function publicarContrato(){if(api.live){livePublishContract();return}const v=do
 function actorSelHtml(){if(!api.live||bizMail().toLowerCase()!=='contactocafeteando@gmail.com')return '';let a='';try{a=localStorage.getItem('cf_actor')||''}catch(e){}
 return `<label class="actor${a?'':' need'}"><span>Trabajando como</span><select id="actorSel" aria-label="Quién está trabajando"><option value="" ${a?'':'selected'}>Elegí quién sos…</option><option value="juli" ${a==='juli'?'selected':''}>Juli</option><option value="lu" ${a==='lu'?'selected':''}>Lu</option></select></label>`}
 function adminV(){
- const nav=`<div class="nav" role="navigation" aria-label="Menú principal">${bellBtn()}${themeBtn()}<div class="logo">Cafeteando</div><div class="sub">Administración</div>${[['resumen','Resumen'],['lista','Solicitudes'],['activos','Locales adheridos'],['contrato','Contrato'],['equipo','Equipo'],...(api.live?[['excep','Excepciones'],['bajas','Bajas']]:[]),...(api.live?[]:[['cfg','Configuración']])].map(([k,l])=>`<a href="#" class="${aview===k||(k==='lista'&&aview==='det')?'on':''}" data-a="${k}" ${aview===k||(k==='lista'&&aview==='det')?'aria-current="page"':''}>${l}</a>`).join('')}<div class="fill"></div><div class="who">${actorSelHtml()}<span class="mail" title="${esc(api.live?bizMail():'admin@somoscafeteando.com.ar')}">${esc(api.live?bizMail():'admin@somoscafeteando.com.ar')}</span><a class="out" data-logout href="#"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>Cerrar sesión</a></div><a href="#" class="mlogout" data-logout>Salir</a></div>`;
+ const nav=`<div class="nav" role="navigation" aria-label="Menú principal">${bellBtn()}${themeBtn()}<div class="logo">Cafeteando</div><div class="sub">Administración</div>${[['resumen','Resumen'],['lista','Solicitudes'],['activos','Locales adheridos'],['contrato','Contrato'],['equipo','Equipo'],...(api.live?[['reportes','Reportes'],['excep','Excepciones'],['bajas','Bajas']]:[]),...(api.live?[]:[['cfg','Configuración']])].map(([k,l])=>`<a href="#" class="${aview===k||(k==='lista'&&aview==='det')?'on':''}" data-a="${k}" ${aview===k||(k==='lista'&&aview==='det')?'aria-current="page"':''}>${l}</a>`).join('')}<div class="fill"></div><div class="who">${actorSelHtml()}<span class="mail" title="${esc(api.live?bizMail():'admin@somoscafeteando.com.ar')}">${esc(api.live?bizMail():'admin@somoscafeteando.com.ar')}</span><a class="out" data-logout href="#"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>Cerrar sesión</a></div><a href="#" class="mlogout" data-logout>Salir</a></div>`;
  let b='';
  if(aview==='det'){const r=REQ.find(x=>x.id===sel);b=adminDet(r)}
  else if(aview==='resumen')b=adminResumen();
  else if(aview==='contrato')b=adminContrato();
  else if(aview==='equipo')b=adminEquipo();
- else if(aview==='excep'&&api.live)b=liveExcep();else if(aview==='bajas'&&api.live)b=liveBajas();else if(aview==='comercios'&&api.live)b=liveComercios();
+ else if(aview==='excep'&&api.live)b=liveExcep();else if(aview==='bajas'&&api.live)b=liveBajas();else if(aview==='reportes'&&api.live)b=liveReportes();else if(aview==='comercios'&&api.live)b=liveComercios();
  else if(aview==='invit')b=liveInvit();
  else if(aview==='activos'&&api.live)b=liveInvit();
  else if(aview==='activos')b=`<div class="top"><h1>Locales adheridos</h1></div><div class="card"><table><tr><th>Local</th><th>Barrio</th><th>Cupo</th><th>En la app</th><th></th></tr>${REQ.filter(r=>r.s==='aprobado'&&!(api.live&&r.chg)).map(r=>`<tr><td><b>${r.n}</b>${brTag(r)}${r.brNum>1&&r.dir?'<div class="hint">'+esc(r.dir)+'</div>':''}</td><td>${r.b}</td><td>${r.cupo}/día</td><td>${api.live&&!((LIVE_ADMIN.cafeState||{})[r.id])?'<span class="badge b-pendiente">Todavía no visible</span>':'<span class="badge b-aprobado">Visible</span>'}</td><td><button class="btn sm sec" data-sel="${r.id}">Ver</button></td></tr>`).join('')}</table></div>`;
@@ -3242,6 +3281,115 @@ document.addEventListener('input',e=>{const el=e.target;if(!el||!el.matches||!el
   setInterval(checkVersion, 180000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) checkVersion(); });
 })();
+
+</script>
+<script>
+/* ===== Reportes (panel de administradores) =====
+   Pestaña "Reportes" con un menú de exploraciones. La primera: "Resumen de la red".
+   Datos: RPC admin_report_network(p_days, p_exclude_test). Fechas en hora de Argentina. */
+let repView = 'red', repDays = 30, repExTest = true;
+const REP = { cache: {}, loading: {}, error: {} };
+const REP_MENU = [
+  ['red', 'Resumen de la red', 'Canjes, socios, ocupación de cupos e ingresos del período.', true],
+  ['ranking', 'Ranking de locales', 'Qué locales tienen más canjes, cuáles se quedan sin cupo y cuáles necesitan difusión.', false],
+  ['ficha', 'Ficha por local', 'Canjes por día, horarios fuertes y socios que vuelven, local por local.', false],
+  ['socios', 'Socios', 'Cuánto usan la membresía, cuántos locales recorren y quiénes están en riesgo de baja.', false],
+  ['barrios', 'Barrios', 'Oferta contra demanda: dónde hay socios y dónde faltan cafeterías.', false],
+  ['alertas', 'Alertas', 'Locales sin canjes, cupos agotados y socios inactivos.', false],
+];
+
+api.adminReportNetwork = (days, exTest) => api._rpc('admin_report_network', { p_days: days, p_exclude_test: exTest });
+
+function repKey() { return repDays + '|' + (repExTest ? 1 : 0); }
+function repLoad(force) {
+  const k = repKey();
+  if (REP.loading[k] || (!force && REP.cache[k])) return;
+  REP.loading[k] = true; REP.error[k] = null;
+  api.adminReportNetwork(repDays, repExTest).then((r) => {
+    REP.loading[k] = false;
+    if (r && r.ok) REP.cache[k] = { data: r.data, at: Date.now() }; else REP.error[k] = (r && r.error) || 'No se pudo cargar el reporte.';
+    if (view === 'admin' && aview === 'reportes') render();
+  }).catch(() => { REP.loading[k] = false; REP.error[k] = 'No se pudo cargar el reporte.'; if (view === 'admin' && aview === 'reportes') render(); });
+}
+
+const repNum = (n) => Number(n || 0).toLocaleString('es-AR');
+const repMoney = (n) => '$' + Number(n || 0).toLocaleString('es-AR', { maximumFractionDigits: 0 });
+const repDate = (s) => { const [y, m, d] = String(s).split('-'); return d + '/' + m; };
+function repDelta(cur, prev, money) {
+  cur = Number(cur || 0); prev = Number(prev || 0);
+  if (!prev && !cur) return '<span class="rep-d">Sin movimiento en ambos períodos</span>';
+  if (!prev) return '<span class="rep-d up">Nuevo: el período anterior fue 0</span>';
+  const p = Math.round(((cur - prev) / prev) * 100);
+  const cls = p > 0 ? 'up' : p < 0 ? 'down' : '';
+  const ar = p > 0 ? '▲' : p < 0 ? '▼' : '=';
+  return `<span class="rep-d ${cls}">${ar} ${Math.abs(p)}% vs. período anterior (${money ? repMoney(prev) : repNum(prev)})</span>`;
+}
+function repCard(label, value, sub) {
+  return `<div class="card rep-k"><div class="muted">${label}</div><div class="kpi">${value}</div><div class="hint">${sub || '&nbsp;'}</div></div>`;
+}
+
+function repBars(series) {
+  const S = series || [], max = Math.max(1, ...S.map((x) => x.n));
+  const step = S.length > 45 ? 14 : S.length > 14 ? 5 : 1;
+  const total = S.reduce((a, x) => a + x.n, 0);
+  if (!total) return '<div class="empty" style="padding:26px 10px"><b>Sin canjes en este período</b><p class="muted">Cuando los socios empiecen a canjear, acá vas a ver la evolución día a día.</p></div>';
+  return `<div class="rep-bars" role="img" aria-label="Canjes por día">${S.map((x, i) => `<div class="rep-col" title="${repDate(x.d)}: ${x.n} canje${x.n === 1 ? '' : 's'}"><span class="rep-v">${x.n || ''}</span><i style="height:${Math.round((x.n / max) * 100)}%"></i><small>${i % step === 0 || i === S.length - 1 ? repDate(x.d) : ''}</small></div>`).join('')}</div>`;
+}
+function repDow(dow) {
+  const L = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'], D = dow || [0, 0, 0, 0, 0, 0, 0], max = Math.max(1, ...D);
+  return `<div class="rep-dow">${L.map((l, i) => `<div class="rep-dr"><span>${l}</span><div class="rep-dt"><i style="width:${Math.round((D[i] / max) * 100)}%"></i></div><b>${D[i]}</b></div>`).join('')}</div>`;
+}
+
+function repRed() {
+  const k = repKey(), c = REP.cache[k];
+  repLoad(false);
+  const controls = `<div class="rep-ctl"><div class="chips" role="group" aria-label="Período">${[[7, 'Últimos 7 días'], [30, 'Últimos 30 días'], [90, 'Últimos 90 días']].map(([d, l]) => `<button class="chip ${repDays === d ? 'on' : ''}" data-repdays="${d}" aria-pressed="${repDays === d}">${l}</button>`).join('')}</div>
+    <label class="rep-chk"><input type="checkbox" data-repex ${repExTest ? 'checked' : ''}> Excluir locales de prueba</label>
+    <button class="btn sm sec" data-repreload>Actualizar</button></div>`;
+  if (REP.error[k] && !c) return controls + `<div class="card"><p class="muted">${esc(REP.error[k])}</p></div>`;
+  if (!c) return controls + '<div class="card"><p class="muted">Cargando el reporte…</p></div>';
+  const R = c.data, C = R.cur || {}, P = R.prev || {}, S = R.snap || {};
+  const perMember = C.members ? (C.redemptions / C.members) : 0;
+  const occ = C.offered ? Math.round((C.red_visible / C.offered) * 1000) / 10 : 0;
+  return controls + `<p class="hint rep-per">Del <b>${repDate(R.from)}</b> al <b>${repDate(R.to)}</b> · comparado con el ${repDate(R.prev_from)} al ${repDate(R.prev_to)}.${R.exclude_test ? ' No incluye locales de prueba.' : ''}</p>
+  <div class="grid g3 rep-grid">
+    ${repCard('Canjes', repNum(C.redemptions), repDelta(C.redemptions, P.redemptions))}
+    ${repCard('Socios que canjearon', repNum(C.members), repDelta(C.members, P.members))}
+    ${repCard('Canjes por socio', perMember ? perMember.toLocaleString('es-AR', { maximumFractionDigits: 1 }) : '0', `Promedio del período (máximo posible: ${R.days} canjes, 1 por día)`)}
+    ${repCard('Ocupación de cupos', occ.toLocaleString('es-AR') + '%', `${repNum(C.red_visible)} canjes sobre ${repNum(C.offered)} cupos ofrecidos`)}
+    ${repCard('Locales con canjes', repNum(C.cafes_with), `De ${repNum(S.visible_cafes)} visibles hoy · ${repDelta(C.cafes_with, P.cafes_with)}`)}
+    ${repCard('Ingresos', repMoney(C.revenue), `${repNum(C.payments)} pago${C.payments === 1 ? '' : 's'} aprobado${C.payments === 1 ? '' : 's'} · ${repDelta(C.revenue, P.revenue, true)}`)}
+  </div>
+  <div class="card"><h2>Canjes por día</h2>${repBars(R.series)}</div>
+  <div class="grid g2 rep-two">
+    <div class="card" style="margin:0"><h2>Canjes por día de la semana</h2>${repDow(R.dow)}</div>
+    <div class="card" style="margin:0"><h2>Hoy en la red</h2><ul class="rep-snap">
+      <li><span>Locales visibles en la app</span><b>${repNum(S.visible_cafes)}</b></li>
+      <li><span>Cupos de café por día</span><b>${repNum(S.daily_slots)}</b></li>
+      <li><span>Socios con membresía activa</span><b>${repNum(S.active_members)}</b></li>
+      <li><span>Socios vitalicios</span><b>${repNum(S.lifetime_members)}</b></li>
+      <li><span>Usuarios registrados en la app</span><b>${repNum(S.registered_users)}</b></li>
+    </ul></div>
+  </div>
+  <p class="hint rep-note"><b>Cómo se calcula:</b> los días se cuentan en hora de Argentina. La ocupación compara los canjes en locales visibles con los cupos que ofrecieron los días que abren según su horario (no descuenta cierres especiales). Los ingresos suman los pagos aprobados del período. Actualizado ${fmtDT(c.at)}.</p>`;
+}
+
+function liveReportes() {
+  const cur = REP_MENU.find((m) => m[0] === repView) || REP_MENU[0];
+  const menu = `<div class="rep-menu" role="tablist" aria-label="Reportes">${REP_MENU.map(([k, t, d, ok]) => `<button class="rep-btn ${repView === k ? 'on' : ''} ${ok ? '' : 'soon'}" ${ok ? `data-repv="${k}"` : 'disabled aria-disabled="true"'} role="tab" aria-selected="${repView === k}"><b>${t}</b><span>${d}</span>${ok ? '' : '<em>Próximamente</em>'}</button>`).join('')}</div>`;
+  const body = repView === 'red' ? repRed() : '';
+  return `<div class="top"><div><h1>Reportes</h1><p class="muted">Elegí qué querés explorar.</p></div></div>${menu}<h2 class="rep-h">${cur[1]}</h2>${body}`;
+}
+
+/* eventos de la pestaña Reportes (se enganchan después de cada render) */
+document.addEventListener('click', (e) => {
+  const v = e.target.closest('[data-repv]'); if (v) { repView = v.dataset.repv; render(); return; }
+  const d = e.target.closest('[data-repdays]'); if (d) { repDays = +d.dataset.repdays; render(); return; }
+  const rl = e.target.closest('[data-repreload]'); if (rl) { repLoad(true); render(); return; }
+});
+document.addEventListener('change', (e) => {
+  if (e.target && e.target.matches && e.target.matches('[data-repex]')) { repExTest = e.target.checked; render(); }
+});
 
 </script>
 </body>
