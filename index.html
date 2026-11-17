@@ -986,6 +986,20 @@ html:has(.auth2),body:has(.auth2){background:#2A1A12}
 .rep-snap li:last-child{border-bottom:0}
 .rep-snap b{font-family:'Red Hat Display',sans-serif;font-size:16px;color:var(--accent)}
 .rep-note{margin-top:4px}
+.rep-lbl{font-size:13px;color:var(--muted)}
+.rep-dr-w{grid-template-columns:96px 1fr 30px}
+.rep-tw{overflow-x:auto;margin-top:10px}
+.rep-tw td .hint{margin-top:2px}
+.rep-count{display:inline-block;min-width:24px;padding:1px 9px;margin-left:6px;border-radius:99px;font-size:12.5px;font-weight:600;text-align:center;vertical-align:middle;background:var(--bg-neutral);color:var(--fg-neutral)}
+.rep-count.on{background:var(--terracota);color:#fff}
+.rep-okmsg{padding:18px 10px 6px}
+.rep-warn{color:var(--bad)!important;font-weight:600}
+.rep-iss{margin:2px 4px 2px 0;font-weight:500}
+.rep-pill{text-align:left;font:inherit;color:inherit;cursor:pointer;width:100%;transition:border-color .15s,transform .15s}
+.rep-pill:hover{transform:translateY(-1px)}
+.rep-pill.on{border-top-color:var(--terracota)!important}
+.rep-pill:not(.on) .kpi{color:var(--muted)}
+.rep-al{scroll-margin-top:20px}
 @media(max-width:900px){.rep-menu{grid-template-columns:1fr 1fr}.rep-grid{grid-template-columns:1fr 1fr!important}}
 @media(max-width:560px){.rep-menu,.rep-grid,.rep-two{grid-template-columns:1fr!important}}
 
@@ -3294,19 +3308,24 @@ const REP_MENU = [
   ['red', 'Resumen de la red', 'Canjes, socios, ocupación de cupos e ingresos del período.', true],
   ['ranking', 'Ranking de locales', 'Qué locales tienen más canjes, cuáles se quedan sin cupo y cuáles necesitan difusión.', false],
   ['ficha', 'Ficha por local', 'Canjes por día, horarios fuertes y socios que vuelven, local por local.', false],
-  ['socios', 'Socios', 'Cuánto usan la membresía, cuántos locales recorren y quiénes están en riesgo de baja.', false],
+  ['socios', 'Socios', 'Cuánto usan la membresía, cuántos locales recorren y quiénes están en riesgo de baja.', true],
   ['barrios', 'Barrios', 'Oferta contra demanda: dónde hay socios y dónde faltan cafeterías.', false],
-  ['alertas', 'Alertas', 'Locales sin canjes, cupos agotados y socios inactivos.', false],
+  ['alertas', 'Alertas', 'Locales sin canjes, cupos agotados y socios inactivos.', true],
 ];
 
 api.adminReportNetwork = (days, exTest) => api._rpc('admin_report_network', { p_days: days, p_exclude_test: exTest });
+api.adminReportMembers = (days, exTest) => api._rpc('admin_report_members', { p_days: days, p_exclude_test: exTest });
+api.adminReportAlerts = (days, exTest) => api._rpc('admin_report_alerts', { p_days: days, p_exclude_test: exTest });
+let alDays = 14;
+const REP_RPC = { red: 'adminReportNetwork', socios: 'adminReportMembers', alertas: 'adminReportAlerts' };
+const repCurDays = () => (repView === 'alertas' ? alDays : repDays);
 
-function repKey() { return repDays + '|' + (repExTest ? 1 : 0); }
+function repKey() { return repView + '|' + repCurDays() + '|' + (repExTest ? 1 : 0); }
 function repLoad(force) {
   const k = repKey();
   if (REP.loading[k] || (!force && REP.cache[k])) return;
   REP.loading[k] = true; REP.error[k] = null;
-  api.adminReportNetwork(repDays, repExTest).then((r) => {
+  api[REP_RPC[repView] || 'adminReportNetwork'](repCurDays(), repExTest).then((r) => {
     REP.loading[k] = false;
     if (r && r.ok) REP.cache[k] = { data: r.data, at: Date.now() }; else REP.error[k] = (r && r.error) || 'No se pudo cargar el reporte.';
     if (view === 'admin' && aview === 'reportes') render();
@@ -3344,9 +3363,7 @@ function repDow(dow) {
 function repRed() {
   const k = repKey(), c = REP.cache[k];
   repLoad(false);
-  const controls = `<div class="rep-ctl"><div class="chips" role="group" aria-label="Período">${[[7, 'Últimos 7 días'], [30, 'Últimos 30 días'], [90, 'Últimos 90 días']].map(([d, l]) => `<button class="chip ${repDays === d ? 'on' : ''}" data-repdays="${d}" aria-pressed="${repDays === d}">${l}</button>`).join('')}</div>
-    <label class="rep-chk"><input type="checkbox" data-repex ${repExTest ? 'checked' : ''}> Excluir locales de prueba</label>
-    <button class="btn sm sec" data-repreload>Actualizar</button></div>`;
+  const controls = repControls();
   if (REP.error[k] && !c) return controls + `<div class="card"><p class="muted">${esc(REP.error[k])}</p></div>`;
   if (!c) return controls + '<div class="card"><p class="muted">Cargando el reporte…</p></div>';
   const R = c.data, C = R.cur || {}, P = R.prev || {}, S = R.snap || {};
@@ -3376,10 +3393,90 @@ function repRed() {
   <p class="hint rep-note"><b>Cómo se calcula:</b> los días se cuentan en hora de Argentina. La ocupación compara los canjes en locales visibles con los cupos que ofrecieron los días que abren según su horario (no descuenta cierres especiales). Los ingresos suman los pagos aprobados del período. Actualizado ${fmtDT(c.at)}.</p>`;
 }
 
+function repControls() {
+  const al = repView === 'alertas';
+  const opts = al ? [[7, '7 días'], [14, '14 días'], [30, '30 días']] : [[7, 'Últimos 7 días'], [30, 'Últimos 30 días'], [90, 'Últimos 90 días']];
+  const cur = repCurDays(), attr = al ? 'data-aldays' : 'data-repdays';
+  return `<div class="rep-ctl">${al ? '<span class="rep-lbl">Sin actividad en los últimos</span>' : ''}<div class="chips" role="group" aria-label="Período">${opts.map(([d, l]) => `<button class="chip ${cur === d ? 'on' : ''}" ${attr}="${d}" aria-pressed="${cur === d}">${l}</button>`).join('')}</div>
+    <label class="rep-chk"><input type="checkbox" data-repex ${repExTest ? 'checked' : ''}> Excluir locales de prueba</label>
+    <button class="btn sm sec" data-repreload>Actualizar</button></div>`;
+}
+/* estado común: devuelve [controles, datos, cache] o el HTML de carga/error */
+function repState() {
+  const k = repKey(), c = REP.cache[k];
+  repLoad(false);
+  const controls = repControls();
+  if (REP.error[k] && !c) return { html: controls + `<div class="card"><p class="muted">${esc(REP.error[k])}</p></div>` };
+  if (!c) return { html: controls + '<div class="card"><p class="muted">Cargando el reporte…</p></div>' };
+  return { controls, R: c.data, at: c.at };
+}
+const repFD = (s) => { if (!s) return '—'; const t = String(s).slice(0, 10).split('-'); return t[2] + '/' + t[1] + '/' + t[0]; };
+const repAgo = (n) => (n == null ? '' : n === 0 ? 'hoy' : n === 1 ? 'ayer' : `hace ${n} días`);
+const repDaysSince = (s) => { if (!s) return null; const d = new Date(String(s).slice(0, 10) + 'T12:00:00'); const t = new Date(); t.setHours(12, 0, 0, 0); return Math.max(0, Math.round((t - d) / 864e5)); };
+const REP_KIND = { activo: ['Renueva', 'b-aprobado'], cancelado: ['Canceló', 'b-pendiente'], vitalicio: ['Vitalicio', 'b-borrador'] };
+const repKind = (k) => { const x = REP_KIND[k] || [k || '—', 'b-pendiente']; return `<span class="badge ${x[1]}">${esc(x[0])}</span>`; };
+const repWho = (x) => `<b>${esc(x.name || 'Sin nombre')}</b>${x.email ? `<div class="hint">${esc(x.email)}</div>` : ''}`;
+const repPct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
+function repHBars(labels, vals, unit) {
+  const max = Math.max(1, ...vals);
+  return `<div class="rep-dow">${labels.map((l, i) => `<div class="rep-dr rep-dr-w"><span>${l}</span><div class="rep-dt"><i style="width:${Math.round((vals[i] / max) * 100)}%"></i></div><b title="${vals[i]} ${unit}">${vals[i]}</b></div>`).join('')}</div>`;
+}
+const repTable = (head, rows) => `<div class="rep-tw"><table><tr>${head.map((h) => `<th>${h}</th>`).join('')}</tr>${rows.join('')}</table></div>`;
+const repOk = (t, p) => `<div class="empty rep-okmsg"><b>${t}</b><p class="muted">${p}</p></div>`;
+
+function repSocios() {
+  const st = repState(); if (st.html) return st.html;
+  const R = st.R, K = R.k || {};
+  const perActive = K.with_access ? K.redemptions / K.with_access : 0;
+  const top = R.top || [], risk = R.risk || [];
+  const accessSub = [K.renewing ? `${repNum(K.renewing)} renueva${K.renewing === 1 ? '' : 'n'}` : '', K.cancelled_access ? `${repNum(K.cancelled_access)} cancel${K.cancelled_access === 1 ? 'ó' : 'aron'} (usa${K.cancelled_access === 1 ? '' : 'n'} hasta fin de ciclo)` : '', K.lifetime ? `${repNum(K.lifetime)} vitalicio${K.lifetime === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ');
+  return st.controls + `<p class="hint rep-per">Del <b>${repDate(R.from)}</b> al <b>${repDate(R.to)}</b>.${R.exclude_test ? ' No incluye canjes en locales de prueba.' : ''}</p>
+  <div class="grid g3 rep-grid">
+    ${repCard('Socios con acceso', repNum(K.with_access), accessSub || 'Nadie con membresía vigente')}
+    ${repCard('Usaron la membresía', repPct(K.used, K.with_access) + '%', `${repNum(K.used)} de ${repNum(K.with_access)} socios canjearon al menos un café`)}
+    ${repCard('Canjes por socio', perActive.toLocaleString('es-AR', { maximumFractionDigits: 1 }), `Promedio entre todos los socios con acceso (${repNum(K.redemptions)} canje${K.redemptions === 1 ? '' : 's'})`)}
+    ${repCard('Locales por socio', Number(K.avg_cafes || 0).toLocaleString('es-AR', { maximumFractionDigits: 1 }), 'Locales distintos que visitó, en promedio, cada socio que canjeó')}
+    ${repCard('Usuarios registrados', repNum(K.registered), `${repNum(K.new_registered)} se registr${K.new_registered === 1 ? 'ó' : 'aron'} en el período`)}
+    ${repCard('Conversión a socio', repPct(K.with_access, K.registered) + '%', 'Usuarios registrados que tienen la membresía vigente')}
+  </div>
+  <div class="grid g2 rep-two">
+    <div class="card" style="margin:0"><h2>Cuánto la usan</h2><p class="hint">Socios con acceso según cantidad de canjes en el período.</p>${repHBars(['Sin canjes', '1 canje', '2 a 4', '5 a 9', '10 o más'], R.usage || [0, 0, 0, 0, 0], 'socios')}</div>
+    <div class="card" style="margin:0"><h2>Cuántos locales recorren</h2><p class="hint">Socios que canjearon, según cuántos locales distintos visitaron.</p>${repHBars(['1 local', '2 locales', '3 o 4', '5 o más'], R.cafes || [0, 0, 0, 0], 'socios')}</div>
+  </div>
+  <div class="card"><h2>Los que más la usan</h2>${top.length ? repTable(['Socio', 'Tipo', 'Canjes', 'Locales distintos'], top.map((x) => `<tr><td>${repWho(x)}</td><td>${repKind(x.kind)}</td><td><b>${repNum(x.reds)}</b></td><td>${repNum(x.cafes)}</td></tr>`)) : repOk('Todavía no hay canjes en este período', 'Cuando los socios empiecen a canjear, acá vas a ver quiénes más la usan.')}</div>
+  <div class="card"><h2>En riesgo de baja <span class="rep-count">${risk.length}</span></h2><p class="hint">Socios con membresía paga que en su ciclo actual canjearon 1 café o ninguno, o que no canjean hace 14 días o más. Ordenados por fecha de renovación: los primeros son los más urgentes para contactar.</p>
+    ${risk.length ? repTable(['Socio', 'Estado', 'Renueva / vence', 'Canjes en el ciclo', 'Último canje'], risk.map((x) => { const soon = x.ren && new Date(x.ren) - Date.now() < 7 * 864e5; return `<tr><td>${repWho(x)}</td><td>${repKind(x.kind)}</td><td>${repFD(x.ren)}${soon ? '<div class="hint rep-warn">En menos de 7 días</div>' : ''}</td><td><b>${repNum(x.c_reds)}</b></td><td>${x.last_d ? `${repFD(x.last_d)}<div class="hint">${repAgo(x.since)}</div>` : '<span class="muted">Nunca canjeó</span>'}</td></tr>`; })) : repOk('Ningún socio en riesgo', 'Todos los socios pagos vienen usando la membresía.')}</div>
+  <p class="hint rep-note"><b>Cómo se calcula:</b> "socios con acceso" incluye a quienes renuevan, a quienes cancelaron pero siguen usando hasta que termine su ciclo y a los vitalicios. El ciclo actual se toma como el mes previo a la fecha de renovación. Actualizado ${fmtDT(st.at)}.</p>`;
+}
+
+function repAlertas() {
+  const st = repState(); if (st.html) return st.html;
+  const R = st.R, NR = R.no_red || [], SO = R.sold_out || [], IN = R.inactive || [], IC = R.incomplete || [];
+  const n = R.days;
+  const sec = (id, t, cnt, desc, body) => `<div class="card rep-al" id="rep-al-${id}"><h2>${t} <span class="rep-count ${cnt ? 'on' : ''}">${cnt}</span></h2><p class="hint">${desc}</p>${body}</div>`;
+  const pill = (id, t, cnt, of) => `<button type="button" class="card rep-k rep-pill ${cnt ? 'on' : ''}" data-repjump="rep-al-${id}"><div class="muted">${t}</div><div class="kpi">${cnt}</div><div class="hint">${of}</div></button>`;
+  return st.controls + `<p class="hint rep-per">Revisa del <b>${repDate(R.from)}</b> al <b>${repDate(R.to)}</b> (${n} días).${R.exclude_test ? ' No incluye locales de prueba.' : ''}</p>
+  <div class="grid g4 rep-grid rep-pills">
+    ${pill('sin', 'Locales sin canjes', NR.length, `de ${repNum(R.visible)} visibles en la app`)}
+    ${pill('cupo', 'Locales con cupo agotado', SO.length, 'al menos un día del período')}
+    ${pill('inact', 'Socios inactivos', IN.length, `de ${repNum(R.members)} con membresía vigente`)}
+    ${pill('datos', 'Fichas incompletas', IC.length, 'locales visibles con datos faltantes')}
+  </div>
+  ${sec('sin', 'Locales sin canjes', NR.length, `Locales visibles en la app que no tuvieron ningún canje en los últimos ${n} días. Conviene darles difusión o revisar que su ficha esté completa.`,
+    NR.length ? repTable(['Local', 'Barrio', 'Último canje', 'En la red desde', 'Cupo diario'], NR.map((x) => { const s = repDaysSince(x.last_d); const nuevo = repDaysSince(x.added) != null && repDaysSince(x.added) < n; return `<tr><td><b>${esc(x.name)}</b>${nuevo ? '<div class="hint">Se sumó hace poco</div>' : ''}</td><td>${esc(x.neighborhood || '—')}</td><td>${x.last_d ? `${repFD(x.last_d)}<div class="hint">${repAgo(s)}</div>` : '<span class="muted">Nunca tuvo canjes</span>'}</td><td>${repFD(x.added)}</td><td>${repNum(x.stock)}</td></tr>`; })) : repOk('Todos los locales tuvieron canjes', 'Ningún local visible quedó sin movimiento en el período.'))}
+  ${sec('cupo', 'Locales con cupo agotado', SO.length, `Locales que llegaron a su cupo diario de cafés al menos un día en los últimos ${n} días. Si se repite, conviene proponerles subir el cupo.`,
+    SO.length ? repTable(['Local', 'Barrio', 'Cupo diario', 'Días agotados', 'Último día agotado'], SO.map((x) => `<tr><td><b>${esc(x.name)}</b></td><td>${esc(x.neighborhood || '—')}</td><td>${repNum(x.stock)}</td><td><b>${repNum(x.days_out)}</b></td><td>${repFD(x.last_d)}</td></tr>`)) : repOk('Ningún local agotó su cupo', 'Hay cupo disponible de sobra en todos los locales.'))}
+  ${sec('inact', 'Socios inactivos', IN.length, `Socios con membresía vigente que no canjearon ningún café en los últimos ${n} días. Un recordatorio puede ayudar a que vuelvan.`,
+    IN.length ? repTable(['Socio', 'Estado', 'Último canje', 'Renueva / vence'], IN.map((x) => `<tr><td>${repWho(x)}</td><td>${repKind(x.kind)}</td><td>${x.last_d ? `${repFD(x.last_d)}<div class="hint">${repAgo(repDaysSince(x.last_d))}</div>` : '<span class="muted">Nunca canjeó</span>'}</td><td>${x.kind === 'vitalicio' ? '<span class="muted">No vence</span>' : repFD(x.ren)}</td></tr>`)) : repOk('Todos los socios están activos', 'Cada socio con membresía vigente canjeó al menos un café.'))}
+  ${sec('datos', 'Fichas incompletas', IC.length, 'Locales visibles en la app a los que les falta información. Una ficha completa atrae más visitas.',
+    IC.length ? repTable(['Local', 'Barrio', 'Qué falta'], IC.map((x) => `<tr><td><b>${esc(x.name)}</b></td><td>${esc(x.neighborhood || '—')}</td><td>${(x.issues || []).map((i) => `<span class="badge b-pendiente rep-iss">${esc(i)}</span>`).join(' ')}</td></tr>`)) : repOk('Todas las fichas están completas', 'Ningún local visible tiene datos faltantes.'))}
+  <p class="hint rep-note"><b>Cómo se calcula:</b> los días se cuentan en hora de Argentina. "Cupo agotado" significa que ese día los canjes llegaron al cupo diario del local. Actualizado ${fmtDT(st.at)}.</p>`;
+}
+
 function liveReportes() {
   const cur = REP_MENU.find((m) => m[0] === repView) || REP_MENU[0];
   const menu = `<div class="rep-menu" role="tablist" aria-label="Reportes">${REP_MENU.map(([k, t, d, ok]) => `<button class="rep-btn ${repView === k ? 'on' : ''} ${ok ? '' : 'soon'}" ${ok ? `data-repv="${k}"` : 'disabled aria-disabled="true"'} role="tab" aria-selected="${repView === k}"><b>${t}</b><span>${d}</span>${ok ? '' : '<em>Próximamente</em>'}</button>`).join('')}</div>`;
-  const body = repView === 'red' ? repRed() : '';
+  const body = repView === 'red' ? repRed() : repView === 'socios' ? repSocios() : repView === 'alertas' ? repAlertas() : '';
   return `<div class="top"><div><h1>Reportes</h1><p class="muted">Elegí qué querés explorar.</p></div></div>${menu}<h2 class="rep-h">${cur[1]}</h2>${body}`;
 }
 
@@ -3387,6 +3484,8 @@ function liveReportes() {
 document.addEventListener('click', (e) => {
   const v = e.target.closest('[data-repv]'); if (v) { repView = v.dataset.repv; render(); return; }
   const d = e.target.closest('[data-repdays]'); if (d) { repDays = +d.dataset.repdays; render(); return; }
+  const ad = e.target.closest('[data-aldays]'); if (ad) { alDays = +ad.dataset.aldays; render(); return; }
+  const j = e.target.closest('[data-repjump]'); if (j) { const el = document.getElementById(j.dataset.repjump); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
   const rl = e.target.closest('[data-repreload]'); if (rl) { repLoad(true); render(); return; }
 });
 document.addEventListener('change', (e) => {
