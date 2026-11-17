@@ -1000,6 +1000,22 @@ html:has(.auth2),body:has(.auth2){background:#2A1A12}
 .rep-pill.on{border-top-color:var(--terracota)!important}
 .rep-pill:not(.on) .kpi{color:var(--muted)}
 .rep-al{scroll-margin-top:20px}
+.rep-bad{background:rgba(179,68,58,.12);color:var(--bad-text,#B3443A)}
+.rep-sort{background:none;border:0;padding:0;font:inherit;color:inherit;text-transform:inherit;letter-spacing:inherit;cursor:pointer;white-space:nowrap}
+.rep-sort.on{color:var(--terracota)}
+.rep-link{background:none;border:0;padding:0;font:inherit;font-weight:600;color:var(--ink);cursor:pointer;text-align:left}
+.rep-link:hover{color:var(--terracota);text-decoration:underline}
+.rep-rank td:first-child,.rep-rank th:first-child{width:28px}
+.rep-kname{display:block;font-size:20px;line-height:1.25;padding:5px 0 2px}
+.rep-sel{display:flex;align-items:center;gap:10px;margin:2px 0 12px;max-width:560px}
+.rep-sel span{font-size:13px;color:var(--muted)}
+.rep-sel select{flex:1;min-width:0}
+.rep-hbars{height:170px}
+.rep-h3{font-size:14px;margin:16px 0 0}
+.rep-plain{font-family:inherit!important;font-size:13.5px!important;color:var(--ink)!important;font-weight:600}
+.rep-sched b{font-family:inherit;font-size:13.5px;color:var(--ink);font-weight:600}
+.rep-dr-b{grid-template-columns:130px 1fr 30px 70px}
+.rep-dr-b em{font-style:normal;font-size:12px;color:var(--muted)}
 @media(max-width:900px){.rep-menu{grid-template-columns:1fr 1fr}.rep-grid{grid-template-columns:1fr 1fr!important}}
 @media(max-width:560px){.rep-menu,.rep-grid,.rep-two{grid-template-columns:1fr!important}}
 
@@ -3306,28 +3322,36 @@ let repView = 'red', repDays = 30, repExTest = true;
 const REP = { cache: {}, loading: {}, error: {} };
 const REP_MENU = [
   ['red', 'Resumen de la red', 'Canjes, socios, ocupación de cupos e ingresos del período.', true],
-  ['ranking', 'Ranking de locales', 'Qué locales tienen más canjes, cuáles se quedan sin cupo y cuáles necesitan difusión.', false],
-  ['ficha', 'Ficha por local', 'Canjes por día, horarios fuertes y socios que vuelven, local por local.', false],
+  ['ranking', 'Ranking de locales', 'Qué locales tienen más canjes, cuáles se quedan sin cupo y cuáles necesitan difusión.', true],
+  ['ficha', 'Ficha por local', 'Canjes por día, horarios fuertes y socios que vuelven, local por local.', true],
   ['socios', 'Socios', 'Cuánto usan la membresía, cuántos locales recorren y quiénes están en riesgo de baja.', true],
-  ['barrios', 'Barrios', 'Oferta contra demanda: dónde hay socios y dónde faltan cafeterías.', false],
+  ['barrios', 'Barrios', 'Oferta contra demanda: dónde hay socios y dónde faltan cafeterías.', true],
   ['alertas', 'Alertas', 'Locales sin canjes, cupos agotados y socios inactivos.', true],
 ];
 
 api.adminReportNetwork = (days, exTest) => api._rpc('admin_report_network', { p_days: days, p_exclude_test: exTest });
 api.adminReportMembers = (days, exTest) => api._rpc('admin_report_members', { p_days: days, p_exclude_test: exTest });
 api.adminReportAlerts = (days, exTest) => api._rpc('admin_report_alerts', { p_days: days, p_exclude_test: exTest });
-let alDays = 14;
-const REP_RPC = { red: 'adminReportNetwork', socios: 'adminReportMembers', alertas: 'adminReportAlerts' };
+api.adminReportRanking = (days, exTest) => api._rpc('admin_report_ranking', { p_days: days, p_exclude_test: exTest });
+api.adminReportBarrios = (days, exTest) => api._rpc('admin_report_barrios', { p_days: days, p_exclude_test: exTest });
+api.adminReportCafe = (days, exTest) => api._rpc('admin_report_cafe', { p_cafe: repCafe || null, p_days: days, p_exclude_test: exTest });
+let alDays = 14, repCafe = '', repSort = { k: 'reds', dir: -1 };
+const REP_RPC = { red: 'adminReportNetwork', socios: 'adminReportMembers', alertas: 'adminReportAlerts', ranking: 'adminReportRanking', barrios: 'adminReportBarrios', ficha: 'adminReportCafe' };
 const repCurDays = () => (repView === 'alertas' ? alDays : repDays);
 
-function repKey() { return repView + '|' + repCurDays() + '|' + (repExTest ? 1 : 0); }
+function repKey() { return repView + '|' + repCurDays() + '|' + (repExTest ? 1 : 0) + (repView === 'ficha' ? '|' + (repCafe || 'auto') : ''); }
 function repLoad(force) {
   const k = repKey();
   if (REP.loading[k] || (!force && REP.cache[k])) return;
   REP.loading[k] = true; REP.error[k] = null;
+  const v = repView;
   api[REP_RPC[repView] || 'adminReportNetwork'](repCurDays(), repExTest).then((r) => {
     REP.loading[k] = false;
-    if (r && r.ok) REP.cache[k] = { data: r.data, at: Date.now() }; else REP.error[k] = (r && r.error) || 'No se pudo cargar el reporte.';
+    if (r && r.ok) {
+      REP.cache[k] = { data: r.data, at: Date.now() };
+      /* ficha automática: recordar qué local eligió el servidor para que el selector quede fijo */
+      if (v === 'ficha' && !repCafe && r.data && r.data.cafe) { repCafe = r.data.cafe.id; REP.cache[k.replace(/\|auto$/, '|' + repCafe)] = REP.cache[k]; }
+    } else REP.error[k] = (r && r.error) || 'No se pudo cargar el reporte.';
     if (view === 'admin' && aview === 'reportes') render();
   }).catch(() => { REP.loading[k] = false; REP.error[k] = 'No se pudo cargar el reporte.'; if (view === 'admin' && aview === 'reportes') render(); });
 }
@@ -3473,10 +3497,131 @@ function repAlertas() {
   <p class="hint rep-note"><b>Cómo se calcula:</b> los días se cuentan en hora de Argentina. "Cupo agotado" significa que ese día los canjes llegaron al cupo diario del local. Actualizado ${fmtDT(st.at)}.</p>`;
 }
 
+const repOcc = (reds, offered) => { if (!offered) return null; const p = (reds / offered) * 100; return p; };
+const repPctTxt = (p) => (p == null ? '—' : (p > 0 && p < 1 ? p.toLocaleString('es-AR', { maximumFractionDigits: 2 }) : (Math.round(p * 10) / 10).toLocaleString('es-AR')) + '%');
+
+/* ---------- Ranking de locales ---------- */
+function repRankTag(x, days) {
+  const occ = repOcc(x.reds, x.offered) || 0;
+  const age = repDaysSince(x.added);
+  if (!x.visible) return '<span class="badge b-borrador">Oculto en la app</span>';
+  if (x.days_out >= 2 || occ >= 80) return '<span class="badge b-pendiente">Se queda sin cupo</span>';
+  if (!x.reds && age != null && age < 14) return '<span class="badge b-borrador">Recién sumado</span>';
+  if (!x.reds) return '<span class="badge rep-bad">Necesita difusión</span>';
+  return '<span class="badge b-aprobado">Con movimiento</span>';
+}
+function repRanking() {
+  const st = repState(); if (st.html) return st.html;
+  const R = st.R, rows = (R.rows || []).map((x) => ({ ...x, occ: repOcc(x.reds, x.offered) || 0 }));
+  const vis = rows.filter((x) => x.visible);
+  const k = repSort.k, dir = repSort.dir;
+  const sorted = rows.slice().sort((a, b) => {
+    const av = a[k], bv = b[k];
+    if (k === 'name' || k === 'neighborhood') return dir * String(av || '').localeCompare(String(bv || ''), 'es');
+    if (k === 'last_d') return dir * (String(av || '').localeCompare(String(bv || '')));
+    return dir * ((Number(av) || 0) - (Number(bv) || 0)) || String(a.name).localeCompare(String(b.name), 'es');
+  });
+  const best = (key) => rows.filter((x) => x[key] > 0).sort((a, b) => b[key] - a[key])[0];
+  const b1 = best('reds'), b2 = best('repeat'), b3 = best('occ');
+  const noMov = vis.filter((x) => !x.reds).length, full = vis.filter((x) => x.days_out >= 2 || x.occ >= 80).length;
+  const H = [['name', 'Local'], ['reds', 'Canjes'], ['members', 'Socios'], ['repeat', 'Vuelven'], ['occ', 'Ocupación'], ['days_out', 'Días sin cupo'], ['last_d', 'Último canje']];
+  const th = H.map(([key, l]) => `<th><button type="button" class="rep-sort ${k === key ? 'on' : ''}" data-repsort="${key}">${l}${k === key ? (dir < 0 ? ' ▼' : ' ▲') : ''}</button></th>`).join('') + '<th>Estado</th>';
+  return st.controls + `<p class="hint rep-per">Del <b>${repDate(R.from)}</b> al <b>${repDate(R.to)}</b>. Incluye los locales visibles y los ocultos que tuvieron canjes en el período.${R.exclude_test ? ' No incluye locales de prueba.' : ''}</p>
+  <div class="grid g3 rep-grid">
+    ${repCard('Más canjes', b1 ? '<span class="rep-kname">' + esc(b1.name) + '</span>' : '—', b1 ? `${repNum(b1.reds)} canje${b1.reds === 1 ? '' : 's'} en el período` : 'Todavía sin canjes')}
+    ${repCard('Más socios que vuelven', b2 ? '<span class="rep-kname">' + esc(b2.name) + '</span>' : '—', b2 ? `${repNum(b2.repeat)} socio${b2.repeat === 1 ? '' : 's'} canjearon 2 veces o más` : 'Ningún socio repitió local todavía')}
+    ${repCard('Mayor ocupación', b3 ? '<span class="rep-kname">' + esc(b3.name) + '</span>' : '—', b3 ? `${repPctTxt(b3.occ)} de sus cupos usados` : 'Sin cupos usados todavía')}
+  </div>
+  <div class="grid g2 rep-two">
+    ${repCard('Locales visibles sin canjes', repNum(noMov), `de ${repNum(vis.length)} visibles: candidatos a difusión`)}
+    ${repCard('Locales que se quedan sin cupo', repNum(full), 'agotaron el cupo 2 días o más, o usan el 80% de sus cupos')}
+  </div>
+  <div class="card"><h2>Todos los locales</h2><p class="hint">Tocá el título de una columna para ordenar.</p>
+    ${rows.length ? `<div class="rep-tw"><table class="rep-rank"><tr><th>#</th>${th}</tr>${sorted.map((x, i) => `<tr><td class="muted">${i + 1}</td><td><button type="button" class="rep-link" data-repficha="${esc(x.id)}">${esc(x.name)}</button><div class="hint">${esc(x.neighborhood || '—')}</div></td><td><b>${repNum(x.reds)}</b>${x.prev || x.reds ? `<div class="hint">${x.prev ? `antes ${repNum(x.prev)}` : 'antes 0'}</div>` : ''}</td><td>${repNum(x.members)}</td><td>${repNum(x.repeat)}</td><td>${repPctTxt(x.offered ? x.occ : null)}<div class="hint">cupo ${repNum(x.stock)}/día</div></td><td>${repNum(x.days_out)}</td><td>${x.last_d ? `${repFD(x.last_d)}<div class="hint">${repAgo(repDaysSince(x.last_d))}</div>` : '<span class="muted">Nunca</span>'}</td><td>${repRankTag(x, R.days)}</td></tr>`).join('')}</table></div>` : repOk('No hay locales para mostrar', 'Cuando haya locales visibles en la app, van a aparecer acá.')}
+  </div>
+  <p class="hint rep-note"><b>Cómo se calcula:</b> "Socios" son socios distintos que canjearon; "Vuelven" son los que canjearon 2 veces o más en ese local. "Ocupación" compara los canjes con los cupos ofrecidos los días que el local abre. "Días sin cupo" son los días en que se agotó su cupo diario. "Antes" es la cantidad de canjes del período anterior de igual duración. Tocá el nombre de un local para ver su ficha. Actualizado ${fmtDT(st.at)}.</p>`;
+}
+
+/* ---------- Ficha por local ---------- */
+const REP_DAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+function repHours(H) {
+  const v = H || [], tot = v.reduce((a, n) => a + n, 0);
+  if (!tot) return '<div class="empty" style="padding:22px 10px"><b>Sin canjes en este período</b></div>';
+  let lo = v.findIndex((n) => n > 0), hi = 23 - [...v].reverse().findIndex((n) => n > 0);
+  lo = Math.max(0, Math.min(lo, 8)); hi = Math.min(23, Math.max(hi, 20));
+  const S = []; for (let h = lo; h <= hi; h++) S.push({ h, n: v[h] || 0 });
+  const max = Math.max(1, ...S.map((x) => x.n));
+  return `<div class="rep-bars rep-hbars" role="img" aria-label="Canjes por hora">${S.map((x) => `<div class="rep-col" title="${x.h} a ${x.h + 1} h: ${x.n} canje${x.n === 1 ? '' : 's'}"><span class="rep-v">${x.n || ''}</span><i style="height:${Math.round((x.n / max) * 100)}%"></i><small>${x.h}h</small></div>`).join('')}</div>`;
+}
+function repFicha() {
+  const st = repState(); if (st.html) return st.html;
+  const R = st.R, C = R.cafe, L = R.cafes || [];
+  const sel = `<label class="rep-sel"><span>Local</span><select data-repcafe>${L.map((x) => `<option value="${esc(x.id)}" ${C && C.id === x.id ? 'selected' : ''}>${esc(x.name)}${x.neighborhood ? ' · ' + esc(x.neighborhood) : ''}${x.visible ? '' : ' (oculto)'}</option>`).join('')}</select></label>`;
+  if (!C) return st.controls + sel + '<div class="card">' + repOk('No hay locales para mostrar', 'Todavía no hay locales cargados.') + '</div>';
+  const K = R.k || {}, occ = repOcc(K.reds, K.offered);
+  const best = (arr, labels) => { const m = Math.max(...(arr || [0])); if (!m) return '—'; return labels[(arr || []).indexOf(m)]; };
+  const hrs = R.hours || [], hMax = Math.max(0, ...hrs), hBest = hMax ? hrs.indexOf(hMax) : -1;
+  const sched = (C.hours || []).map((p, i) => { const o = p && p[0], c = p && p[1]; const open = c != null && o != null && c > o; return `<li><span>${REP_DAYS[i]}</span><b>${open ? `${o} a ${c} h` : '<span class="muted">Cerrado</span>'}</b></li>`; }).join('');
+  const regs = R.regulars || [];
+  return st.controls + sel + `<p class="hint rep-per">Del <b>${repDate(R.from)}</b> al <b>${repDate(R.to)}</b>.</p>
+  <div class="grid g3 rep-grid">
+    ${repCard('Canjes', repNum(K.reds), `${repNum(K.total_all)} desde que se sumó a la red`)}
+    ${repCard('Socios distintos', repNum(K.members), `${repNum(K.members_all)} en total desde que se sumó`)}
+    ${repCard('Socios que vuelven', repNum(K.repeat), 'Canjearon 2 veces o más en el período')}
+    ${repCard('Ocupación de cupos', repPctTxt(occ), `${repNum(K.reds)} sobre ${repNum(K.offered)} cupos (${repNum(K.open_days)} días abierto × ${repNum(C.stock)})`)}
+    ${repCard('Días sin cupo', repNum(K.days_out), 'Días en que se agotó su cupo diario')}
+    ${repCard('Horario más fuerte', hBest >= 0 ? `${hBest} a ${hBest + 1} h` : '—', hBest >= 0 ? `Día más fuerte: ${best(R.dow, REP_DAYS)}` : 'Sin canjes en el período')}
+  </div>
+  <div class="card"><h2>Canjes por día</h2>${repBars(R.series)}</div>
+  <div class="grid g2 rep-two">
+    <div class="card" style="margin:0"><h2>Por día de la semana</h2>${repDow(R.dow)}</div>
+    <div class="card" style="margin:0"><h2>Por hora del día</h2>${repHours(R.hours)}</div>
+  </div>
+  <div class="grid g2 rep-two">
+    <div class="card" style="margin:0"><h2>Socios que vuelven</h2><p class="hint">Socios con 2 canjes o más en este local durante el período.</p>${regs.length ? repTable(['Socio', 'Canjes', 'Último'], regs.map((x) => `<tr><td>${repWho(x)}</td><td><b>${repNum(x.n)}</b></td><td>${repFD(x.last_d)}</td></tr>`)) : repOk('Todavía nadie repitió', 'Cuando un socio vuelva a canjear en este local, va a aparecer acá.')}</div>
+    <div class="card" style="margin:0"><h2>Datos del local</h2><ul class="rep-snap">
+      <li><span>Barrio</span><b class="rep-plain">${esc(C.neighborhood || '—')}</b></li>
+      <li><span>Estado</span><b class="rep-plain">${C.departed ? 'Se dio de baja' : C.visible ? 'Visible en la app' : 'Oculto en la app'}</b></li>
+      <li><span>Cupo diario</span><b>${repNum(C.stock)}</b></li>
+      <li><span>En la red desde</span><b class="rep-plain">${repFD(C.added)}</b></li>
+    </ul><h3 class="rep-h3">Horarios</h3><ul class="rep-snap rep-sched">${sched}</ul></div>
+  </div>
+  <p class="hint rep-note"><b>Cómo se calcula:</b> días y horas en hora de Argentina. La ocupación compara los canjes con los cupos de los días que el local abre según su horario (no descuenta cierres especiales). Actualizado ${fmtDT(st.at)}.</p>`;
+}
+
+/* ---------- Barrios ---------- */
+function repBarrioTag(x) {
+  if (!x.cafes && x.interested) return '<span class="badge rep-bad">Faltan cafeterías</span>';
+  if (x.cafes && x.interested / x.cafes >= 5) return '<span class="badge b-pendiente">Mucha demanda</span>';
+  if (x.cafes && !x.interested) return '<span class="badge b-borrador">Sin demanda registrada</span>';
+  if (x.cafes) return '<span class="badge b-aprobado">Equilibrado</span>';
+  return '<span class="badge b-borrador">Sin datos</span>';
+}
+function repBarrios() {
+  const st = repState(); if (st.html) return st.html;
+  const R = st.R, rows = R.rows || [];
+  const withCafes = rows.filter((x) => x.cafes), missing = rows.filter((x) => !x.cafes && x.interested).sort((a, b) => b.interested_members - a.interested_members || b.interested - a.interested);
+  const top = missing.slice(0, 8);
+  return st.controls + `<p class="hint rep-per">Canjes del <b>${repDate(R.from)}</b> al <b>${repDate(R.to)}</b>. La demanda sale de las zonas que cada usuario eligió en la app como "dónde suele tomar café".</p>
+  <div class="grid g3 rep-grid">
+    ${repCard('Barrios con cafeterías', repNum(withCafes.length), `${repNum(withCafes.reduce((a, x) => a + x.cafes, 0))} locales visibles en total`)}
+    ${repCard('Barrios pedidos sin cafeterías', repNum(missing.length), 'Usuarios los eligieron, pero no hay locales visibles')}
+    ${repCard('Usuarios que eligieron zonas', repNum(R.users_with_zones), `${repNum(R.members_with_zones)} de ellos son socios con acceso`)}
+  </div>
+  <div class="card"><h2>Dónde sumar cafeterías</h2><p class="hint">Barrios sin locales visibles, ordenados por cuántos socios y usuarios los eligieron.</p>
+    ${top.length ? `<div class="rep-dow">${top.map((x) => { const max = Math.max(1, ...top.map((t) => t.interested)); return `<div class="rep-dr rep-dr-b"><span>${esc(x.name)}</span><div class="rep-dt"><i style="width:${Math.round((x.interested / max) * 100)}%"></i></div><b>${x.interested}</b><em>${x.interested_members} socio${x.interested_members === 1 ? '' : 's'}</em></div>`; }).join('')}</div>` : repOk('Todos los barrios pedidos tienen cafeterías', 'No hay barrios con demanda sin oferta.')}
+  </div>
+  <div class="card"><h2>Oferta y demanda por barrio</h2>
+    ${rows.length ? repTable(['Barrio', 'Locales visibles', 'Cupos por día', 'Canjes', 'Usuarios interesados', 'Socios interesados', 'Situación'], rows.map((x) => `<tr><td><b>${esc(x.name)}</b></td><td>${repNum(x.cafes)}</td><td>${repNum(x.slots)}</td><td>${repNum(x.reds)}</td><td>${repNum(x.interested)}</td><td>${repNum(x.interested_members)}</td><td>${repBarrioTag(x)}</td></tr>`)) : repOk('Sin datos todavía', 'Cuando haya locales o usuarios con zonas elegidas, van a aparecer acá.')}
+  </div>
+  <p class="hint rep-note"><b>Cómo se calcula:</b> "Usuarios interesados" son los usuarios registrados que eligieron ese barrio entre sus zonas; "Socios interesados" son los que además tienen la membresía vigente. "Mucha demanda" significa 5 o más interesados por local. Los barrios se comparan por nombre, así que un barrio escrito distinto en la ficha del local puede aparecer separado. Actualizado ${fmtDT(st.at)}.</p>`;
+}
+
 function liveReportes() {
   const cur = REP_MENU.find((m) => m[0] === repView) || REP_MENU[0];
   const menu = `<div class="rep-menu" role="tablist" aria-label="Reportes">${REP_MENU.map(([k, t, d, ok]) => `<button class="rep-btn ${repView === k ? 'on' : ''} ${ok ? '' : 'soon'}" ${ok ? `data-repv="${k}"` : 'disabled aria-disabled="true"'} role="tab" aria-selected="${repView === k}"><b>${t}</b><span>${d}</span>${ok ? '' : '<em>Próximamente</em>'}</button>`).join('')}</div>`;
-  const body = repView === 'red' ? repRed() : repView === 'socios' ? repSocios() : repView === 'alertas' ? repAlertas() : '';
+  const V = { red: repRed, ranking: repRanking, ficha: repFicha, socios: repSocios, barrios: repBarrios, alertas: repAlertas };
+  const body = V[repView] ? V[repView]() : '';
   return `<div class="top"><div><h1>Reportes</h1><p class="muted">Elegí qué querés explorar.</p></div></div>${menu}<h2 class="rep-h">${cur[1]}</h2>${body}`;
 }
 
@@ -3485,11 +3630,14 @@ document.addEventListener('click', (e) => {
   const v = e.target.closest('[data-repv]'); if (v) { repView = v.dataset.repv; render(); return; }
   const d = e.target.closest('[data-repdays]'); if (d) { repDays = +d.dataset.repdays; render(); return; }
   const ad = e.target.closest('[data-aldays]'); if (ad) { alDays = +ad.dataset.aldays; render(); return; }
+  const so = e.target.closest('[data-repsort]'); if (so) { const key = so.dataset.repsort; repSort = repSort.k === key ? { k: key, dir: -repSort.dir } : { k: key, dir: key === 'name' ? 1 : -1 }; render(); return; }
+  const fi = e.target.closest('[data-repficha]'); if (fi) { repCafe = fi.dataset.repficha; repView = 'ficha'; render(); window.scrollTo(0, 0); return; }
   const j = e.target.closest('[data-repjump]'); if (j) { const el = document.getElementById(j.dataset.repjump); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
   const rl = e.target.closest('[data-repreload]'); if (rl) { repLoad(true); render(); return; }
 });
 document.addEventListener('change', (e) => {
   if (e.target && e.target.matches && e.target.matches('[data-repex]')) { repExTest = e.target.checked; render(); }
+  if (e.target && e.target.matches && e.target.matches('[data-repcafe]')) { repCafe = e.target.value; render(); }
 });
 
 </script>
