@@ -3521,7 +3521,7 @@ function repRanking() {
     if (k === 'last_d') return dir * (String(av || '').localeCompare(String(bv || '')));
     return dir * ((Number(av) || 0) - (Number(bv) || 0)) || String(a.name).localeCompare(String(b.name), 'es');
   });
-  const best = (key) => rows.filter((x) => x[key] > 0).sort((a, b) => b[key] - a[key])[0];
+  const best = (key) => vis.filter((x) => x[key] > 0).sort((a, b) => b[key] - a[key])[0];
   const b1 = best('reds'), b2 = best('repeat'), b3 = best('occ');
   const noMov = vis.filter((x) => !x.reds).length, full = vis.filter((x) => x.days_out >= 2 || x.occ >= 80).length;
   const H = [['name', 'Local'], ['reds', 'Canjes'], ['members', 'Socios'], ['repeat', 'Vuelven'], ['occ', 'Ocupación'], ['days_out', 'Días sin cupo'], ['last_d', 'Último canje']];
@@ -3582,7 +3582,7 @@ function repFicha() {
     <div class="card" style="margin:0"><h2>Datos del local</h2><ul class="rep-snap">
       <li><span>Barrio</span><b class="rep-plain">${esc(C.neighborhood || '—')}</b></li>
       <li><span>Estado</span><b class="rep-plain">${C.departed ? 'Se dio de baja' : C.visible ? 'Visible en la app' : 'Oculto en la app'}</b></li>
-      <li><span>Cupo diario</span><b>${repNum(C.stock)}</b></li>
+      <li><span>Cupo diario</span><b class="rep-plain">${repNum(C.stock)} cafés</b></li>
       <li><span>En la red desde</span><b class="rep-plain">${repFD(C.added)}</b></li>
     </ul><h3 class="rep-h3">Horarios</h3><ul class="rep-snap rep-sched">${sched}</ul></div>
   </div>
@@ -3608,7 +3608,7 @@ function repBarrios() {
     ${repCard('Barrios pedidos sin cafeterías', repNum(missing.length), 'Usuarios los eligieron, pero no hay locales visibles')}
     ${repCard('Usuarios que eligieron zonas', repNum(R.users_with_zones), `${repNum(R.members_with_zones)} de ellos son socios con acceso`)}
   </div>
-  <div class="card"><h2>Dónde sumar cafeterías</h2><p class="hint">Barrios sin locales visibles, ordenados por cuántos socios y usuarios los eligieron.</p>
+  <div class="card"><h2>Dónde sumar cafeterías</h2><p class="hint">Barrios sin locales visibles. La barra y el número muestran cuántos usuarios eligieron el barrio; a la derecha, cuántos de ellos son socios con acceso. Ordenados primero por socios.</p>
     ${top.length ? `<div class="rep-dow">${top.map((x) => { const max = Math.max(1, ...top.map((t) => t.interested)); return `<div class="rep-dr rep-dr-b"><span>${esc(x.name)}</span><div class="rep-dt"><i style="width:${Math.round((x.interested / max) * 100)}%"></i></div><b>${x.interested}</b><em>${x.interested_members} socio${x.interested_members === 1 ? '' : 's'}</em></div>`; }).join('')}</div>` : repOk('Todos los barrios pedidos tienen cafeterías', 'No hay barrios con demanda sin oferta.')}
   </div>
   <div class="card"><h2>Oferta y demanda por barrio</h2>
