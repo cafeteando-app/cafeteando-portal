@@ -1855,6 +1855,7 @@ async function liveSaveOnb(final) {
     province: v('ad_prov'), maps_url: v('ob_maps'),
     lat: pin.lat ? +pin.lat.toFixed(7) : null, lng: pin.lat ? +pin.lng.toFixed(7) : null,
   };
+  { const ig = igNorm(FD.ob_social); if (ig && !newBranch) payload.instagram = ig; }
   Object.keys(payload).forEach((k) => payload[k] == null && delete payload[k]);
   if (newBranch) {
     if (!final) return true; // los pasos previos viven en memoria; recién al final se crea la sucursal
@@ -1976,7 +1977,7 @@ async function liveHydrate(reqId) {
 function liveApplyPayload(p) {
   FD.ob_name = p.name || ''; FD.ob_maps = p.maps_url || '';
   if (p.lat != null && p.lng != null) { pin.lat = +p.lat; pin.lng = +p.lng; pin.moved = false; } else { pin = { x: 52, y: 46 }; }
-  FD.cf_name = p.name || ''; FD.cf_desc = p.description || ''; FD.cf_otros = p.other_services || ''; FD.cf_insta = igNorm(p.instagram) ? '@' + igNorm(p.instagram) : '';
+  FD.cf_name = p.name || ''; FD.cf_desc = p.description || ''; FD.cf_otros = p.other_services || ''; { const ig0 = igNorm(p.instagram) || igNorm(FD.ob_social); FD.cf_insta = ig0 ? '@' + ig0 : ''; }
   if (p.address) { p.address = capAddr(p.address); addrSel = { a: p.address, b: p.neighborhood || '' }; FD.ad_b = p.neighborhood || ''; FD.ad_prov = p.province || ''; }
   else { addrSel = null; delete FD.ad_b; delete FD.ad_prov; }
   svc = new Set((p.services || []).map((s) => VAR.indexOf(s)).filter((i) => i >= 0));
