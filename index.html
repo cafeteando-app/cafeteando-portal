@@ -1181,6 +1181,8 @@ html:has(.auth2),body:has(.auth2){background:#2A1A12}
 .ig-ph .hint{display:block;margin-top:2px}
 @media(max-width:900px){.fn-steps{grid-template-columns:1fr 1fr}}
 @media(max-width:700px){.fn-sticky{bottom:76px}.fn-bar{padding:14px}.fn-steps button{padding:8px 10px;font-size:12px}}
+.fn-eyebrow{display:inline-block;margin:0 0 14px;padding:5px 12px;border-radius:99px;background:rgba(169,102,73,.12);color:var(--terracota-oscuro,#8F513A);font-size:13px}
+@media(max-width:700px){.fn-sticky small{display:none}.fn-sticky{padding:10px 12px}.fn-sticky b{font-size:13.5px;line-height:1.3}}
 
 </style>
 </head>
@@ -4197,7 +4199,7 @@ function funnelState() {
   return { d, cur, left: d.filter((x) => !x).length };
 }
 function funnelMini(curIdx) {
-  return `<ol class="fn-mini">${FUNNEL_STEPS.map(([t], i) => `<li class="${i < curIdx ? 'done' : i === curIdx ? 'cur' : ''}"><i>${i < curIdx ? '✓' : i + 1}</i><span>${t}</span></li>`).join('')}</ol>`;
+  return `<p class="fn-eyebrow"><b>Paso ${curIdx + 1} de 4</b> · ${FUNNEL_STEPS[curIdx][0]}</p>`;
 }
 function funnelBar() {
   if (!api.live || status !== 'borrador') return '';
