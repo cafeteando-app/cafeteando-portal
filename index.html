@@ -1341,6 +1341,9 @@ html:has(.auth2),body:has(.auth2){background:#2A1A12}
 /* Estadísticas: ícono al lado del título */
 .dsh-tl{flex-direction:row!important;gap:8px;align-items:center!important}
 .help-card .btn,.btn-wa{text-decoration:none!important}
+.verbar{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:120;display:flex;align-items:center;gap:10px;padding:8px 8px 8px 16px;border-radius:99px;background:#2A1A12;color:#faf8f4;font-size:13.5px;box-shadow:0 10px 26px rgba(0,0,0,.28)}
+.verbar .btn{min-height:32px;padding:4px 14px}
+.verbar .vb-x{background:none;border:0;color:rgba(250,248,244,.7);font-size:18px;cursor:pointer;padding:0 6px}
 
 </style>
 </head>
@@ -1533,13 +1536,13 @@ const api = (() => {
         return { ok: false, error: m };
       }
       if (!isMerchant(data.user) && !isStaff(data.user) && !(await this.isAdmin())) {
-        await client.auth.signOut();
+        await client.auth.signOut({ scope: 'local' });
         return { ok: false, error: MSG_SOCIO };
       }
       return { ok: true };
     },
 
-    async signOut() { try { await client.auth.signOut(); } catch (e) { /* sin conexión: igual se limpia la sesión local */ } lastSession = null; },
+    async signOut() { try { await client.auth.signOut({ scope: 'local' }); } catch (e) { /* sin conexión: igual se limpia la sesión local */ } lastSession = null; },
 
     async resetRequest(email) {
       const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo: siteUrl() });
@@ -1664,6 +1667,16 @@ const api = (() => {
       try { const { data, error } = await client.rpc('is_admin'); return !error && data === true; } catch (e) { return false; }
     },
 
+    // true / false si el servidor respondió; null si no se pudo consultar (red, servidor caído, token vencido)
+    async isAdminSure() {
+      for (let i = 0; i < 3; i++) {
+        try { const { data, error } = await client.rpc('is_admin'); if (!error) return data === true; } catch (e) { /* reintenta */ }
+        try { await client.auth.refreshSession(); } catch (e) { /* ok */ }
+        await new Promise((r) => setTimeout(r, 700 * (i + 1)));
+      }
+      return null;
+    },
+
     async resend(email) {
       const { error } = await client.auth.resend({ type: 'signup', email, options: { emailRedirectTo: siteUrl() } });
       return error ? { ok: false, error: errMsg(error) } : { ok: true };
@@ -1781,7 +1794,7 @@ async function liveAfterLogin(fromVerify) {
   try { await _liveAfterLoginRun(fromVerify); } finally { _alBusy = false; }
 }
 async function _liveAfterLoginRun(fromVerify) {
-  try { if (await api.isAdmin()) { await liveLoadRequests(); await liveLoadAdmin(); view = 'admin'; aview = 'lista'; render(); return; } } catch (e) { /* sigue como comercio */ }
+  try { if (await api.isAdminSure()) { await liveLoadRequests(); await liveLoadAdmin(); view = 'admin'; aview = 'lista'; render(); return; } } catch (e) { /* sigue como comercio */ }
   if (api.isStaff(api.user())) { await staffEnter(); return; }
   const tk = liveInviteToken();
   if (tk) {
@@ -1831,9 +1844,13 @@ function liveBoot(session) {
   { const tk = liveInviteToken(); if (tk && !session) { liveInviteBoot(tk); return; } }
   if (session) {
     (async () => {
-      let adm = false; try { adm = await api.isAdmin(); } catch (e) { /* sin permiso */ }
-      if (api.isMerchant(session.user) || api.isStaff(session.user) || adm) liveAfterLogin(/type=signup|type=email/.test(h));
-      else { await api.signOut(); view = 'auth'; render(); }
+      if (api.isMerchant(session.user) || api.isStaff(session.user)) { liveAfterLogin(/type=signup|type=email/.test(h)); return; }
+      const adm = await api.isAdminSure();
+      if (adm) { liveAfterLogin(/type=signup|type=email/.test(h)); return; }
+      // solo se cierra la sesión si el servidor confirmó que no es una cuenta del portal; si no respondió, se deja la sesión intacta
+      if (adm === false) await api.signOut();
+      view = 'auth'; render();
+      if (adm === null) toast('No pudimos conectar con el servidor. Recargá la página en un momento: tu sesión sigue abierta.');
     })();
   }
 }
@@ -2880,7 +2897,14 @@ const rpcErr = (e) => {
 
 Object.assign(api, {
   async _rpc(name, args) {
-    try { const r = await api._client().rpc(name, args || {}); return r.error ? { ok: false, error: rpcErr(r.error) } : { ok: true, data: r.data }; }
+    const run = () => api._client().rpc(name, args || {});
+    const expired = (r) => r && r.error && (r.status === 401 || /jwt|PGRST30/i.test(((r.error.message || '') + ' ' + (r.error.code || ''))));
+    try {
+      let r = await run();
+      // token vencido: se renueva la sesión una vez y se reintenta, en vez de mostrar un error
+      if (expired(r)) { try { await api._client().auth.refreshSession(); } catch (e) { /* ok */ } r = await run(); }
+      return r.error ? { ok: false, error: rpcErr(r.error) } : { ok: true, data: r.data };
+    }
     catch (e) { return { ok: false, error: rpcErr(e) }; }
   },
   async saveAvatar(url) {
@@ -3685,9 +3709,13 @@ document.addEventListener('input',e=>{const el=e.target;if(!el||!el.matches||!el
     const s = await stamp(); if (!s) return;
     if (ver === null) { ver = s; return; }
     if (s === ver) return;
-    const safe = (isAdmin() || view === 'staff' || /^m-(ok|pend|corr)$/.test(view)) && idle() && !(typeof dirtyKey !== 'undefined' && dirtyKey);
-    if (safe) location.reload();
-    else if (!window.__verWarned) { window.__verWarned = true; toast('Hay una versión nueva del portal. Se va a actualizar cuando termines de editar; o recargá la página.'); }
+    // Ya no se recarga sola (una recarga a mitad de una renovación de sesión podía cerrarla): se ofrece actualizar.
+    if (document.getElementById('verbar')) return;
+    const b = document.createElement('div'); b.id = 'verbar'; b.className = 'verbar';
+    b.innerHTML = '<span>Hay una versión nueva del portal.</span><button type="button" class="btn sm">Actualizar</button><button type="button" class="vb-x" aria-label="Más tarde">×</button>';
+    b.querySelector('.btn').onclick = () => { if (typeof dirtyKey !== 'undefined' && dirtyKey) { toast('Primero guardá tus cambios.'); return; } location.reload(); };
+    b.querySelector('.vb-x').onclick = () => b.remove();
+    document.body.append(b);
   }
   stamp().then((s) => { ver = s; });
   setInterval(checkVersion, 180000);
