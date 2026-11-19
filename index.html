@@ -1184,6 +1184,90 @@ html:has(.auth2),body:has(.auth2){background:#2A1A12}
 .fn-eyebrow{display:inline-block;margin:0 0 14px;padding:5px 12px;border-radius:99px;background:rgba(169,102,73,.12);color:var(--terracota-oscuro,#8F513A);font-size:13px}
 @media(max-width:700px){.fn-sticky small{display:none}.fn-sticky{padding:10px 12px}.fn-sticky b{font-size:13.5px;line-height:1.3}}
 
+/* ===================== Renovación visual v2 (nov 2026) ===================== */
+/* 1) Un mismo sistema de tarjetas */
+.main .card,.main .fn-bar,.main .dsh-chart,.main .dsh-box,.main .dsh-split{border-radius:16px}
+.main .card{border:1px solid var(--line);box-shadow:0 1px 2px rgba(43,29,22,.04),0 4px 14px rgba(43,29,22,.04);padding:22px}
+[data-theme=dark] .main .card{box-shadow:0 1px 2px rgba(0,0,0,.35)}
+.main .grid.g3>.card:not(.rep-k){border-top:1px solid var(--line)}
+.main .dsh-tile{border-radius:14px}
+/* 2) Jerarquía de títulos y textos */
+.main .top{margin-bottom:18px}
+.main .top h1{font-size:26px;font-weight:800;letter-spacing:-.015em;margin:0}
+.main .top p.muted{font-size:14px;margin-top:4px;max-width:720px}
+.main .card h2{font-size:17px;font-weight:700;letter-spacing:-.005em;margin:0}
+.main .card h2+.hint,.main .card h2+p.muted,.main .card h2+p.hint{margin-top:4px}
+.main .card h3{font-size:14.5px;font-weight:700}
+.main .hint{font-size:12.5px}
+.main .muted{color:var(--muted)}
+/* 3) Inicio: tablero del día */
+.today{display:flex;align-items:stretch;justify-content:space-between;gap:20px;padding:22px 24px!important}
+.td-left{display:flex;align-items:center;gap:22px;min-width:0}
+.td-ring{--p:0;flex:none;width:118px;height:118px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--terracota) calc(var(--p)*1%),var(--bg-neutral) 0)}
+.td-ring>div{width:92px;height:92px;border-radius:50%;background:var(--blanco);display:flex;flex-direction:column;align-items:center;justify-content:center}
+.td-ring b{font-family:'Red Hat Display',sans-serif;font-size:34px;font-weight:800;line-height:1;color:var(--accent)}
+.td-ring small{font-size:12px;color:var(--muted);margin-top:2px}
+.td-info{min-width:0}
+.td-info h2{font-size:19px!important;margin:6px 0 2px!important}
+.td-info p{margin:0;font-size:14px;color:var(--ink);text-align:left!important}
+.td-st{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:700}
+.td-st i{width:8px;height:8px;border-radius:50%;background:currentColor}
+.td-st.ok{background:var(--bg-ok);color:var(--fg-ok)}
+.td-st.ok i{box-shadow:0 0 0 0 rgba(62,125,90,.5);animation:tdp 1.8s infinite}
+@keyframes tdp{0%{box-shadow:0 0 0 0 rgba(62,125,90,.45)}70%{box-shadow:0 0 0 7px rgba(62,125,90,0)}100%{box-shadow:0 0 0 0 rgba(62,125,90,0)}}
+.td-st.off{background:var(--bg-neutral);color:var(--fg-neutral)}
+.td-st.warn{background:var(--bg-warn);color:var(--fg-warn)}
+.td-mini{display:flex;gap:16px;margin-top:10px;font-size:13px;color:var(--muted)}
+.td-mini b{color:var(--ink);font-family:'Red Hat Display',sans-serif;font-size:15px}
+.td-code{flex:none;width:230px;display:flex;flex-direction:column;justify-content:center;gap:4px;padding:16px 18px;border-radius:14px;background:#2A1A12;color:#faf8f4}
+.td-code small{font-size:12px;color:#E3A784;font-weight:600;letter-spacing:.02em}
+.td-code b{font-family:'Red Hat Display',sans-serif;font-size:34px;font-weight:800;letter-spacing:.14em;line-height:1.1}
+.td-code span{font-size:11.5px;line-height:1.4;color:rgba(250,248,244,.7)}
+.qa{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:0 0 16px}
+.qa a{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:14px;background:var(--blanco);border:1px solid var(--line);color:var(--ink);text-decoration:none;font-size:13.5px;transition:border-color .15s,transform .15s}
+.qa a:hover{border-color:var(--terracota);transform:translateY(-1px)}
+.qa-ic{flex:none;display:grid;place-items:center;width:36px;height:36px;border-radius:11px;background:rgba(169,102,73,.12);color:var(--terracota)}
+.qa b{font-weight:600;line-height:1.25}
+/* 4) Barra de sucursales compacta */
+.localbox.sucbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:transparent;border:0;box-shadow:none;padding:0;margin:0 0 20px}
+.sucbar .tabsbar{margin:0;padding:2px 0;flex:1;min-width:0}
+.sucbar .ltab{padding:7px 14px;border-width:1.5px;border-radius:12px;min-height:44px}
+.sucbar .ltab.on{background:var(--blanco);box-shadow:0 2px 8px rgba(43,29,22,.08)}
+.sucbar .ltab.add{font-size:13px}
+.sucbar .statusrow{margin:0;padding:0;border:0;gap:8px;flex:none}
+.sucbar .statusrow>span:first-child{font-size:12.5px}
+.sucbar .infobox{flex:1 1 100%}
+/* 5) Menú del celular: 5 botones + "Más" */
+.more-btn{display:none}
+@media(max-width:800px){
+ .nav.mnav a.mx{display:none!important}
+ .nav.mnav a.more-btn{display:flex;flex:1;flex-direction:column;gap:2px;padding:6px 2px;font-size:10.5px;justify-content:center;align-items:center;text-align:center;border-radius:10px;min-width:0;color:var(--nav-link);text-decoration:none}
+ .nav.mnav a.more-btn.on{background:var(--nav-on-bg);color:var(--nav-on-fg)}
+ .nav.mnav a{font-size:10.5px!important;letter-spacing:0!important}
+ .more-back{position:fixed;inset:0;background:rgba(20,12,8,.45);z-index:60}
+ .more-sheet{position:fixed;left:8px;right:8px;bottom:calc(70px + env(safe-area-inset-bottom));z-index:61;background:var(--blanco);border-radius:18px;padding:8px 8px 10px;box-shadow:0 18px 40px rgba(0,0,0,.3);animation:msin .18s ease}
+ @keyframes msin{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
+ .ms-grab{width:38px;height:4px;border-radius:99px;background:var(--line);margin:4px auto 6px}
+ .more-sheet a{display:flex;align-items:center;gap:12px;padding:11px 10px;border-radius:12px;color:var(--ink);text-decoration:none;font-size:15px;font-weight:600}
+ .more-sheet a.on{background:rgba(169,102,73,.1)}
+ .more-sheet a em{margin-left:auto;font-style:normal;color:var(--muted);font-size:20px}
+ .more-sheet .ms-out{color:var(--bad-text);border-top:1px solid var(--line);border-radius:0 0 12px 12px;margin-top:4px}
+ .more-sheet .ms-out .qa-ic{background:rgba(179,68,58,.1);color:var(--bad-text)}
+}
+@media(max-width:800px){
+ .today{flex-direction:column;padding:18px!important;gap:16px}
+ .td-left{gap:16px}
+ .td-ring{width:100px;height:100px}.td-ring>div{width:78px;height:78px}.td-ring b{font-size:28px}
+ .td-code{width:auto;flex-direction:row;flex-wrap:wrap;align-items:baseline;column-gap:12px;padding:12px 16px}
+ .td-code b{font-size:26px}
+ .td-code span{flex:1 1 100%}
+ .qa{grid-template-columns:1fr 1fr;gap:8px}
+ .qa a{padding:10px 12px;font-size:13px}
+ .main .top h1{font-size:22px}
+ .localbox.sucbar{margin-bottom:14px}
+ .sucbar .statusrow{width:100%}
+}
+
 </style>
 </head>
 <body>
@@ -1236,6 +1320,9 @@ REQ.forEach(r=>Object.assign(r,REQX[r.id]));
 let fq='',ff='all',netErr=false,helpOpen=false;
 const cnt=()=>(typeof api!=='undefined'&&api.live)?{h:+((window.__stats||{}).today)||0,m:+((window.__stats||{}).month)||0,t:+((window.__stats||{}).total)||0}:(cur===0?{h:7,m:94,t:312}:{h:0,m:0,t:0});
 const stockN=()=>(typeof api!=='undefined'&&api.live)?(+((window.__stats||{}).stock)||0):15;
+
+/* menú "Más" del celular (ver 91-ui-refresh.js) */
+var MORE_KEYS=['adh','canje','equipo','cuenta'];var moreOpen=false;
 
 </script>
 <script>
@@ -2009,9 +2096,9 @@ const NIC={"inicio": "<path d=\"M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 
 const MNAV=[['inicio','Inicio'],['stats','Estadísticas'],['cafe','Mi cafetería'],['disp','Disponibilidad'],['adh','Mi adhesión'],['canje','Cómo canjear'],['equipo','Encargados'],['cuenta','Mi cuenta']];
 function merchV(){
  if(api.live&&(reaccept||(status==='aprobado'&&!signedOk)))return signV();
- const nav=`<div class="mtop"><b>Cafeteando</b><small>Comercios</small></div><div class="nav mnav" role="navigation" aria-label="Menú principal">${bellBtn()}${themeBtn()}<div class="logo">Cafeteando</div><div class="sub">Comercios</div>${MNAV.map(([k,l])=>`<a href="#" class="${mview===k?'on':''}" data-m="${k}" ${mview===k?'aria-current="page"':''}><svg class="ni" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${NIC[k]}</svg><span class="lf">${l}</span><span class="ls">${NSH[k]}</span></a>`).join('')}<div class="who"><div class="who-head"><div class="av">${avatarInner()}</div><div class="wi"><b title="${esc(bizName())}">${esc(bizName())}</b><small class="wi-l">Sucursal</small><span title="${esc(L().addr)}, ${esc(L().barrio)}">${esc(L().addr)}</span></div></div><span class="mail" title="${esc(api.live?bizMail():'julianlopezagustin1@gmail.com')}">${esc(api.live?bizMail():'julianlopezagustin1@gmail.com')}</span><a class="out" data-logout><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>Cerrar sesión</a></div></div>`;
+ const nav=`<div class="mtop"><b>Cafeteando</b><small>Comercios</small></div><div class="nav mnav" role="navigation" aria-label="Menú principal">${bellBtn()}${themeBtn()}<div class="logo">Cafeteando</div><div class="sub">Comercios</div>${MNAV.map(([k,l])=>`<a href="#" class="${mview===k?'on':''} ${MORE_KEYS.includes(k)?'mx':''}" data-m="${k}" ${mview===k?'aria-current="page"':''}><svg class="ni" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${NIC[k]}</svg><span class="lf">${l}</span><span class="ls">${NSH[k]}</span></a>`).join('')}<a href="#" class="more-btn ${MORE_KEYS.includes(mview)||moreOpen?'on':''}" data-more aria-expanded="${moreOpen}"><svg class="ni" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg><span class="ls">Más</span></a><div class="who"><div class="who-head"><div class="av">${avatarInner()}</div><div class="wi"><b title="${esc(bizName())}">${esc(bizName())}</b><small class="wi-l">Sucursal</small><span title="${esc(L().addr)}, ${esc(L().barrio)}">${esc(L().addr)}</span></div></div><span class="mail" title="${esc(api.live?bizMail():'julianlopezagustin1@gmail.com')}">${esc(api.live?bizMail():'julianlopezagustin1@gmail.com')}</span><a class="out" data-logout><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>Cerrar sesión</a></div></div>`;
  const body={inicio:mInicio,stats:mStats,cafe:mCafe,disp:mDisp,adh:mAdh,canje:mCanje,equipo:mEquipo,cuenta:mCuenta}[mview]();
- return `<a class="skip" href="#main">Saltar al contenido</a><div class="shell">${nav}<div class="main" id="main" role="main" tabindex="-1">${netBanner()}${api.live?partialBanner():''}${readyBanner()}<div class="localbox"><div class="lb-title">Tus sucursales</div><div class="tabsbar">${locals.map((l,i)=>{const st=i===cur?status:l.snap.status;const om=i===cur?onMap:l.snap.onMap;const dc=st==='aprobado'?(om?'ok':'off'):st;return `<button class="ltab ${i===cur?'on':''}" data-tab="${i}"><i class="dot d-${dc}"></i><span><b>${l.addr}</b><small>${l.barrio}</small></span></button>`}).join('')}<button class="ltab add" data-newloc>+ Agregar sucursal</button></div><div class="statusrow"><span>Estado de esta sucursal</span>${bd(status)}<button class="info" data-info="${cur}" title="¿Qué significa este estado?" aria-expanded="${openInfo===cur}">i</button><span class="lb-code">Código de canje: <b>${status==='aprobado'?L().code:'se genera al aprobarse'}</b></span></div>${infoBox()}</div>${typeof funnelBar==='function'?funnelBar():''}${body}${typeof funnelSticky==='function'?funnelSticky():''}</div></div>${bellPanel()}${helpBtn()}`}
+ return `<a class="skip" href="#main">Saltar al contenido</a><div class="shell">${nav}<div class="main" id="main" role="main" tabindex="-1">${netBanner()}${api.live?partialBanner():''}${readyBanner()}<div class="localbox sucbar"><div class="tabsbar">${locals.map((l,i)=>{const st=i===cur?status:l.snap.status;const om=i===cur?onMap:l.snap.onMap;const dc=st==='aprobado'?(om?'ok':'off'):st;return `<button class="ltab ${i===cur?'on':''}" data-tab="${i}"><i class="dot d-${dc}"></i><span><b>${l.addr}</b><small>${l.barrio}</small></span></button>`}).join('')}<button class="ltab add" data-newloc title="Agregar sucursal">+ Sucursal</button></div><div class="statusrow"><span>Estado</span>${bd(status)}<button class="info" data-info="${cur}" title="¿Qué significa este estado?" aria-expanded="${openInfo===cur}">i</button></div>${infoBox()}</div>${typeof funnelBar==='function'?funnelBar():''}${body}${typeof funnelSticky==='function'?funnelSticky():''}</div></div>${moreOpen&&typeof moreSheet==='function'?moreSheet():''}${bellPanel()}${helpBtn()}`}
 
 let readyPrev=false;
 let corrTouched=false;
@@ -2101,13 +2188,13 @@ function mInicio(){
  ${lock?`<p class="hint" style="margin-top:12px">Para evitar cambios repetidos, podrás volver a modificarlo en <b data-cd>${fmtLeft(left)}</b>.</p>`:''}
  ${act?(schedPause?`<div class="note" style="margin:14px 0 0;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap"><span>Pausa programada por <b>${schedPause.reason}</b>: del <b>${schedPause.from}</b> al <b>${schedPause.to}</b>. Se reactiva sola.</span><button class="btn sec sm" data-sched-cancel>Cancelar pausa</button></div>`:`<div style="margin-top:14px"><button class="btn sec sm" data-sched>Programar una pausa (vacaciones)</button></div>`):''}
  ${act?`<div class="note" style="margin:14px 0 0">Esta opción es solo para <b>excepciones</b> (vacaciones, fuerza mayor, refacciones). No la uses para el día a día: para cambiar tus días y horarios de atención usá <a style="cursor:pointer" data-m="disp">Disponibilidad</a>. Después de cada cambio, el botón se bloquea por 5 minutos.</div>`:''}</div>`;
- return `<div class="top"><div><h1>Hola, ${esc(bizName())}</h1></div></div>${heroInicio()}
+ return `<div class="top"><div><h1>Hola, ${esc(bizName())}</h1></div></div>${act?'':heroInicio()}
  ${act&&closuresList().filter(c=>c.kind!=='pause').length?(()=>{const c=closuresList().filter(c=>c.kind!=='pause')[0],t=clToday(),now=c.from<=t;return `<div class="banner pend"><div><b>${now?'Tu local figura como cerrado en la app':'Tenés un cierre especial programado'}</b><br><span class="muted">${c.from===c.to?'Día '+clFmt(c.from):'Del '+clFmt(c.from)+' al '+clFmt(c.to)}. ${now?'Los socios no pueden canjear hasta que termine.':'Ese día la app muestra el local cerrado y no permite canjes.'}</span></div><button class="btn sm sec" data-m="disp">Ver cierres</button></div>`})():''}
  ${needsUpdate()?`<div class="banner pend"><div><b>Hay una nueva versión de las condiciones del servicio (${latestC().v})</b><br><span class="muted">Leela y aceptala antes del ${latestC().deadline||'plazo indicado'}. Tu local sigue activo mientras tanto.</span></div><button class="btn sm" data-m="adh">Revisar y aceptar</button></div>`:''}
- <div class="grid g3 kpis"><div class="card"><div class="muted">Canjes hoy</div><div class="kpi">${act?cnt().h:'—'}</div>${act?`<div class="bar"><i style="width:${Math.min(100,Math.round(cnt().h/(stockN()||1)*100))}%"></i></div><div class="hint">de un cupo de ${stockN()} · <b>quedan ${Math.max(0,stockN()-cnt().h)}</b></div>`:'<div class="hint">Se activa al aprobarse</div>'}</div>
+ ${act&&typeof todayCard==='function'?todayCard():` <div class="grid g3 kpis"><div class="card"><div class="muted">Canjes hoy</div><div class="kpi">${act?cnt().h:'—'}</div>${act?`<div class="bar"><i style="width:${Math.min(100,Math.round(cnt().h/(stockN()||1)*100))}%"></i></div><div class="hint">de un cupo de ${stockN()} · <b>quedan ${Math.max(0,stockN()-cnt().h)}</b></div>`:'<div class="hint">Se activa al aprobarse</div>'}</div>
  <div class="card"><div class="muted">Canjes del mes</div><div class="kpi">${act?cnt().m:'—'}</div>${act?`<div class="hint"><b>${cnt().t}</b> ${cnt().t===1?'canje':'canjes'} en total desde que te sumaste</div>`:''}</div>
- <div class="card"><div class="muted">Código de canje ${tip('Canje: cuando un socio te pide su café gratis. Te muestra este código de 5 dígitos para validarlo.')}</div><div class="kpi">${act?L().code:'—'}</div><div class="hint">${act?'Lo que validan tus clientes':'Se genera automáticamente al aprobarse'}</div></div></div>
- ${act?`<a class="dsh-cta" data-m="stats" href="#"><span class="dsh-cta-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span><span><b>Mirá cómo te visitan los socios</b><small>Canjes por día, socios nuevos y que vuelven, días y horarios fuertes.</small></span><em>Ver estadísticas →</em></a>`:''}<div class="cols">${mapc}${act?ultimos():''}${status==='correccion'?checklist():''}</div>`}
+ <div class="card"><div class="muted">Código de canje ${tip('Canje: cuando un socio te pide su café gratis. Te muestra este código de 5 dígitos para validarlo.')}</div><div class="kpi">${act?L().code:'—'}</div><div class="hint">${act?'Lo que validan tus clientes':'Se genera automáticamente al aprobarse'}</div></div></div>`}
+ <div class="cols">${mapc}${act?ultimos():''}${status==='correccion'?checklist():''}</div>`}
 
 function photosCard(){const n=photos.length;
  return `<div class="card" id="photosCard"><h2>Logo y fotos ${chgBadge(chg.fotos)}</h2>
@@ -4247,6 +4334,62 @@ document.addEventListener('change', (e) => {
     if (typeof markDirty === 'function') markDirty();
   }
 });
+
+</script>
+<script>
+/* ===== Renovación visual del panel del comercio =====
+   - Inicio: tablero del día (estado, canjes de hoy vs. cupo, código) + accesos rápidos.
+   - Celular: menú de abajo con 5 botones + "Más" (Adhesión, Canje, Encargados, Cuenta). */
+const QIC = {
+  disp: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  stats: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  canje: '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18M7 15h3"/>',
+  equipo: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.5a6.5 6.5 0 0 1 3 5.5"/>',
+  cafe: '<path d="M4 8h12v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M16 9h2a2 2 0 0 1 0 5h-2"/><path d="M8 3v2M12 3v2"/>',
+  adh: '<path d="M7 3h8l4 4v14H7z"/><path d="M15 3v4h4M10 12h6M10 16h6"/>',
+  cuenta: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+};
+const qSvg = (k, s) => `<svg viewBox="0 0 24 24" width="${s || 20}" height="${s || 20}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${QIC[k] || ''}</svg>`;
+
+function todayCard() {
+  const c = cnt(), s = stockN() || 0, h = c.h, left = Math.max(0, s - h), pct = s ? Math.min(100, Math.round((h / s) * 100)) : 0;
+  const t = clToday(), closed = closuresList().some((x) => x.from <= t && x.to >= t);
+  const st = !onMap ? ['Pausado', 'No figura en la app ni recibe canjes', 'off'] : closed ? ['Cerrado hoy', 'Cierre especial programado', 'warn'] : ['Activo', 'Visible en la app y recibiendo canjes', 'ok'];
+  const code = L().code || '—';
+  const qa = [['disp', 'Horarios y cupo'], ['stats', 'Estadísticas'], ['canje', 'Cómo canjear'], ['equipo', 'Encargados']];
+  return `<section class="card today" aria-label="Resumen de hoy">
+    <div class="td-left">
+      <div class="td-ring" style="--p:${pct}" role="img" aria-label="${h} de ${s} canjes hoy"><div><b>${h}</b><small>de ${s}</small></div></div>
+      <div class="td-info">
+        <span class="td-st ${st[2]}"><i></i>${st[0]}</span>
+        <h2>Canjes de hoy</h2>
+        <p>${s ? (left > 0 ? `Te quedan <b>${left}</b> ${left === 1 ? 'café' : 'cafés'} del cupo de hoy.` : '<b>Completaste el cupo de hoy.</b>') : 'Configurá tu cupo diario en Horarios y cupo.'}</p>
+        <div class="td-mini"><span><b>${c.m}</b> este mes</span><span><b>${c.t}</b> en total</span></div>
+      </div>
+    </div>
+    <div class="td-code"><small>Código de canje</small><b>${esc(String(code))}</b><span>Dáselo al socio solo cuando ya pidió su producto adicional.</span></div>
+  </section>
+  <nav class="qa" aria-label="Accesos rápidos">${qa.map(([k, l]) => `<a href="#" data-m="${k}"><span class="qa-ic">${qSvg(k, 20)}</span><b>${l}</b></a>`).join('')}</nav>`;
+}
+
+function moreSheet() {
+  const L2 = { adh: 'Mi adhesión', canje: 'Cómo canjear', equipo: 'Encargados', cuenta: 'Mi cuenta' };
+  return `<div class="more-back" data-more-close></div><div class="more-sheet" role="dialog" aria-label="Más opciones">
+    <div class="ms-grab"></div>
+    ${MORE_KEYS.map((k) => `<a href="#" class="${mview === k ? 'on' : ''}" data-m="${k}"><span class="qa-ic">${qSvg(k, 20)}</span>${L2[k]}<em>›</em></a>`).join('')}
+    <a href="#" class="ms-out" data-logout><span class="qa-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg></span>Cerrar sesión</a>
+  </div>`;
+}
+
+/* abre/cierra "Más"; al elegir una opción se cierra antes de navegar */
+document.addEventListener('click', (e) => {
+  const t = e.target;
+  if (!t.closest) return;
+  if (t.closest('[data-more]')) { e.preventDefault(); moreOpen = !moreOpen; render(); return; }
+  if (t.closest('[data-more-close]')) { moreOpen = false; render(); return; }
+  if (moreOpen && t.closest('.more-sheet [data-m], .more-sheet [data-logout]')) moreOpen = false;
+}, true);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && moreOpen) { moreOpen = false; render(); } });
 
 </script>
 </body>
