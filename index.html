@@ -1335,6 +1335,11 @@ html:has(.auth2),body:has(.auth2){background:#2A1A12}
 .help-card .hc-mail:hover{border-color:#E3A784!important}
 .btn-wa{background:linear-gradient(135deg,#B9765A,var(--terracota) 55%,var(--terracota-oscuro))!important;border-color:transparent!important;color:#fff!important}
 .hb-wa .hb-ic{background:var(--terracota)!important;color:#fff!important}
+/* "Más" solo en el celular (en compu no debe aparecer en el menú lateral) */
+.nav a.more-btn{display:none!important}
+@media(max-width:800px){.nav.mnav a.more-btn{display:flex!important}}
+/* Estadísticas: ícono al lado del título */
+.dsh-tl{flex-direction:row!important;gap:8px;align-items:center!important}
 
 </style>
 </head>
