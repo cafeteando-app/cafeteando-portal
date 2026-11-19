@@ -1267,6 +1267,8 @@ html:has(.auth2),body:has(.auth2){background:#2A1A12}
  .localbox.sucbar{margin-bottom:14px}
  .sucbar .statusrow{width:100%}
 }
+.qa{grid-template-columns:repeat(3,1fr)}
+@media(max-width:800px){.qa{grid-template-columns:1fr 1fr}}
 
 </style>
 </head>
@@ -4356,7 +4358,7 @@ function todayCard() {
   const t = clToday(), closed = closuresList().some((x) => x.from <= t && x.to >= t);
   const st = !onMap ? ['Pausado', 'No figura en la app ni recibe canjes', 'off'] : closed ? ['Cerrado hoy', 'Cierre especial programado', 'warn'] : ['Activo', 'Visible en la app y recibiendo canjes', 'ok'];
   const code = L().code || '—';
-  const qa = [['disp', 'Horarios y cupo'], ['stats', 'Estadísticas'], ['canje', 'Cómo canjear'], ['equipo', 'Encargados']];
+  const qa = [['cafe', 'Mi cafetería'], ['disp', 'Horarios y cupo'], ['stats', 'Estadísticas'], ['equipo', 'Encargados'], ['canje', 'Cómo canjear'], ['adh', 'Mi adhesión']];
   return `<section class="card today" aria-label="Resumen de hoy">
     <div class="td-left">
       <div class="td-ring" style="--p:${pct}" role="img" aria-label="${h} de ${s} canjes hoy"><div><b>${h}</b><small>de ${s}</small></div></div>
