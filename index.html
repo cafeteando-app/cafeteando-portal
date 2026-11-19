@@ -1794,7 +1794,7 @@ function liveApplyPayload(p) {
   extra.pub = extra.items.map((x) => x.text);
   contractOk = true;
   window.__igPhotos = !!p.photos_from_instagram;
-  doneCafe = !!(p.name && p.logo_url && (photos.length >= 1 || (p.photos_from_instagram && p.instagram)) && (svc.size || p.other_services));
+  doneCafe = !!(p.name && p.logo_url && photos.length >= 1 && (svc.size || p.other_services));
   doneDisp = !!(Array.isArray(p.schedule) && p.schedule.some((d) => d.on && d.r.length && d.r.every(rOk)) && p.daily_stock >= MIN_CUPO);
 }
 
@@ -1811,7 +1811,6 @@ function liveBuildPayload() {
   if (addrSel) { payload.address = addrSel.a; payload.neighborhood = curBarrio(); if (FD.ad_prov) payload.province = FD.ad_prov; }
   if (pin.lat && (status !== 'aprobado' || pin.moved)) { payload.lat = +pin.lat.toFixed(7); payload.lng = +pin.lng.toFixed(7); }
   if (logo && logo.url) payload.logo_url = logo.url;
-  payload.photos_from_instagram = !!window.__igPhotos;
   return payload;
 }
 
@@ -2117,7 +2116,7 @@ function photosCard(){const n=photos.length;
  <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap"><div class="ph logo" style="width:84px;height:84px;aspect-ratio:auto;${logo&&logo.u?`background-image:url(${logo.u});background-size:cover`:''}">${logo&&!logo.u?'B':''}${!logo?'<span style="font-size:11px">Sin logo</span>':''}</div><label class="btn sec sm filebtn" tabindex="0">${logo?'Reemplazar logo':'Subir logo'}<input type="file" accept="image/png,image/jpeg" hidden data-logo-file></label><span class="hint">${logo?esc(logo.n):'PNG o JPG · mínimo recomendado 1000 × 1000 px · hasta 10 MB'}</span></div><div class="ferr" id="err-logo" role="alert"></div>
  <label style="margin-top:18px">Fotos del local <span class="req" aria-hidden="true">*</span><span class="sr"> (obligatorio)</span> <span class="hint" style="font-weight:400">· ${n} de 5 (mínimo 1, ideal 3)</span></label>
  ${n===0?'<div class="empty" style="margin:10px 0"><b>Todavía no subiste fotos</b><p class="muted">Con 1 alcanza para enviar tu adhesión (lo ideal son 3). Empezá por la fachada o la barra.</p></div>':''}<div class="photos">${photos.map((x,i)=>`<div class="phwrap"><div class="ph" style="${x.u?`background-image:url(${x.u});background-size:cover;background-position:center`:''}">${i===0?'<span class="mainb">Principal</span>':''}${x.u?'':`<span>${esc(x.n)}</span>`}</div><div class="phtools"><button type="button" data-ph-l="${i}" aria-label="Mover foto ${i+1} hacia la izquierda" ${i===0?'disabled':''}>←</button><button type="button" data-ph-r="${i}" aria-label="Mover foto ${i+1} hacia la derecha" ${i===n-1?'disabled':''}>→</button><button type="button" data-ph-d="${i}" aria-label="Quitar foto ${i+1}">×</button></div></div>`).join('')}${n<5?`<label class="ph empty addph" tabindex="0">+ Agregar<input type="file" accept="image/jpeg,image/png" hidden data-ph-file></label>`:''}</div>
- <div class="ferr" id="err-photos" role="alert"></div><p class="hint" style="margin-top:8px">La primera foto es la que se ve en la lista de cafeterías. Podés usar las flechas para reordenarlas.</p>${(status==='borrador'||status==='correccion')&&api.live?`<label class="ig-ph"><input type="checkbox" data-igph ${window.__igPhotos?'checked':''}><span><b>No tengo fotos a mano:</b> pueden usar fotos de mi Instagram. <span class="hint">Cargá tu Instagram en Datos básicos. Te avisamos antes de publicarlas.</span></span></label>`:''}</div>`}
+ <div class="ferr" id="err-photos" role="alert"></div><p class="hint" style="margin-top:8px">La primera foto es la que se ve en la lista de cafeterías. Podés usar las flechas para reordenarlas.</p></div>`}
 function cropModal(i){const ph=photos[i];if(!ph||!ph.u){toast('Esta foto todavía no se puede recortar.');return}
  const m=document.createElement('div');m.style.cssText='position:fixed;inset:0;background:#2b1d1699;z-index:1100;display:grid;place-items:center;padding:16px';
  m.innerHTML=`<div class="card" style="max-width:480px;width:100%;margin:0" role="dialog" aria-modal="true" aria-labelledby="cr-t"><h2 id="cr-t">Recortar foto ${i+1}</h2><p class="muted" style="margin:6px 0 12px">Podés mover la foto con el dedo o el mouse y ajustar el zoom para encuadrarla en formato horizontal 16:10, como se ve en la app.</p><div class="cropframe" id="cfr" style="position:relative;touch-action:none;cursor:grab"><img id="cimgx" alt="Foto a recortar" draggable="false" style="position:absolute;left:0;top:0;max-width:none;user-select:none"></div><div class="field" style="margin-top:12px"><label for="cz">Zoom</label><input type="range" id="cz" min="100" max="300" value="100"></div><div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn sec" id="cc">Cancelar</button><button class="btn" id="ck" disabled>Aplicar recorte</button></div></div>`;
@@ -2755,7 +2754,7 @@ function liveDraftsTable() {
   const EV = { view_inicio: 'Vio Inicio', view_cafe: 'Abrió Mi cafetería', view_disp: 'Abrió Disponibilidad', view_adh: 'Abrió Mi adhesión', view_canje: 'Abrió Cómo canjear', view_cuenta: 'Abrió Mi cuenta', view_stats: 'Abrió Estadísticas', view_equipo: 'Abrió Encargados',
     save_cafe: 'Guardó Mi cafetería', save_disp: 'Guardó horarios y cupo', submit_blocked: 'Intentó enviar (le faltaban datos)', submit_ok: 'Envió a revisión', from_email: 'Volvió desde el mail' };
   const evTxt = (e) => (e && e.event ? (EV[e.event] || (/^onb_step_/.test(e.event) ? 'Datos básicos, paso ' + e.event.slice(9) : e.event)) : '');
-  const wa = (ph, x) => { let d = String(ph || '').replace(/\D/g, ''); if (!d) return ''; d = d.replace(/^0/, ''); if (!/^54/.test(d)) d = '54' + d; if (!/^549/.test(d)) d = '549' + d.slice(2); const nm = (x.contact_name || '').split(' ')[0]; const miss = Object.keys(LB).filter((k) => !(x.steps || {})[k]).map((k) => LB[k].toLowerCase()); const t = `Hola${nm ? ' ' + nm : ''}! Te escribimos de Cafeteando. Vimos que empezaste a sumar ${x.name} al portal pero todavía no lo enviaste a revisión${miss.length ? ' (falta: ' + miss.join(', ') + ')' : ''}. ¿Te podemos ayudar con algo? Si no tenés fotos a mano, con 1 alcanza o podemos usar las de tu Instagram. Seguís acá: https://locales.somoscafeteando.com.ar`; return 'https://wa.me/' + d + '?text=' + encodeURIComponent(t); };
+  const wa = (ph, x) => { let d = String(ph || '').replace(/\D/g, ''); if (!d) return ''; d = d.replace(/^0/, ''); if (!/^54/.test(d)) d = '54' + d; if (!/^549/.test(d)) d = '549' + d.slice(2); const nm = (x.contact_name || '').split(' ')[0]; const miss = Object.keys(LB).filter((k) => !(x.steps || {})[k]).map((k) => LB[k].toLowerCase()); const t = `Hola${nm ? ' ' + nm : ''}! Te escribimos de Cafeteando. Vimos que empezaste a sumar ${x.name} al portal pero todavía no lo enviaste a revisión${miss.length ? ' (falta: ' + miss.join(', ') + ')' : ''}. ¿Te podemos ayudar con algo? Si no tenés todas las fotos, con 1 alcanza para enviarlo. Seguís acá: https://locales.somoscafeteando.com.ar`; return 'https://wa.me/' + d + '?text=' + encodeURIComponent(t); };
   return `<table><tr><th>Local</th><th>Contacto</th><th>Avance</th><th>Última actividad</th><th>Seguimiento</th></tr>${L.map((x) => {
     const st = x.steps || {}, done = Object.keys(LB).filter((k) => st[k]), miss = Object.keys(LB).filter((k) => !st[k]).map((k) => LB[k]);
     const n = days(x.updated_at), w = wa(x.phone, x), le = x.last_event;
@@ -3358,8 +3357,8 @@ function bind(){
   if(mview==='cafe'){
    const root=document.querySelector('.cafegrid');let ok=validateGroup(root);
    const pe=document.getElementById('err-photos'),le=document.getElementById('err-logo'),se=document.getElementById('err-svc');const svcBad=svc.size===0&&!(FD.cf_otros||'').trim();se.textContent=svcBad?'Falta elegir al menos una opción de servicios.':'';if(svcBad)ok=false;
-   const draftSt=status==='borrador'||status==='correccion';const igOk=!!window.__igPhotos&&!!String(FD.cf_insta||'').trim();const phMiss=photos.length<1&&!igOk;
-   pe.textContent=phMiss?'Subí al menos 1 foto de tu local'+(draftSt?' (o marcá la opción de Instagram).':'.'):'';le.textContent=logo?'':'Falta el logo de tu cafetería.';
+   const draftSt=status==='borrador'||status==='correccion';const phMiss=photos.length<1;
+   pe.textContent=phMiss?'Subí al menos 1 foto de tu local.':'';le.textContent=logo?'':'Falta el logo de tu cafetería.';
    if(draftSt){const vOk=validateGroup(root);const ms=[];if(!logo)ms.push('el logo');if(phMiss)ms.push('al menos 1 foto');if(svcBad)ms.push('elegir los servicios');window.__cafeMiss=ms.join(', ');if(!vOk)return;doneCafe=!ms.length}
    else{if(phMiss||!logo){if(ok)toast(!logo?'Falta el logo de tu cafetería':'Necesitamos al menos 1 foto de tu local');ok=false;if(!root.querySelector('.invalid')){document.getElementById('photosCard').scrollIntoView&&document.getElementById('photosCard').scrollIntoView({block:'center'})}}
    if(!ok)return;
