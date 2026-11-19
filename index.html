@@ -1269,6 +1269,23 @@ html:has(.auth2),body:has(.auth2){background:#2A1A12}
 }
 .qa{grid-template-columns:repeat(3,1fr)}
 @media(max-width:800px){.qa{grid-template-columns:1fr 1fr}}
+/* tarjeta del código de canje */
+.td-code{position:relative;overflow:hidden;isolation:isolate;align-items:center;text-align:center;justify-content:center;gap:10px!important;padding:18px 20px!important;width:260px!important;border-radius:16px!important;background:linear-gradient(150deg,#45291c 0%,#2A1A12 55%,#1a100b 100%)!important;box-shadow:0 10px 26px rgba(43,29,22,.28),inset 0 1px 0 rgba(255,255,255,.06)}
+.td-code::before{content:"";position:absolute;z-index:-1;width:220px;height:220px;right:-80px;top:-110px;border-radius:50%;background:radial-gradient(circle,rgba(227,167,132,.35),rgba(227,167,132,0) 70%)}
+.td-code::after{content:"";position:absolute;z-index:-1;top:0;bottom:0;left:-60%;width:40%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.09),transparent);transform:skewX(-18deg);animation:tdshine 6s ease-in-out infinite}
+@keyframes tdshine{0%,70%{left:-60%}100%{left:130%}}
+.td-code small{display:inline-flex;align-items:center;gap:6px;font-size:11.5px!important;font-weight:700!important;letter-spacing:.08em!important;text-transform:uppercase;color:#E3A784!important}
+.td-digits{display:flex;justify-content:center;gap:6px}
+.td-digits span{display:grid;place-items:center;width:38px;height:48px;border-radius:10px;background:rgba(250,248,244,.07);border:1px solid rgba(227,167,132,.35);font-family:'Red Hat Display',sans-serif;font-size:27px;font-weight:800;color:#faf8f4;animation:tddig .5s cubic-bezier(.2,.8,.2,1) both}
+@keyframes tddig{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.td-tip{margin:0!important;max-width:210px;font-size:12px!important;line-height:1.45!important;color:rgba(250,248,244,.72)!important;text-align:center!important;text-align-last:center!important}
+.td-code b{display:none}
+@media (prefers-reduced-motion:reduce){.td-code::after,.td-digits span{animation:none}}
+@media(max-width:800px){
+ .td-code{width:auto!important;flex-direction:column!important;align-items:center!important;padding:16px!important}
+ .td-digits span{width:42px;height:50px;font-size:28px}
+ .td-tip{max-width:280px}
+}
 
 </style>
 </head>
@@ -4369,7 +4386,7 @@ function todayCard() {
         <div class="td-mini"><span><b>${c.m}</b> este mes</span><span><b>${c.t}</b> en total</span></div>
       </div>
     </div>
-    <div class="td-code"><small>Código de canje</small><b>${esc(String(code))}</b><span>Dáselo al usuario solo cuando ya pidió su producto adicional.</span></div>
+    <div class="td-code" aria-label="Código de canje ${esc(String(code))}"><small><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Código de canje</small><div class="td-digits" aria-hidden="true">${String(code).split('').map((d, i) => `<span style="animation-delay:${i * 70}ms">${esc(d)}</span>`).join('')}</div><p class="td-tip">Dáselo al usuario solo cuando ya pidió su producto adicional.</p></div>
   </section>
   <nav class="qa" aria-label="Accesos rápidos">${qa.map(([k, l]) => `<a href="#" data-m="${k}"><span class="qa-ic">${qSvg(k, 20)}</span><b>${l}</b></a>`).join('')}</nav>`;
 }
