@@ -1100,8 +1100,8 @@ html:has(.auth2),body:has(.auth2){background:#2A1A12}
 .dsh-hr b{text-align:right}
 .dsh-ht{height:10px;border-radius:99px;background:var(--bg-neutral,#efe7dd);overflow:hidden}
 .dsh-ht i{display:block;height:100%;border-radius:99px;background:#d8b8a6}
-.dsh-hr.top .dsh-ht i{background:var(--terracota)}
-.dsh-hr.top span{font-weight:700}
+.dsh-hr.hi .dsh-ht i{background:var(--terracota)}
+.dsh-hr.hi span{font-weight:700}
 .dsh-ring{--p:0;width:116px;height:116px;border-radius:50%;margin:12px auto 4px;display:grid;place-items:center;background:conic-gradient(var(--terracota) calc(var(--p)*1%),var(--bg-neutral,#efe7dd) 0)}
 .dsh-ring>div{width:88px;height:88px;border-radius:50%;background:var(--card,#fff);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
 .dsh-ring b{font-family:'Red Hat Display',sans-serif;font-size:22px;color:var(--accent,var(--terracota));line-height:1}
@@ -4033,7 +4033,7 @@ function dashBars(S) {
 }
 function dashH(labels, vals, hl) {
   const max = Math.max(1, ...vals), top = vals.indexOf(Math.max(...vals));
-  return `<div class="dsh-h">${labels.map((l, i) => `<div class="dsh-hr ${vals[i] && i === top && hl ? 'top' : ''}"><span>${l}</span><div class="dsh-ht"><i style="width:${Math.round((vals[i] / max) * 100)}%"></i></div><b>${vals[i]}</b></div>`).join('')}</div>`;
+  return `<div class="dsh-h">${labels.map((l, i) => `<div class="dsh-hr ${vals[i] && i === top && hl ? 'hi' : ''}"><span>${l}</span><div class="dsh-ht"><i style="width:${Math.round((vals[i] / max) * 100)}%"></i></div><b>${vals[i]}</b></div>`).join('')}</div>`;
 }
 function dashHours(H) {
   const v = H || [], tot = v.reduce((a, n) => a + n, 0);
