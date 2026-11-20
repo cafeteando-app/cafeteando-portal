@@ -1354,6 +1354,15 @@ html:has(.auth2),body:has(.auth2){background:#2A1A12}
 .bj-note{margin:0 0 6px;font-size:13px;color:var(--muted)}
 .bj-pause{margin:0;font-size:13px;color:var(--muted)}
 .bj-pause a{color:var(--terracota);font-weight:600}
+/* Foto principal (admin) */
+.fp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.fp-it{position:relative;display:flex;flex-direction:column;gap:8px;padding:8px;border-radius:14px;border:1.5px solid var(--line);background:var(--crema-clara)}
+.fp-it.on{border-color:var(--terracota);box-shadow:0 0 0 3px rgba(169,102,73,.12)}
+.fp-img{aspect-ratio:3/4;border-radius:10px;background:#ddd center/cover no-repeat}
+.fp-tag{position:absolute;top:14px;left:14px;padding:3px 9px;border-radius:99px;background:var(--terracota);color:#fff;font-size:11px;font-weight:700}
+.fp-star{font-size:12px;font-weight:700;color:var(--terracota)}
+.fp-it .btn{width:100%}
+.featb{position:absolute;bottom:6px;left:6px;right:6px;padding:3px 6px;border-radius:8px;background:rgba(42,26,18,.82);color:#E3A784;font-size:10.5px;font-weight:700;text-align:center}
 
 </style>
 </head>
@@ -1985,7 +1994,7 @@ async function liveHydrate(reqId) {
   corrTouched = !!(q.status === 'needs_fix' && q.reviewed_payload && JSON.stringify(q.payload) !== JSON.stringify(q.reviewed_payload));
   if (m.contact_name && !p.address) { view = 'onb'; ob = 1; mview = 'inicio'; return 'onb'; }
   if (status === 'aprobado') {
-    window.__stats = await api.myStats(q.id); const ci = await api.myCafeInfo(q.id); liveCafe = { code: ci.code || '', active: !!ci.active, enabled: !!ci.enabled }; signedOk = !!ci.signed; if (signedOk) accV = contracts[contracts.length - 1].v;
+    window.__stats = await api.myStats(q.id); const ci = await api.myCafeInfo(q.id); window.__featured = ci.featured_photo || ''; liveCafe = { code: ci.code || '', active: !!ci.active, enabled: !!ci.enabled }; signedOk = !!ci.signed; if (signedOk) accV = contracts[contracts.length - 1].v;
     locals[cur].code = ci.code || '—';
     onMap = !!ci.active; cooldownUntil = ci.last_toggle_at ? new Date(ci.last_toggle_at).getTime() + 300000 : 0;
     { const cl = await api._rpc('my_closures', { p_request: q.id }); window.__closures = (cl.ok && Array.isArray(cl.data)) ? cl.data : []; syncPause(); }
@@ -2337,8 +2346,8 @@ function photosCard(){const n=photos.length;
  <label style="margin-top:14px">Logo <span class="req" aria-hidden="true">*</span><span class="sr"> (obligatorio)</span></label>
  <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap"><div class="ph logo" style="width:84px;height:84px;aspect-ratio:auto;${logo&&logo.u?`background-image:url(${logo.u});background-size:cover`:''}">${logo&&!logo.u?'B':''}${!logo?'<span style="font-size:11px">Sin logo</span>':''}</div><label class="btn sec sm filebtn" tabindex="0">${logo?'Reemplazar logo':'Subir logo'}<input type="file" accept="image/png,image/jpeg" hidden data-logo-file></label><span class="hint">${logo?esc(logo.n):'Cuadrado, PNG o JPG · ideal 1000 × 1000 px (mínimo 500 × 500) · hasta 10 MB'}</span></div><div class="ferr" id="err-logo" role="alert"></div>
  <label style="margin-top:18px">Fotos del local <span class="req" aria-hidden="true">*</span><span class="sr"> (obligatorio)</span> <span class="hint" style="font-weight:400">· ${n} de 5 (mínimo 1, ideal 3)</span></label>
- ${n===0?'<div class="empty" style="margin:10px 0"><b>Todavía no subiste fotos</b><p class="muted">Con 1 alcanza para enviar tu adhesión (lo ideal son 3). Empezá por la fachada o la barra.</p></div>':''}<div class="photos">${photos.map((x,i)=>`<div class="phwrap"><div class="ph" style="${x.u?`background-image:url(${x.u});background-size:cover;background-position:center`:''}">${i===0?'<span class="mainb">Principal</span>':''}${x.u?'':`<span>${esc(x.n)}</span>`}</div><div class="phtools"><button type="button" data-ph-l="${i}" aria-label="Mover foto ${i+1} hacia la izquierda" ${i===0?'disabled':''}>←</button><button type="button" data-ph-r="${i}" aria-label="Mover foto ${i+1} hacia la derecha" ${i===n-1?'disabled':''}>→</button><button type="button" data-ph-d="${i}" aria-label="Quitar foto ${i+1}">×</button></div></div>`).join('')}${n<5?`<label class="ph empty addph" tabindex="0">+ Agregar<input type="file" accept="image/jpeg,image/png" hidden data-ph-file></label>`:''}</div>
- <div class="ferr" id="err-photos" role="alert"></div><p class="hint" style="margin-top:8px">La primera foto es la que se ve en la lista de cafeterías. Podés usar las flechas para reordenarlas.</p></div>`}
+ ${n===0?'<div class="empty" style="margin:10px 0"><b>Todavía no subiste fotos</b><p class="muted">Con 1 alcanza para enviar tu adhesión (lo ideal son 3). Empezá por la fachada o la barra.</p></div>':''}<div class="photos">${photos.map((x,i)=>`<div class="phwrap"><div class="ph" style="${x.u?`background-image:url(${x.u});background-size:cover;background-position:center`:''}">${i===0?'<span class="mainb">Principal</span>':''}${api.live&&window.__featured&&(x.url||x.u)===window.__featured?'<span class="featb">★ Elegida por Cafeteando</span>':''}${x.u?'':`<span>${esc(x.n)}</span>`}</div><div class="phtools"><button type="button" data-ph-l="${i}" aria-label="Mover foto ${i+1} hacia la izquierda" ${i===0?'disabled':''}>←</button><button type="button" data-ph-r="${i}" aria-label="Mover foto ${i+1} hacia la derecha" ${i===n-1?'disabled':''}>→</button><button type="button" data-ph-d="${i}" aria-label="Quitar foto ${i+1}">×</button></div></div>`).join('')}${n<5?`<label class="ph empty addph" tabindex="0">+ Agregar<input type="file" accept="image/jpeg,image/png" hidden data-ph-file></label>`:''}</div>
+ <div class="ferr" id="err-photos" role="alert"></div><p class="hint" style="margin-top:8px">La primera foto es la que se ve en las recomendaciones y en la portada de tu local en la app. Podés usar las flechas para reordenarlas.</p>${api.live&&window.__featured&&photos.some(x=>(x.url||x.u)===window.__featured)?'<div class="note" style="margin-top:10px"><b>★ Cafeteando eligió una de tus fotos como principal</b> para mostrar tu local en la app. Podés cambiar el orden si querés: la app siempre muestra la que quede primera.</div>':''}</div>`}
 function cropModal(i){const ph=photos[i];if(!ph||!ph.u){toast('Esta foto todavía no se puede recortar.');return}
  const m=document.createElement('div');m.style.cssText='position:fixed;inset:0;background:#2b1d1699;z-index:1100;display:grid;place-items:center;padding:16px';
  m.innerHTML=`<div class="card" style="max-width:480px;width:100%;margin:0" role="dialog" aria-modal="true" aria-labelledby="cr-t"><h2 id="cr-t">Recortar foto ${i+1}</h2><p class="muted" style="margin:6px 0 12px">Podés mover la foto con el dedo o el mouse y ajustar el zoom para encuadrarla en formato horizontal 16:10, como se ve en la app.</p><div class="cropframe" id="cfr" style="position:relative;touch-action:none;cursor:grab"><img id="cimgx" alt="Foto a recortar" draggable="false" style="position:absolute;left:0;top:0;max-width:none;user-select:none"></div><div class="field" style="margin-top:12px"><label for="cz">Zoom</label><input type="range" id="cz" min="100" max="300" value="100"></div><div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn sec" id="cc">Cancelar</button><button class="btn" id="ck" disabled>Aplicar recorte</button></div></div>`;
@@ -3084,7 +3093,7 @@ function liveInvit() {
   const row = (c) => {
     const rq = reqOf(c);
     const st = c.claimed ? '<span class="badge b-aprobado">Adherido</span>' : c.invite ? `<span class="badge b-pendiente">Invitación enviada</span><div class="hint">${esc(c.invite.email)}</div>` : '<span class="badge b-borrador">Sin invitar</span>';
-    const ver = rq ? `<button class="btn sm sec" data-sel="${rq.id}">Ver</button>` : '';
+    const ver = (rq ? `<button class="btn sm sec" data-sel="${rq.id}">Ver</button>` : '') + ` <button class="btn sm sec" data-fphoto="${c.id}" data-fname="${esc(c.name)}" title="Elegir la foto que la app muestra en recomendaciones y portada">★ Foto principal</button>`;
     const inv = c.claimed ? '' : c.invite ? `<button class="btn sm sec" data-reinv="${c.id}" data-reinvm="${esc(c.invite.email)}">Reenviar mail</button> <button class="btn sm sec" data-copyinv="${c.invite.token}">Copiar link</button> <button class="btn sm bad" data-revinv="${c.id}">Anular</button>` : `<button class="btn sm" data-inv="${c.id}" data-invn="${esc(c.name)}">Invitar</button>`;
     return `<tr><td><b>${esc(c.name)}</b></td><td>${esc(c.neighborhood || '—')}</td><td>${rq ? (rq.brTot > 1 ? `<span class="badge b-pendiente">Sucursal ${rq.brNum} de ${rq.brTot}</span>` : '<span class="muted">Única</span>') : '<span class="muted">—</span>'}</td><td>${c.active ? '<span class="badge b-aprobado">Visible</span>' : '<span class="badge b-pendiente">No visible</span>'}</td><td style="text-align:center"><b>${stk(c)}</b></td><td>${st}</td><td style="white-space:nowrap;text-align:right">${ver} ${inv}</td></tr>`;
   };
@@ -4548,6 +4557,35 @@ document.addEventListener('click', (e) => {
   if (!a) return;
   e.preventDefault(); mview = 'cafe'; render();
   setTimeout(() => { const p = document.getElementById('appPrev'); if (p) p.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 120);
+});
+
+/* ---------- Admin: elegir la foto principal de un local ---------- */
+async function featuredPhotoModal(cafeId, name) {
+  const m = document.createElement('div');
+  m.style.cssText = 'position:fixed;inset:0;background:#2b1d1699;z-index:90;display:grid;place-items:center;padding:16px';
+  m.innerHTML = `<div class="card fp-card" style="max-width:720px;width:100%;margin:0"><h2>Foto principal · ${esc(name || '')}</h2><p class="muted" style="margin:6px 0 14px">La foto principal es la que la app muestra en las recomendaciones y en la portada del local. El comercio la ve marcada como "Elegida por Cafeteando" y puede cambiar el orden si quiere.</p><div class="fp-body"><p class="muted">Cargando fotos…</p></div><div style="display:flex;justify-content:flex-end;margin-top:14px"><button class="btn sec" data-fp-close>Cerrar</button></div></div>`;
+  document.body.append(m); mountModal(m);
+  m.onclick = (e) => { if (e.target === m || e.target.closest('[data-fp-close]')) m.remove(); };
+  const load = async () => {
+    const r = await api._rpc('admin_cafe_photos', { p_cafe: cafeId });
+    const box = m.querySelector('.fp-body');
+    if (!r.ok) { box.innerHTML = `<p class="muted">${esc(r.error)}</p>`; return; }
+    const P = r.data.photos || [], F = r.data.featured;
+    if (!P.length) { box.innerHTML = '<p class="muted">Este local todavía no tiene fotos cargadas: la app muestra su logo.</p>'; return; }
+    const changed = F && P[0] !== F;
+    box.innerHTML = `${changed ? '<div class="note" style="margin-bottom:12px">El comercio cambió el orden después de que eligieron la principal: hoy la app muestra otra foto primero.</div>' : ''}<div class="fp-grid">${P.map((u, i) => `<div class="fp-it ${i === 0 ? 'on' : ''}"><div class="fp-img" style="background-image:url('${esc(u)}')"></div>${i === 0 ? '<span class="fp-tag">Principal en la app</span>' : ''}${F === u ? '<span class="fp-star">★ Elegida por Cafeteando</span>' : ''}${i === 0 ? '' : `<button class="btn sm" data-fp-set="${esc(u)}">Usar como principal</button>`}</div>`).join('')}</div>${r.data.featured_at ? `<p class="hint" style="margin-top:10px">Última elección: ${esc(r.data.featured_by || '')} · ${fmtDT(r.data.featured_at)}</p>` : ''}`;
+    box.querySelectorAll('[data-fp-set]').forEach((b) => (b.onclick = async () => {
+      b.disabled = true;
+      const x = await api._rpc('admin_set_featured_photo', { p_cafe: cafeId, p_url: b.dataset.fpSet });
+      if (!x.ok) { b.disabled = false; toast(x.error); return; }
+      toast('Listo: esa foto ya es la principal en la app.'); load();
+    }));
+  };
+  load();
+}
+document.addEventListener('click', (e) => {
+  const b = e.target.closest && e.target.closest('[data-fphoto]');
+  if (b) { e.preventDefault(); featuredPhotoModal(b.dataset.fphoto, b.dataset.fname); }
 });
 
 </script>
