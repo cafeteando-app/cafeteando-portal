@@ -1344,6 +1344,16 @@ html:has(.auth2),body:has(.auth2){background:#2A1A12}
 .verbar{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:120;display:flex;align-items:center;gap:10px;padding:8px 8px 8px 16px;border-radius:99px;background:#2A1A12;color:#faf8f4;font-size:13.5px;box-shadow:0 10px 26px rgba(0,0,0,.28)}
 .verbar .btn{min-height:32px;padding:4px 14px}
 .verbar .vb-x{background:none;border:0;color:rgba(250,248,244,.7);font-size:18px;cursor:pointer;padding:0 6px}
+/* Modal de baja de cuenta */
+.bj{text-align:left;margin:0 0 14px;max-height:52vh;overflow-y:auto}
+.bj,.bj p,.bj li{text-align:left!important;text-align-last:auto!important}
+.bj-b{margin:0 0 10px}
+.bj-b b{display:block;font-size:14px;margin-bottom:2px}
+.bj-b ul{margin:0;padding-left:18px;font-size:13.5px;line-height:1.5;color:var(--muted)}
+.bj-warn{margin:12px 0 6px;padding:10px 12px;border-radius:10px;background:rgba(179,68,58,.08);color:var(--bad-text);font-size:13.5px;line-height:1.45}
+.bj-note{margin:0 0 6px;font-size:13px;color:var(--muted)}
+.bj-pause{margin:0;font-size:13px;color:var(--muted)}
+.bj-pause a{color:var(--terracota);font-weight:600}
 
 </style>
 </head>
@@ -3510,7 +3520,8 @@ function bind(){
  document.querySelectorAll('[data-go]').forEach(e=>e.onclick=()=>{const g=e.dataset.go;if(g==='verif'){toast('Te enviamos un email de verificación (simulado)');setTimeout(()=>{view='onb';ob=0;render()},900);return}view=g;mview='inicio';if(g==='m-ok'){status='aprobado';contractOk=doneCafe=doneDisp=true}render()});
  document.querySelectorAll('[data-theme-toggle]').forEach(e=>e.onclick=toggleTheme);
  document.querySelectorAll('[data-logout]').forEach(e=>e.onclick=()=>confirmModal({title:'¿Cerrar sesión?',text:'Vas a salir del portal de comercios. Tus datos quedan guardados.',ok:'Cerrar sesión',onOk:()=>{if(api.live){liveLogout();return}view='auth';mview='inicio';render()}}));
- document.querySelectorAll('[data-baja]').forEach(e=>e.onclick=()=>confirmModal({title:'¿Eliminar tu cuenta y tus datos?',text:'Tu local dejará de figurar en la app y no recibirá más canjes. Eliminamos tu cuenta, tus datos personales y las fotos que subiste. Esta acción es definitiva y no se puede deshacer. Te enviamos un email de confirmación.',word:'BAJA',ok:'Eliminar definitivamente',danger:true,onOk:()=>{if(api.live){liveDeleteAccount();return}toast('Baja de cuenta (simulado)')}}));
+ document.addEventListener('click',ev=>{const a=ev.target.closest&&ev.target.closest('[data-baja-pause]');if(!a)return;ev.preventDefault();document.querySelectorAll('[data-modal]').forEach(m=>m.remove());mview='inicio';render();window.scrollTo(0,0);setTimeout(()=>{const b=document.querySelector('[data-sched]');b&&b.scrollIntoView({block:'center'})},150)});
+ document.querySelectorAll('[data-baja]').forEach(e=>e.onclick=()=>confirmModal({title:'¿Eliminar tu cuenta y tus datos?',text:'Antes de seguir, tené en cuenta lo que pasa:',html:'<div class="bj"><div class="bj-b"><b>Lo que se elimina</b><ul><li>Tu cuenta del portal y tu acceso.</li><li>Tus datos de contacto y los de tu local.</li><li>El logo y las fotos que subiste.</li><li>El acceso de los encargados que hayas sumado.</li></ul></div><div class="bj-b"><b>Lo que cambia en la app</b><ul><li>Tu local deja de figurar en Cafeteando y no recibe más canjes, en todas tus sucursales.</li></ul></div><div class="bj-b"><b>Lo que conservamos</b><ul><li>Solo un registro mínimo para nuestras cuentas: nombre del local, barrio y fecha de baja. Si tu local tuvo canjes, guardamos ese historial sin datos personales.</li></ul></div><p class="bj-warn"><b>Es definitivo:</b> no se puede deshacer. Si más adelante querés volver, vas a tener que registrarte de nuevo.</p><p class="bj-note">Te enviamos un email confirmando la baja.</p><p class="bj-pause">¿Preferís pausar en vez de irte? <a href="#" data-baja-pause>Podés programar una pausa desde Inicio</a> y tu local vuelve solo.</p></div>',word:'BAJA',ok:'Eliminar definitivamente',danger:true,onOk:()=>{if(api.live){liveDeleteAccount();return}toast('Baja de cuenta (simulado)')}}));
  document.querySelectorAll('[data-edit]').forEach(e=>e.onclick=()=>editModal(REQ.find(x=>x.id===sel)));
  document.querySelectorAll('[data-lb]').forEach(e=>e.onclick=()=>lightbox(REQ.find(x=>x.id===sel),+e.dataset.lb));
  document.querySelectorAll('[data-pubchg]').forEach(e=>e.onclick=()=>{const r=REQ.find(x=>x.id===sel);r.pend=false;r.pub={};r.log=r.log||[];r.log.unshift({d:nowS(),t:ADMIN+' publicó los cambios del comercio'});activity.unshift({d:nowS(),w:ADMIN,a:'Publicó cambios de '+r.n});render();toast('Cambios publicados. Se avisó por email al comercio (simulado)')});
