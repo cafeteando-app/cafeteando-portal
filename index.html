@@ -4073,7 +4073,7 @@ function repMembresias() {
   const LR = R.last_run, issues = (LR && LR.issues) || [], fixes = R.recent_fixes || [], fails = R.cancel_failures || [];
   const match = K.mp_authorized === K.active;
   const runTxt = !LR ? '<b>Todavía no corrió ningún control.</b>'
-    : !LR.ok ? `<b class="rep-warn">El último control (${fmtDT(LR.at)}) no pudo leer Mercado Pago.</b> ${esc(LR.error || '')}`
+    : !LR.ok ? `<b class="rep-warn">El último control (${fmtDT(LR.at)}) no se pudo completar.</b> <span class="hint">${esc(LR.error || '')}</span> Podés volver a correrlo con el botón de arriba.`
     : issues.length ? `<b class="rep-warn">Último control: ${fmtDT(LR.at)} · ${issues.length} cosa${issues.length === 1 ? '' : 's'} para revisar.</b>`
     : `<b>Último control: ${fmtDT(LR.at)} · todo coincide con Mercado Pago.</b>`;
   return controls + `<div class="grid g3 rep-grid">
