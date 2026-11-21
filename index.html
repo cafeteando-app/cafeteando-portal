@@ -3754,6 +3754,7 @@ const REP_MENU = [
   ['ranking', 'Ranking de locales', 'Qué locales tienen más canjes, cuáles se quedan sin cupo y cuáles necesitan difusión.', true],
   ['ficha', 'Ficha por local', 'Canjes por día, horarios fuertes y socios que vuelven, local por local.', true],
   ['socios', 'Socios', 'Cuánto usan la membresía, cuántos locales recorren y quiénes están en riesgo de baja.', true],
+  ['membresias', 'Membresías', 'Quiénes están activos, quiénes cancelaron y cuántos días les quedan, y el control diario con Mercado Pago.', true],
   ['barrios', 'Barrios', 'Oferta contra demanda: dónde hay socios y dónde faltan cafeterías.', true],
   ['alertas', 'Alertas', 'Locales sin canjes, cupos agotados y socios inactivos.', true],
 ];
@@ -3765,7 +3766,8 @@ api.adminReportRanking = (days, exTest) => api._rpc('admin_report_ranking', { p_
 api.adminReportBarrios = (days, exTest) => api._rpc('admin_report_barrios', { p_days: days, p_exclude_test: exTest });
 api.adminReportCafe = (days, exTest) => api._rpc('admin_report_cafe', { p_cafe: repCafe || null, p_days: days, p_exclude_test: exTest });
 let alDays = 14, repCafe = '', repSort = { k: 'reds', dir: -1 };
-const REP_RPC = { red: 'adminReportNetwork', socios: 'adminReportMembers', alertas: 'adminReportAlerts', ranking: 'adminReportRanking', barrios: 'adminReportBarrios', ficha: 'adminReportCafe' };
+api.adminReportMemberships = () => api._rpc('admin_report_memberships', {});
+const REP_RPC = { red: 'adminReportNetwork', socios: 'adminReportMembers', alertas: 'adminReportAlerts', ranking: 'adminReportRanking', barrios: 'adminReportBarrios', ficha: 'adminReportCafe', membresias: 'adminReportMemberships' };
 const repCurDays = () => (repView === 'alertas' ? alDays : repDays);
 
 function repKey() { return repView + '|' + repCurDays() + '|' + (repExTest ? 1 : 0) + (repView === 'ficha' ? '|' + (repCafe || 'auto') : ''); }
@@ -3839,6 +3841,7 @@ function repRed() {
       <li><span>Locales visibles en la app</span><b>${repNum(S.visible_cafes)}</b></li>
       <li><span>Cupos de café por día</span><b>${repNum(S.daily_slots)}</b></li>
       <li><span>Socios con membresía activa</span><b>${repNum(S.active_members)}</b></li>
+      ${S.cancelled_access != null ? `<li><span>Cancelaron (todavía con días vigentes)</span><b>${repNum(S.cancelled_access)}</b></li>` : ''}
       <li><span>Socios vitalicios</span><b>${repNum(S.lifetime_members)}</b></li>
       <li><span>Usuarios registrados en la app</span><b>${repNum(S.registered_users)}</b></li>
     </ul></div>
@@ -4046,10 +4049,69 @@ function repBarrios() {
   <p class="hint rep-note"><b>Cómo se calcula:</b> "Usuarios interesados" son los usuarios registrados que eligieron ese barrio entre sus zonas; "Socios interesados" son los que además tienen la membresía vigente. "Mucha demanda" significa 5 o más interesados por local. Los barrios se comparan por nombre, así que un barrio escrito distinto en la ficha del local puede aparecer separado. Actualizado ${fmtDT(st.at)}.</p>`;
 }
 
+/* ---------- Membresías + control con Mercado Pago ---------- */
+const MP_ST = { authorized: ['Autorizada', 'b-aprobado'], paused: ['Pausada', 'b-pendiente'], cancelled: ['Cancelada', 'b-borrador'], pending: ['Checkout sin terminar', 'b-pendiente'] };
+const repMp = (s) => { const x = MP_ST[s]; return x ? `<span class="badge ${x[1]}">${x[0]}</span>` : '<span class="muted">Sin suscripción</span>'; };
+const MP_ISSUE = {
+  cancelled_but_charging: 'Canceló en la app pero Mercado Pago sigue cobrando',
+  deleted_live: 'Cuenta borrada con suscripción activa en Mercado Pago',
+  duplicate_authorized: 'Tiene dos suscripciones activas (doble cobro)',
+  active_without_subscription: 'Figura activo sin suscripción en Mercado Pago (¿membresía dada a mano?)',
+  update_failed: 'No se pudo corregir automáticamente',
+};
+const MP_FIX = { activated: 'Se activó: había pagado pero no figuraba', cancelled: 'Pasó a cancelado: canceló desde Mercado Pago', past_due: 'Pasó a cobro rechazado' };
+let mpRunAt = 0;
+const repDaysLeft = (n) => `<b>${repNum(n)}</b> día${n === 1 ? '' : 's'}`;
+function repMembresias() {
+  const k = repKey(), c = REP.cache[k];
+  repLoad(false);
+  const running = mpRunAt && Date.now() - mpRunAt < 30000;
+  const controls = `<div class="rep-ctl"><button class="btn sm" data-mprun ${running ? 'disabled' : ''}>${running ? 'Revisando con Mercado Pago…' : 'Revisar ahora con Mercado Pago'}</button><button class="btn sm sec" data-repreload>Actualizar</button></div>`;
+  if (REP.error[k] && !c) return controls + `<div class="card"><p class="muted">${esc(REP.error[k])}</p></div>`;
+  if (!c) return controls + '<div class="card"><p class="muted">Cargando el reporte…</p></div>';
+  const R = c.data, K = R.k || {}, A = R.active || [], C = R.cancelled || [], PD = R.past_due || [], LF = R.lifetime || [];
+  const LR = R.last_run, issues = (LR && LR.issues) || [], fixes = R.recent_fixes || [], fails = R.cancel_failures || [];
+  const match = K.mp_authorized === K.active;
+  const runTxt = !LR ? '<b>Todavía no corrió ningún control.</b>'
+    : !LR.ok ? `<b class="rep-warn">El último control (${fmtDT(LR.at)}) no pudo leer Mercado Pago.</b> ${esc(LR.error || '')}`
+    : issues.length ? `<b class="rep-warn">Último control: ${fmtDT(LR.at)} · ${issues.length} cosa${issues.length === 1 ? '' : 's'} para revisar.</b>`
+    : `<b>Último control: ${fmtDT(LR.at)} · todo coincide con Mercado Pago.</b>`;
+  return controls + `<div class="grid g3 rep-grid">
+    ${repCard('Activos', repNum(K.active), 'Membresía paga que se renueva sola')}
+    ${repCard('Cancelaron con días vigentes', repNum(K.cancelled_access), 'Siguen usando la app hasta el fin del período que pagaron')}
+    ${repCard('Autorizadas en Mercado Pago', repNum(K.mp_authorized), match ? 'Coincide con los activos de la app' : `<span class="rep-warn">No coincide con los ${repNum(K.active)} activos de la app</span>`)}
+    ${repCard('Cobro rechazado', repNum(K.past_due), 'Sin acceso hasta que Mercado Pago logre cobrar')}
+    ${repCard('Vitalicios', repNum(K.lifetime), 'Acceso sin vencimiento')}
+    ${repCard('Bajas que fallaron', repNum(fails.length), 'Últimos 30 días: la persona vio el mensaje para escribirnos')}
+  </div>
+  <div class="card"><h2>Control con Mercado Pago</h2><p class="hint">Todos los días a las 2:30 se compara cada suscripción de Mercado Pago con la app y se corrige lo que no coincide. También lo podés correr a mano con el botón de arriba.</p>
+    <p>${runTxt}</p>
+    ${issues.length ? repTable(['Qué pasa', 'Socio', 'Detalle'], issues.map((x) => `<tr><td><b>${esc(MP_ISSUE[x.kind] || x.kind)}</b></td><td>${x.name || x.email ? repWho(x) : '<span class="muted">Cuenta borrada</span>' + (x.payer_email ? `<div class="hint">Pagador: ${esc(x.payer_email)}</div>` : '')}</td><td>${x.preapproval_id ? `<div class="hint">Suscripción ${esc(String(x.preapproval_id))}</div>` : ''}${x.preapproval_ids ? `<div class="hint">${x.preapproval_ids.map((i) => esc(String(i))).join('<br>')}</div>` : ''}${x.next ? `<div class="hint">Próximo cobro: ${repFD(x.next)}</div>` : ''}</td></tr>`)) : ''}
+    ${fixes.length ? `<h3 class="rep-h3">Correcciones automáticas (últimos 30 días)</h3>${repTable(['Fecha', 'Socio', 'Qué se corrigió', 'Acceso hasta'], fixes.map((x) => `<tr><td>${fmtDT(x.at)}</td><td>${repWho(x)}</td><td>${esc(MP_FIX[x.kind] || x.kind)}</td><td>${x.renewal ? repFD(x.renewal) : '—'}</td></tr>`))}` : ''}
+    ${fails.length ? `<h3 class="rep-h3">Bajas desde la app que no se pudieron completar</h3><p class="hint">A estas personas la app les pidió que escriban a contacto@somoscafeteando.com.ar. Conviene cancelarles la suscripción a mano en Mercado Pago y avisarles.</p>${repTable(['Fecha', 'Socio', 'Desde', 'Motivo técnico'], fails.map((x) => `<tr><td>${fmtDT(x.at)}</td><td>${x.name || x.email ? repWho(x) : '<span class="muted">—</span>'}</td><td>${x.topic === 'delete_account' ? 'Borrar cuenta' : 'Cancelar membresía'}</td><td><span class="hint">${esc(String(x.detail || '').slice(0, 140))}</span></td></tr>`))}` : ''}
+  </div>
+  <div class="card"><h2>Activos <span class="rep-count">${A.length}</span></h2><p class="hint">Ordenados por fecha de renovación: los primeros son los próximos en cobrarse.</p>
+    ${A.length ? repTable(['Socio', 'Renueva el', 'Faltan', 'En Mercado Pago', 'Se suscribió'], A.map((x) => `<tr><td>${repWho(x)}</td><td>${repFD(x.ren)}</td><td>${x.ren ? repDaysLeft(x.days_left) : '—'}</td><td>${repMp(x.mp_status)}</td><td>${x.mp_since ? repFD(x.mp_since) : '—'}</td></tr>`)) : repOk('Nadie con membresía activa', 'Cuando alguien se suscriba va a aparecer acá.')}</div>
+  <div class="card"><h2>Cancelaron, con días vigentes <span class="rep-count">${C.length}</span></h2><p class="hint">Ya no se les va a cobrar. Pueden seguir canjeando hasta la fecha indicada; ese día la membresía se cierra sola y les llega el mail de membresía finalizada.</p>
+    ${C.length ? repTable(['Socio', 'Acceso hasta', 'Le quedan', 'En Mercado Pago'], C.map((x) => `<tr><td>${repWho(x)}</td><td>${repFD(x.ren)}</td><td>${repDaysLeft(x.days_left)}${x.days_left <= 3 ? '<div class="hint rep-warn">Vence en pocos días</div>' : ''}</td><td>${repMp(x.mp_status)}</td></tr>`)) : repOk('Nadie canceló con días pendientes', 'Cuando alguien cancele, va a aparecer acá con los días que le quedan.')}</div>
+  ${PD.length ? `<div class="card"><h2>Cobro rechazado <span class="rep-count on">${PD.length}</span></h2><p class="hint">Mercado Pago no pudo cobrarles y sigue reintentando. No tienen acceso hasta que el cobro salga bien.</p>${repTable(['Socio', 'Renovación', 'En Mercado Pago'], PD.map((x) => `<tr><td>${repWho(x)}</td><td>${repFD(x.ren)}</td><td>${repMp(x.mp_status)}</td></tr>`))}</div>` : ''}
+  ${LF.length ? `<div class="card"><h2>Vitalicios <span class="rep-count">${LF.length}</span></h2>${repTable(['Socio'], LF.map((x) => `<tr><td>${repWho(x)}</td></tr>`))}</div>` : ''}
+  <p class="hint rep-note"><b>Cómo se calcula:</b> "Activos" son los usuarios con membresía paga vigente que se renueva (no incluye vitalicios). "Autorizadas en Mercado Pago" son las suscripciones de Cafeteando que Mercado Pago tiene cobrando; deberían ser la misma cantidad que los activos. Los días se cuentan en hora de Argentina. Actualizado ${fmtDT(c.at)}.</p>`;
+}
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest && e.target.closest('[data-mprun]');
+  if (!b) return;
+  b.disabled = true; mpRunAt = Date.now(); render();
+  const r = await api._rpc('admin_run_mp_reconcile', {});
+  if (!r.ok) { mpRunAt = 0; toast(r.error); render(); return; }
+  toast('Revisando con Mercado Pago. En unos segundos se actualiza el reporte.');
+  setTimeout(() => { mpRunAt = 0; repLoad(true); if (view === 'admin' && aview === 'reportes') render(); }, 25000);
+});
+
 function liveReportes() {
   const cur = REP_MENU.find((m) => m[0] === repView) || REP_MENU[0];
   const menu = `<div class="rep-menu" role="tablist" aria-label="Reportes">${REP_MENU.map(([k, t, d, ok]) => `<button class="rep-btn ${repView === k ? 'on' : ''} ${ok ? '' : 'soon'}" ${ok ? `data-repv="${k}"` : 'disabled aria-disabled="true"'} role="tab" aria-selected="${repView === k}"><b>${t}</b><span>${d}</span>${ok ? '' : '<em>Próximamente</em>'}</button>`).join('')}</div>`;
-  const V = { red: repRed, ranking: repRanking, ficha: repFicha, socios: repSocios, barrios: repBarrios, alertas: repAlertas };
+  const V = { red: repRed, ranking: repRanking, ficha: repFicha, socios: repSocios, membresias: repMembresias, barrios: repBarrios, alertas: repAlertas };
   const body = V[repView] ? V[repView]() : '';
   return `<div class="top"><div><h1>Reportes</h1><p class="muted">Elegí qué querés explorar.</p></div></div>${menu}<h2 class="rep-h">${cur[1]}</h2>${body}`;
 }
