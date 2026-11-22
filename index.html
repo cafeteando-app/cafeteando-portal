@@ -1363,6 +1363,12 @@ html:has(.auth2),body:has(.auth2){background:#2A1A12}
 .fp-star{font-size:12px;font-weight:700;color:var(--terracota)}
 .fp-it .btn{width:100%}
 .featb{position:absolute;bottom:6px;left:6px;right:6px;padding:3px 6px;border-radius:8px;background:rgba(42,26,18,.82);color:#E3A784;font-size:10.5px;font-weight:700;text-align:center}
+/* Reportes: Crecimiento */
+.gr-svg{width:100%;height:auto;display:block;margin-top:8px;overflow:visible}
+.gr-leg{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:6px}
+.gr-leg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.rep-ctl .chips+.chips{margin-left:4px}
+@media(max-width:800px){.rep-ctl .chips{flex-wrap:wrap}}
 
 </style>
 </head>
@@ -3751,6 +3757,7 @@ let repView = 'red', repDays = 30, repExTest = true;
 const REP = { cache: {}, loading: {}, error: {} };
 const REP_MENU = [
   ['red', 'Resumen de la red', 'Canjes, socios, ocupación de cupos e ingresos del período.', true],
+  ['crecimiento', 'Crecimiento', 'Cómo crecen los usuarios registrados y los socios con membresía activa, por día, semana o mes.', true],
   ['ranking', 'Ranking de locales', 'Qué locales tienen más canjes, cuáles se quedan sin cupo y cuáles necesitan difusión.', true],
   ['ficha', 'Ficha por local', 'Canjes por día, horarios fuertes y socios que vuelven, local por local.', true],
   ['socios', 'Socios', 'Cuánto usan la membresía, cuántos locales recorren y quiénes están en riesgo de baja.', true],
@@ -3767,10 +3774,13 @@ api.adminReportBarrios = (days, exTest) => api._rpc('admin_report_barrios', { p_
 api.adminReportCafe = (days, exTest) => api._rpc('admin_report_cafe', { p_cafe: repCafe || null, p_days: days, p_exclude_test: exTest });
 let alDays = 14, repCafe = '', repSort = { k: 'reds', dir: -1 };
 api.adminReportMemberships = () => api._rpc('admin_report_memberships', {});
-const REP_RPC = { red: 'adminReportNetwork', socios: 'adminReportMembers', alertas: 'adminReportAlerts', ranking: 'adminReportRanking', barrios: 'adminReportBarrios', ficha: 'adminReportCafe', membresias: 'adminReportMemberships' };
+let grGrain = 'week';
+const grN = { day: 30, week: 12, month: 12 };
+api.adminReportGrowth = () => api._rpc('admin_report_growth', { p_grain: grGrain, p_periods: grN[grGrain] });
+const REP_RPC = { red: 'adminReportNetwork', socios: 'adminReportMembers', alertas: 'adminReportAlerts', ranking: 'adminReportRanking', barrios: 'adminReportBarrios', ficha: 'adminReportCafe', membresias: 'adminReportMemberships', crecimiento: 'adminReportGrowth' };
 const repCurDays = () => (repView === 'alertas' ? alDays : repDays);
 
-function repKey() { return repView + '|' + repCurDays() + '|' + (repExTest ? 1 : 0) + (repView === 'ficha' ? '|' + (repCafe || 'auto') : ''); }
+function repKey() { return repView + '|' + repCurDays() + '|' + (repExTest ? 1 : 0) + (repView === 'ficha' ? '|' + (repCafe || 'auto') : '') + (repView === 'crecimiento' ? '|' + grGrain + '|' + grN[grGrain] : ''); }
 function repLoad(force) {
   const k = repKey();
   if (REP.loading[k] || (!force && REP.cache[k])) return;
@@ -4049,6 +4059,81 @@ function repBarrios() {
   <p class="hint rep-note"><b>Cómo se calcula:</b> "Usuarios interesados" son los usuarios registrados que eligieron ese barrio entre sus zonas; "Socios interesados" son los que además tienen la membresía vigente. "Mucha demanda" significa 5 o más interesados por local. Los barrios se comparan por nombre, así que un barrio escrito distinto en la ficha del local puede aparecer separado. Actualizado ${fmtDT(st.at)}.</p>`;
 }
 
+/* ---------- Crecimiento: registrados y socios activos por día / semana / mes ---------- */
+const GR_OPTS = { day: [[14, '14 días'], [30, '30 días'], [90, '90 días']], week: [[8, '8 semanas'], [12, '12 semanas'], [26, '26 semanas']], month: [[6, '6 meses'], [12, '12 meses'], [24, '24 meses']] };
+const GR_MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+function grLbl(s, long) {
+  const d = String(s).slice(0, 10).split('-');
+  if (grGrain === 'month') return GR_MES[+d[1] - 1] + (long ? ' ' + d[0] : " '" + d[0].slice(2));
+  return (grGrain === 'week' && long ? 'Semana del ' : '') + d[2] + '/' + d[1];
+}
+const grNice = (mx) => { const raw = Math.max(1, mx * 1.1) / 4, p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p; return Math.max(4, 4 * (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p); };
+/* gráfico de línea con área (SVG escalable) */
+function grLine(S, key, color, unit) {
+  const W = 680, H = 230, L = 40, R = 18, T = 22, B = 30, n = S.length;
+  const vals = S.map((x) => Number(x[key] || 0));
+  const top = grNice(Math.max(...vals));
+  const X = (i) => L + (n > 1 ? (i * (W - L - R)) / (n - 1) : (W - L - R) / 2);
+  const Y = (v) => T + (H - T - B) * (1 - v / top);
+  const pts = vals.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`);
+  const area = `M${X(0).toFixed(1)},${Y(0)} L${pts.join(' L')} L${X(n - 1).toFixed(1)},${Y(0)} Z`;
+  const every = Math.max(1, Math.ceil(n / 8));
+  const grid = [0, 1, 2, 3, 4].map((k) => { const v = (top * k) / 4, y = Y(v).toFixed(1); return `<line x1="${L}" x2="${W - R}" y1="${y}" y2="${y}" stroke="var(--line)" stroke-width="1"/><text x="${L - 8}" y="${+y + 4}" text-anchor="end" font-size="11" fill="var(--muted)">${repNum(Math.round(v))}</text>`; }).join('');
+  const xl = S.map((x, i) => (i % every === 0 || i === n - 1) ? `<text x="${X(i).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="11" fill="var(--muted)">${esc(grLbl(x.start))}</text>` : '').join('');
+  const dots = vals.map((v, i) => `<circle cx="${X(i).toFixed(1)}" cy="${Y(v).toFixed(1)}" r="${i === n - 1 ? 5 : 3.2}" fill="${i === n - 1 ? color : '#fff'}" stroke="${color}" stroke-width="2"><title>${esc(grLbl(S[i].start, true))}: ${repNum(v)} ${unit}</title></circle>`).join('');
+  const last = vals[n - 1];
+  return `<svg class="gr-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolución de ${unit}"><defs><linearGradient id="gr-${key}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${color}" stop-opacity=".28"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>${grid}<path d="${area}" fill="url(#gr-${key})"/><polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>${dots}<text x="${Math.min(X(n - 1), W - R - 4).toFixed(1)}" y="${(Y(last) - 11).toFixed(1)}" text-anchor="end" font-size="13" font-weight="700" fill="${color}">${repNum(last)}</text>${xl}</svg>`;
+}
+/* barras dobles: nuevos registros y altas de socios por período */
+function grBars(S) {
+  const W = 680, H = 200, L = 40, R = 18, T = 14, B = 30, n = S.length;
+  const a = S.map((x) => Number(x.new_registered || 0)), m = S.map((x) => Number(x.new_members || 0));
+  const top = grNice(Math.max(...a, ...m));
+  const slot = (W - L - R) / n, bw = Math.max(2, Math.min(16, slot * 0.36));
+  const Y = (v) => T + (H - T - B) * (1 - v / top);
+  const every = Math.max(1, Math.ceil(n / 8));
+  const grid = [0, 2, 4].map((k) => { const v = (top * k) / 4, y = Y(v).toFixed(1); return `<line x1="${L}" x2="${W - R}" y1="${y}" y2="${y}" stroke="var(--line)"/><text x="${L - 8}" y="${+y + 4}" text-anchor="end" font-size="11" fill="var(--muted)">${repNum(Math.round(v))}</text>`; }).join('');
+  const bars = S.map((x, i) => { const cx = L + slot * i + slot / 2; return `<rect x="${(cx - bw - 1).toFixed(1)}" y="${Y(a[i]).toFixed(1)}" width="${bw.toFixed(1)}" height="${(Y(0) - Y(a[i])).toFixed(1)}" rx="2" fill="var(--terracota-claro)"><title>${esc(grLbl(x.start, true))}: ${a[i]} registro${a[i] === 1 ? '' : 's'}</title></rect><rect x="${(cx + 1).toFixed(1)}" y="${Y(m[i]).toFixed(1)}" width="${bw.toFixed(1)}" height="${(Y(0) - Y(m[i])).toFixed(1)}" rx="2" fill="var(--terracota-oscuro)"><title>${esc(grLbl(x.start, true))}: ${m[i]} alta${m[i] === 1 ? '' : 's'} de socio</title></rect>${(i % every === 0 || i === n - 1) ? `<text x="${cx.toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="11" fill="var(--muted)">${esc(grLbl(x.start))}</text>` : ''}`; }).join('');
+  return `<svg class="gr-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Nuevos por período">${grid}${bars}</svg><div class="gr-leg"><span><i style="background:var(--terracota-claro)"></i>Nuevos usuarios registrados</span><span><i style="background:var(--terracota-oscuro)"></i>Nuevos socios (altas de membresía)</span></div>`;
+}
+function grDelta(cur, start) {
+  const d = cur - start;
+  if (!start) return d > 0 ? `<span class="rep-d up">+${repNum(d)} en el período</span>` : '<span class="rep-d">Sin cambios en el período</span>';
+  const p = Math.round((d / start) * 100);
+  return `<span class="rep-d ${d > 0 ? 'up' : d < 0 ? 'down' : ''}">${d > 0 ? '▲ +' : d < 0 ? '▼ ' : '= '}${repNum(d)} (${p > 0 ? '+' : ''}${p}%) en el período</span>`;
+}
+function repCrecimiento() {
+  const k = repKey(), c = REP.cache[k];
+  repLoad(false);
+  const gname = { day: 'Por día', week: 'Por semana', month: 'Por mes' };
+  const controls = `<div class="rep-ctl"><div class="chips" role="group" aria-label="Ver">${Object.keys(gname).map((g) => `<button class="chip ${grGrain === g ? 'on' : ''}" data-grgrain="${g}" aria-pressed="${grGrain === g}">${gname[g]}</button>`).join('')}</div>
+    <div class="chips" role="group" aria-label="Período">${GR_OPTS[grGrain].map(([v, l]) => `<button class="chip ${grN[grGrain] === v ? 'on' : ''}" data-grn="${v}" aria-pressed="${grN[grGrain] === v}">${grGrain === 'week' ? 'Últimas' : 'Últimos'} ${l}</button>`).join('')}</div>
+    <button class="btn sm sec" data-repreload>Actualizar</button></div>`;
+  if (REP.error[k] && !c) return controls + `<div class="card"><p class="muted">${esc(REP.error[k])}</p></div>`;
+  if (!c) return controls + '<div class="card"><p class="muted">Cargando el reporte…</p></div>';
+  const R = c.data, S = R.series || [], NOW = R.now || {};
+  if (!S.length) return controls + repOk('Sin datos todavía', 'Cuando haya usuarios registrados, vas a ver la evolución acá.');
+  const f = S[0], l = S[S.length - 1];
+  const regStart = f.registered - f.new_registered, actStart = Math.max(0, f.active - f.new_members + f.lost_members);
+  const unitTxt = { day: 'día', week: 'semana', month: 'mes' }[grGrain];
+  const conv = l.registered ? Math.round((l.active / l.registered) * 1000) / 10 : 0;
+  const totNewReg = S.reduce((a, x) => a + x.new_registered, 0), totNewMem = S.reduce((a, x) => a + x.new_members, 0), totLost = S.reduce((a, x) => a + x.lost_members, 0);
+  return controls + `<p class="hint rep-per">Desde ${grGrain === 'week' ? 'la semana del ' : grGrain === 'month' ? '' : 'el '}<b>${esc(grGrain === 'week' ? grLbl(f.start) : grLbl(f.start, true))}</b> hasta hoy.${grGrain === 'week' ? ' La última semana está en curso.' : grGrain === 'month' ? ' El último mes está en curso.' : ''}</p>
+  <div class="grid g3 rep-grid">
+    ${repCard('Usuarios registrados', repNum(NOW.registered), grDelta(l.registered, regStart))}
+    ${repCard('Socios con membresía activa', repNum(NOW.active), grDelta(l.active, actStart))}
+    ${repCard('Conversión a socio', conv.toLocaleString('es-AR') + '%', 'Registrados que hoy tienen la membresía activa')}
+  </div>
+  <div class="grid g2 rep-two">
+    <div class="card" style="margin:0"><h2>Usuarios registrados</h2><p class="hint">Total acumulado al cierre de cada ${unitTxt}.</p>${grLine(S, 'registered', 'var(--terracota)', 'usuarios')}</div>
+    <div class="card" style="margin:0"><h2>Socios con membresía activa</h2><p class="hint">Socios con membresía paga vigente al cierre de cada ${unitTxt}.</p>${grLine(S, 'active', 'var(--ok)', 'socios')}</div>
+  </div>
+  <div class="card"><h2>Nuevos por ${unitTxt}</h2><p class="hint">En todo el período: <b>${repNum(totNewReg)}</b> registros nuevos, <b>${repNum(totNewMem)}</b> altas de membresía y <b>${repNum(totLost)}</b> bajas.</p>${grBars(S)}</div>
+  <div class="card"><h2>Detalle por ${unitTxt}</h2>${repTable([grGrain === 'week' ? 'Semana del' : grGrain === 'month' ? 'Mes' : 'Día', 'Registrados', 'Nuevos registros', 'Socios activos', 'Altas', 'Bajas', 'Conversión'],
+    S.slice().reverse().map((x) => `<tr><td><b>${esc(grLbl(x.start, grGrain === 'month'))}</b>${x === l && grGrain !== 'day' ? '<div class="hint">En curso</div>' : ''}</td><td>${repNum(x.registered)}</td><td>${x.new_registered ? '+' + repNum(x.new_registered) : '—'}</td><td><b>${repNum(x.active)}</b></td><td>${x.new_members ? '+' + repNum(x.new_members) : '—'}</td><td>${x.lost_members ? '−' + repNum(x.lost_members) : '—'}</td><td>${x.registered ? (Math.round((x.active / x.registered) * 1000) / 10).toLocaleString('es-AR') + '%' : '—'}</td></tr>`))}</div>
+  <p class="hint rep-note"><b>Cómo se calcula:</b> "Registrados" cuenta los usuarios de la app (no incluye cuentas de comercios ni cuentas borradas). "Socios con membresía activa" son los que tienen la membresía paga que se renueva, sin contar vitalicios ni a quienes cancelaron y todavía tienen días; la historia se arma con los avisos de Mercado Pago y, desde ahora, con una foto diaria. Una "alta" es cuando alguien pasa a tener la membresía activa; una "baja", cuando cancela o le rechazan el cobro. Los días se cuentan en hora de Argentina. Actualizado ${fmtDT(c.at)}.</p>`;
+}
+
 /* ---------- Membresías + control con Mercado Pago ---------- */
 const MP_ST = { authorized: ['Autorizada', 'b-aprobado'], paused: ['Pausada', 'b-pendiente'], cancelled: ['Cancelada', 'b-borrador'], pending: ['Checkout sin terminar', 'b-pendiente'] };
 const repMp = (s) => { const x = MP_ST[s]; return x ? `<span class="badge ${x[1]}">${x[0]}</span>` : '<span class="muted">Sin suscripción</span>'; };
@@ -4111,7 +4196,7 @@ document.addEventListener('click', async (e) => {
 function liveReportes() {
   const cur = REP_MENU.find((m) => m[0] === repView) || REP_MENU[0];
   const menu = `<div class="rep-menu" role="tablist" aria-label="Reportes">${REP_MENU.map(([k, t, d, ok]) => `<button class="rep-btn ${repView === k ? 'on' : ''} ${ok ? '' : 'soon'}" ${ok ? `data-repv="${k}"` : 'disabled aria-disabled="true"'} role="tab" aria-selected="${repView === k}"><b>${t}</b><span>${d}</span>${ok ? '' : '<em>Próximamente</em>'}</button>`).join('')}</div>`;
-  const V = { red: repRed, ranking: repRanking, ficha: repFicha, socios: repSocios, membresias: repMembresias, barrios: repBarrios, alertas: repAlertas };
+  const V = { red: repRed, crecimiento: repCrecimiento, ranking: repRanking, ficha: repFicha, socios: repSocios, membresias: repMembresias, barrios: repBarrios, alertas: repAlertas };
   const body = V[repView] ? V[repView]() : '';
   return `<div class="top"><div><h1>Reportes</h1><p class="muted">Elegí qué querés explorar.</p></div></div>${menu}<h2 class="rep-h">${cur[1]}</h2>${body}`;
 }
@@ -4120,6 +4205,8 @@ function liveReportes() {
 document.addEventListener('click', (e) => {
   const v = e.target.closest('[data-repv]'); if (v) { repView = v.dataset.repv; render(); return; }
   const d = e.target.closest('[data-repdays]'); if (d) { repDays = +d.dataset.repdays; render(); return; }
+  const gg = e.target.closest('[data-grgrain]'); if (gg) { grGrain = gg.dataset.grgrain; render(); return; }
+  const gn = e.target.closest('[data-grn]'); if (gn) { grN[grGrain] = +gn.dataset.grn; render(); return; }
   const ad = e.target.closest('[data-aldays]'); if (ad) { alDays = +ad.dataset.aldays; render(); return; }
   const so = e.target.closest('[data-repsort]'); if (so) { const key = so.dataset.repsort; repSort = repSort.k === key ? { k: key, dir: -repSort.dir } : { k: key, dir: key === 'name' ? 1 : -1 }; render(); return; }
   const fi = e.target.closest('[data-repficha]'); if (fi) { repCafe = fi.dataset.repficha; repView = 'ficha'; render(); window.scrollTo(0, 0); return; }
