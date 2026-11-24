@@ -1369,6 +1369,14 @@ html:has(.auth2),body:has(.auth2){background:#2A1A12}
 .gr-leg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
 .rep-ctl .chips+.chips{margin-left:4px}
 @media(max-width:800px){.rep-ctl .chips{flex-wrap:wrap}}
+.gr-wrap{position:relative}
+.gr-hit{cursor:crosshair}
+.gr-dot{transition:r .12s}
+.gr-dot.on{r:6.5px}
+.gr-tip{display:none;position:absolute;pointer-events:none;background:var(--espresso);color:#fff;border-radius:10px;padding:8px 12px;font-size:12px;line-height:1.35;box-shadow:0 6px 18px rgba(43,29,22,.25);white-space:nowrap;z-index:5}
+.gr-tip small{display:block;color:var(--terracota-claro);font-size:11px}
+.gr-tip b{display:block;font-size:15px}
+.gr-tip em{display:block;font-style:normal;color:#ffffffb3;font-size:11px}
 
 </style>
 </head>
@@ -4079,10 +4087,12 @@ function grLine(S, key, color, unit) {
   const area = `M${X(0).toFixed(1)},${Y(0)} L${pts.join(' L')} L${X(n - 1).toFixed(1)},${Y(0)} Z`;
   const every = Math.max(1, Math.ceil(n / 8));
   const grid = [0, 1, 2, 3, 4].map((k) => { const v = (top * k) / 4, y = Y(v).toFixed(1); return `<line x1="${L}" x2="${W - R}" y1="${y}" y2="${y}" stroke="var(--line)" stroke-width="1"/><text x="${L - 8}" y="${+y + 4}" text-anchor="end" font-size="11" fill="var(--muted)">${repNum(Math.round(v))}</text>`; }).join('');
-  const xl = S.map((x, i) => (i % every === 0 || i === n - 1) ? `<text x="${X(i).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="11" fill="var(--muted)">${esc(grLbl(x.start))}</text>` : '').join('');
-  const dots = vals.map((v, i) => `<circle cx="${X(i).toFixed(1)}" cy="${Y(v).toFixed(1)}" r="${i === n - 1 ? 5 : 3.2}" fill="${i === n - 1 ? color : '#fff'}" stroke="${color}" stroke-width="2"><title>${esc(grLbl(S[i].start, true))}: ${repNum(v)} ${unit}</title></circle>`).join('');
+  const xl = S.map((x, i) => ((i % every === 0 && (n - 1 - i) >= every / 2) || i === n - 1) ? `<text x="${X(i).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="11" fill="var(--muted)">${esc(grLbl(x.start))}</text>` : '').join('');
+  const dots = vals.map((v, i) => `<circle class="gr-dot" data-i="${i}" cx="${X(i).toFixed(1)}" cy="${Y(v).toFixed(1)}" r="${i === n - 1 ? 5 : 3.2}" fill="${i === n - 1 ? color : '#fff'}" stroke="${color}" stroke-width="2"/>`).join('');
+  const half = n > 1 ? (W - L - R) / (n - 1) / 2 : (W - L - R) / 2;
+  const hits = vals.map((v, i) => { const prev = i > 0 ? vals[i - 1] : null, d = prev == null ? '' : v - prev; return `<rect class="gr-hit" data-i="${i}" data-x="${X(i).toFixed(1)}" data-y="${Y(v).toFixed(1)}" data-lbl="${esc(grLbl(S[i].start, true))}${i === n - 1 && grGrain !== 'day' ? ' (en curso)' : ''}" data-val="${repNum(v)} ${unit}" data-d="${d === '' ? '' : (d === 0 ? 'Sin cambios' : (d > 0 ? '+' : '−') + repNum(Math.abs(d))) + ' vs. ' + (grGrain === 'day' ? 'el día anterior' : grGrain === 'week' ? 'la semana anterior' : 'el mes anterior')}" x="${Math.max(L, X(i) - half).toFixed(1)}" y="${T}" width="${(Math.min(W - R, X(i) + half) - Math.max(L, X(i) - half)).toFixed(1)}" height="${H - T - B}" fill="transparent"/>`; }).join('');
   const last = vals[n - 1];
-  return `<svg class="gr-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolución de ${unit}"><defs><linearGradient id="gr-${key}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${color}" stop-opacity=".28"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>${grid}<path d="${area}" fill="url(#gr-${key})"/><polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>${dots}<text x="${Math.min(X(n - 1), W - R - 4).toFixed(1)}" y="${(Y(last) - 11).toFixed(1)}" text-anchor="end" font-size="13" font-weight="700" fill="${color}">${repNum(last)}</text>${xl}</svg>`;
+  return `<div class="gr-wrap" data-w="${W}" data-h="${H}"><svg class="gr-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolución de ${unit}"><defs><linearGradient id="gr-${key}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${color}" stop-opacity=".28"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>${grid}<path d="${area}" fill="url(#gr-${key})"/><polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/><line class="gr-guide" x1="0" x2="0" y1="${T}" y2="${H - B}" stroke="${color}" stroke-width="1" stroke-dasharray="3 3" opacity="0"/>${dots}<text class="gr-lastv" x="${Math.min(X(n - 1), W - R - 4).toFixed(1)}" y="${(Y(last) - 11).toFixed(1)}" text-anchor="end" font-size="13" font-weight="700" fill="${color}">${repNum(last)}</text>${xl}${hits}</svg><div class="gr-tip" role="status" aria-live="polite"></div></div>`;
 }
 /* barras dobles: nuevos registros y altas de socios por período */
 function grBars(S) {
@@ -4099,8 +4109,8 @@ function grBars(S) {
 function grDelta(cur, start) {
   const d = cur - start;
   if (!start) return d > 0 ? `<span class="rep-d up">+${repNum(d)} en el período</span>` : '<span class="rep-d">Sin cambios en el período</span>';
-  const p = Math.round((d / start) * 100);
-  return `<span class="rep-d ${d > 0 ? 'up' : d < 0 ? 'down' : ''}">${d > 0 ? '▲ +' : d < 0 ? '▼ ' : '= '}${repNum(d)} (${p > 0 ? '+' : ''}${p}%) en el período</span>`;
+  const p = Math.round((d / start) * 100), pct = start >= 10 ? ` (${p > 0 ? '+' : ''}${p}%)` : '';
+  return `<span class="rep-d ${d > 0 ? 'up' : d < 0 ? 'down' : ''}">${d > 0 ? '▲ +' : d < 0 ? '▼ ' : '= '}${repNum(Math.abs(d))}${pct} en el período</span>`;
 }
 function repCrecimiento() {
   const k = repKey(), c = REP.cache[k];
@@ -4128,11 +4138,32 @@ function repCrecimiento() {
     <div class="card" style="margin:0"><h2>Usuarios registrados</h2><p class="hint">Total acumulado al cierre de cada ${unitTxt}.</p>${grLine(S, 'registered', 'var(--terracota)', 'usuarios')}</div>
     <div class="card" style="margin:0"><h2>Socios con membresía activa</h2><p class="hint">Socios con membresía paga vigente al cierre de cada ${unitTxt}.</p>${grLine(S, 'active', 'var(--ok)', 'socios')}</div>
   </div>
-  <div class="card"><h2>Nuevos por ${unitTxt}</h2><p class="hint">En todo el período: <b>${repNum(totNewReg)}</b> registros nuevos, <b>${repNum(totNewMem)}</b> altas de membresía y <b>${repNum(totLost)}</b> bajas.</p>${grBars(S)}</div>
   <div class="card"><h2>Detalle por ${unitTxt}</h2>${repTable([grGrain === 'week' ? 'Semana del' : grGrain === 'month' ? 'Mes' : 'Día', 'Registrados', 'Nuevos registros', 'Socios activos', 'Altas', 'Bajas', 'Conversión'],
     S.slice().reverse().map((x) => `<tr><td><b>${esc(grLbl(x.start, grGrain === 'month'))}</b>${x === l && grGrain !== 'day' ? '<div class="hint">En curso</div>' : ''}</td><td>${repNum(x.registered)}</td><td>${x.new_registered ? '+' + repNum(x.new_registered) : '—'}</td><td><b>${repNum(x.active)}</b></td><td>${x.new_members ? '+' + repNum(x.new_members) : '—'}</td><td>${x.lost_members ? '−' + repNum(x.lost_members) : '—'}</td><td>${x.registered ? (Math.round((x.active / x.registered) * 1000) / 10).toLocaleString('es-AR') + '%' : '—'}</td></tr>`))}</div>
   <p class="hint rep-note"><b>Cómo se calcula:</b> "Registrados" cuenta los usuarios de la app (no incluye cuentas de comercios ni cuentas borradas). "Socios con membresía activa" son los que tienen la membresía paga que se renueva, sin contar vitalicios ni a quienes cancelaron y todavía tienen días; la historia se arma con los avisos de Mercado Pago y, desde ahora, con una foto diaria. Una "alta" es cuando alguien pasa a tener la membresía activa; una "baja", cuando cancela o le rechazan el cobro. Los días se cuentan en hora de Argentina. Actualizado ${fmtDT(c.at)}.</p>`;
 }
+
+function grShow(hit) {
+  const wrap = hit.closest('.gr-wrap'); if (!wrap) return;
+  const svg = wrap.querySelector('svg'), tip = wrap.querySelector('.gr-tip'), g = wrap.querySelector('.gr-guide');
+  const sx = svg.clientWidth / +wrap.dataset.w, sy = svg.clientHeight / +wrap.dataset.h;
+  const x = +hit.dataset.x, y = +hit.dataset.y, i = hit.dataset.i;
+  g.setAttribute('x1', x); g.setAttribute('x2', x); g.setAttribute('opacity', '1');
+  wrap.querySelectorAll('.gr-dot').forEach((d) => d.classList.toggle('on', d.dataset.i === i));
+  tip.innerHTML = `<small>${hit.dataset.lbl}</small><b>${hit.dataset.val}</b>${hit.dataset.d ? `<em>${hit.dataset.d}</em>` : ''}`;
+  tip.style.display = 'block';
+  const px = x * sx, py = y * sy, tw = tip.offsetWidth;
+  tip.style.left = Math.max(0, Math.min(svg.clientWidth - tw, px - tw / 2)) + 'px';
+  tip.style.top = Math.max(0, py - tip.offsetHeight - 12) + 'px';
+}
+function grHide(wrap) {
+  const tip = wrap.querySelector('.gr-tip'), g = wrap.querySelector('.gr-guide');
+  if (tip) tip.style.display = 'none'; if (g) g.setAttribute('opacity', '0');
+  wrap.querySelectorAll('.gr-dot.on').forEach((d) => d.classList.remove('on'));
+}
+document.addEventListener('mouseover', (e) => { const h = e.target.closest && e.target.closest('.gr-hit'); if (h) grShow(h); });
+document.addEventListener('click', (e) => { const h = e.target.closest && e.target.closest('.gr-hit'); if (h) grShow(h); });
+document.addEventListener('mouseout', (e) => { const w = e.target.closest && e.target.closest('.gr-wrap'); if (w && !w.contains(e.relatedTarget)) grHide(w); });
 
 /* ---------- Membresías + control con Mercado Pago ---------- */
 const MP_ST = { authorized: ['Autorizada', 'b-aprobado'], paused: ['Pausada', 'b-pendiente'], cancelled: ['Cancelada', 'b-borrador'], pending: ['Checkout sin terminar', 'b-pendiente'] };
