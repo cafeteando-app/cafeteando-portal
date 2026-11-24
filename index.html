@@ -4769,5 +4769,61 @@ document.addEventListener('click', (e) => {
 });
 
 </script>
+<script>
+/* ===== Recordar la sección del panel de administradores al recargar (F5) =====
+   Guarda en sessionStorage (solo esta pestaña) la sección abierta y, en Reportes, qué reporte y qué filtros.
+   Al volver a entrar al panel después de recargar, abre esa misma sección. Al cerrar sesión se borra. */
+const NAV_KEY = 'pc_admin_nav';
+const NAV_OK = ['resumen', 'lista', 'activos', 'contrato', 'equipo', 'reportes', 'excep', 'bajas', 'comercios', 'invit', 'det', 'cfg'];
+let navRestored = false;
+
+function navSave() {
+  if (view !== 'admin' || !navRestored) return;
+  try {
+    const s = { aview, sel: aview === 'det' ? sel : null };
+    if (typeof repView !== 'undefined') Object.assign(s, { repView, repDays, alDays, repCafe, grGrain, grN: Object.assign({}, grN) });
+    sessionStorage.setItem(NAV_KEY, JSON.stringify(s));
+  } catch (e) { /* sin almacenamiento: no pasa nada */ }
+}
+
+function navRestore() {
+  navRestored = true;
+  let s = null;
+  try { s = JSON.parse(sessionStorage.getItem(NAV_KEY) || 'null'); } catch (e) { s = null; }
+  if (!s || NAV_OK.indexOf(s.aview) < 0) return false;
+  if (s.aview === 'det') {
+    const r = (typeof REQ !== 'undefined' ? REQ : []).find((x) => x.id === s.sel);
+    if (!r) return false;
+    sel = s.sel;
+  }
+  aview = s.aview;
+  if (typeof repView !== 'undefined') {
+    if (typeof REP_MENU !== 'undefined' && REP_MENU.some((m) => m[0] === s.repView)) repView = s.repView;
+    if (s.repDays) repDays = s.repDays;
+    if (s.alDays) alDays = s.alDays;
+    if (typeof s.repCafe === 'string') repCafe = s.repCafe;
+    if (s.grGrain && grN[s.grGrain] != null) grGrain = s.grGrain;
+    if (s.grN) Object.keys(grN).forEach((k) => { if (+s.grN[k] > 0) grN[k] = +s.grN[k]; });
+  }
+  return true;
+}
+
+(function () {
+  const base = render;
+  render = function () {
+    // primera vez que se entra al panel en esta carga de página: volver a la sección que estaba abierta
+    if (view === 'admin' && !navRestored) navRestore();
+    const out = base.apply(this, arguments);
+    navSave();
+    return out;
+  };
+})();
+
+/* al cerrar sesión se olvida la sección guardada */
+document.addEventListener('click', (e) => {
+  if (e.target.closest && e.target.closest('[data-logout]')) { try { sessionStorage.removeItem(NAV_KEY); } catch (err) { /* */ } }
+}, true);
+
+</script>
 </body>
 </html>
