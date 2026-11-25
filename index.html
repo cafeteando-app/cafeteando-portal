@@ -1377,6 +1377,19 @@ html:has(.auth2),body:has(.auth2){background:#2A1A12}
 .gr-tip small{display:block;color:var(--terracota-claro);font-size:11px}
 .gr-tip b{display:block;font-size:15px}
 .gr-tip em{display:block;font-style:normal;color:#ffffffb3;font-size:11px}
+/* Resumen de la red: detalle de canjes al pasar el mouse */
+.rep-barsw{position:relative}
+.rep-col[data-rd]{cursor:pointer}
+.rep-col[data-rd]:hover i,.rep-col.on i{filter:brightness(1.15);box-shadow:0 0 0 2px var(--terracota-claro)}
+.rep-btip{display:none;position:absolute;z-index:6;pointer-events:none;background:var(--espresso);color:#fff;border-radius:12px;padding:10px 14px;font-size:12px;line-height:1.4;box-shadow:0 8px 22px rgba(43,29,22,.28);min-width:220px;max-width:min(420px,100%)}
+.rep-btip small{display:block;color:var(--terracota-claro);font-size:11px;text-transform:capitalize}
+.rep-btip b{display:block;font-size:15px;margin-bottom:6px}
+.rep-btip ul{list-style:none;padding:0;margin:0;display:grid;gap:4px}
+.rep-btip li{display:grid;grid-template-columns:auto 1fr;column-gap:8px}
+.rep-btip .rbt-h{color:#ffffff99;font-variant-numeric:tabular-nums;grid-row:span 2}
+.rep-btip .rbt-u{font-weight:600}
+.rep-btip .rbt-c{color:#ffffffcc}
+.rep-btip em{display:block;margin-top:6px;font-style:normal;color:#ffffff99}
 
 </style>
 </head>
@@ -3821,13 +3834,38 @@ function repCard(label, value, sub) {
   return `<div class="card rep-k"><div class="muted">${label}</div><div class="kpi">${value}</div><div class="hint">${sub || '&nbsp;'}</div></div>`;
 }
 
-function repBars(series) {
+function repBars(series, det) {
   const S = series || [], max = Math.max(1, ...S.map((x) => x.n));
   const step = S.length > 45 ? 14 : S.length > 14 ? 5 : 1;
   const total = S.reduce((a, x) => a + x.n, 0);
   if (!total) return '<div class="empty" style="padding:26px 10px"><b>Sin canjes en este período</b><p class="muted">Cuando los socios empiecen a canjear, acá vas a ver la evolución día a día.</p></div>';
-  return `<div class="rep-bars" role="img" aria-label="Canjes por día">${S.map((x, i) => `<div class="rep-col" title="${repDate(x.d)}: ${x.n} canje${x.n === 1 ? '' : 's'}"><span class="rep-v">${x.n || ''}</span><i style="height:${Math.round((x.n / max) * 100)}%"></i><small>${i % step === 0 || i === S.length - 1 ? repDate(x.d) : ''}</small></div>`).join('')}</div>`;
+  if (det) REP_DET = det;
+  const cols = S.map((x, i) => `<div class="rep-col${det && x.n ? ' rep-colh' : ''}" ${det ? `data-rd="${x.d}"` : `title="${repDate(x.d)}: ${x.n} canje${x.n === 1 ? '' : 's'}"`} aria-label="${repDate(x.d)}: ${x.n} canje${x.n === 1 ? '' : 's'}"><span class="rep-v">${x.n || ''}</span><i style="height:${Math.round((x.n / max) * 100)}%"></i><small>${i % step === 0 || i === S.length - 1 ? repDate(x.d) : ''}</small></div>`).join('');
+  return `<div class="rep-barsw"><div class="rep-bars" role="img" aria-label="Canjes por día">${cols}</div>${det ? '<div class="rep-btip" role="status" aria-live="polite"></div>' : ''}</div>${det ? '<p class="hint" style="margin-top:4px">Pasá el mouse por una columna para ver quién canjeó y en qué local.</p>' : ''}`;
 }
+/* detalle de canjes por día al pasar el mouse por las columnas */
+let REP_DET = {};
+const REP_DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+function repBarTip(col) {
+  const wrap = col.closest('.rep-barsw'), tip = wrap && wrap.querySelector('.rep-btip'); if (!tip) return;
+  const d = col.dataset.rd, L = REP_DET[d] || [];
+  wrap.querySelectorAll('.rep-col.on').forEach((c) => c.classList.remove('on'));
+  col.classList.add('on');
+  const dt = new Date(d + 'T12:00:00'), MAXL = 14;
+  const head = `<small>${REP_DIAS[dt.getDay()]} ${repDate(d)}</small><b>${L.length} canje${L.length === 1 ? '' : 's'}</b>`;
+  const rows = L.length ? `<ul>${L.slice(0, MAXL).map((x) => `<li><span class="rbt-h">${esc(x.h)}</span><span class="rbt-u">${esc(x.u)}</span><span class="rbt-c">${esc(x.c)}${x.b ? ` · ${esc(x.b)}` : ''}</span></li>`).join('')}</ul>${L.length > MAXL ? `<em>y ${L.length - MAXL} más</em>` : ''}` : '<em>Sin canjes este día</em>';
+  tip.innerHTML = head + rows;
+  tip.style.display = 'block';
+  const wr = wrap.getBoundingClientRect(), cr = col.getBoundingClientRect(), tw = tip.offsetWidth;
+  let left = cr.left - wr.left + cr.width / 2 - tw / 2;
+  left = Math.max(0, Math.min(wr.width - tw, left));
+  tip.style.left = left + 'px';
+  tip.style.top = Math.min(0, -tip.offsetHeight + 40) + 'px';
+}
+function repBarHide(wrap) { const t = wrap.querySelector('.rep-btip'); if (t) t.style.display = 'none'; wrap.querySelectorAll('.rep-col.on').forEach((c) => c.classList.remove('on')); }
+document.addEventListener('mouseover', (e) => { const c = e.target.closest && e.target.closest('.rep-col[data-rd]'); if (c) repBarTip(c); });
+document.addEventListener('click', (e) => { const c = e.target.closest && e.target.closest('.rep-col[data-rd]'); if (c) repBarTip(c); });
+document.addEventListener('mouseout', (e) => { const w = e.target.closest && e.target.closest('.rep-barsw'); if (w && !w.contains(e.relatedTarget)) repBarHide(w); });
 function repDow(dow) {
   const L = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'], D = dow || [0, 0, 0, 0, 0, 0, 0], max = Math.max(1, ...D);
   return `<div class="rep-dow">${L.map((l, i) => `<div class="rep-dr"><span>${l}</span><div class="rep-dt"><i style="width:${Math.round((D[i] / max) * 100)}%"></i></div><b>${D[i]}</b></div>`).join('')}</div>`;
@@ -3852,7 +3890,7 @@ function repRed() {
     ${repCard('Locales con canjes', repNum(C.cafes_with), `De ${repNum(S.visible_cafes)} visibles hoy · ${repDelta(C.cafes_with, P.cafes_with)}`)}
     ${repCard('Ingresos', repMoney(C.revenue), `${repNum(C.payments)} pago${C.payments === 1 ? '' : 's'} aprobado${C.payments === 1 ? '' : 's'} · ${repDelta(C.revenue, P.revenue, true)}`)}
   </div>
-  <div class="card"><h2>Canjes por día</h2>${repBars(R.series)}</div>
+  <div class="card"><h2>Canjes por día</h2>${repBars(R.series, R.det || {})}</div>
   <div class="grid g2 rep-two">
     <div class="card" style="margin:0"><h2>Canjes por día de la semana</h2>${repDow(R.dow)}</div>
     <div class="card" style="margin:0"><h2>Hoy en la red</h2><ul class="rep-snap">
